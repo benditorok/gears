@@ -1,3 +1,7 @@
+pub fn gears_test() {
+    print!("Hello from Gears!");
+}
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }

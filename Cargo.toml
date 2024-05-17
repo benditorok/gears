@@ -1,2 +1,8 @@
 [workspace]
- members = ["gears", "sandbox"]
+resolver = "2"
+members = ["gears", "sandbox"]
+
+[workspace.dependencies]
+anyhow = "1.0"
+env_logger = "0.11.3"
+winit = "0.29.15"

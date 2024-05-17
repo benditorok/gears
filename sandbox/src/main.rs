@@ -1,3 +1,5 @@
+use gears::gears_test;
+
 fn main() {
-    println!("Hello, world!");
+    gears::gears_test();
 }
