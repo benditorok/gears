@@ -1,1 +1,2 @@
-[Workspace]
+[workspace]
+ members = ["gears", "sandbox"]
