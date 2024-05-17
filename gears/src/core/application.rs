@@ -8,7 +8,9 @@ pub struct GearsApplication {
 
 impl Application for GearsApplication {
     fn new(window_context: Box<dyn Window>) -> Self {
-        Self { window: None }
+        Self {
+            window: Some(window_context),
+        }
     }
 
     async fn run(&mut self) {
