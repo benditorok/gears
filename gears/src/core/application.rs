@@ -1,16 +1,23 @@
-use std::{thread, time};
+use winit::window;
 
-pub struct Application {}
+use super::prelude::{Application, Window};
 
-impl Application {
-    pub fn new() -> Self {
-        Self {}
+pub struct GearsApp {
+    window: Option<Box<dyn Window>>,
+}
+
+impl Application for GearsApp {
+    fn new(window_context: Box<dyn Window>) -> Self {
+        Self { window: None }
     }
 
-    pub fn run(&self) {
-        while true {
-            println!("Running application...");
-            thread::sleep(time::Duration::from_secs(1));
+    async fn run(&mut self) {
+        if let Some(window) = &mut self.window {
+            window.loop_events();
         }
     }
+}
+
+pub struct ApplicationBuilder {
+    application: GearsApp,
 }

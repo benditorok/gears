@@ -1,9 +1,9 @@
-use gears::core::application;
-use gears::gears_test;
+use gears::core::prelude::*;
+use gears::core::{application, window};
 
 fn main() {
-    gears::gears_test();
+    let window_context = Box::new(window::GearsWinitWindow::new());
+    let mut app = application::GearsApp::new(window_context);
 
-    let app = application::Application::new();
-    app.run();
+    pollster::block_on(app.run());
 }
