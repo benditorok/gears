@@ -1,11 +1,8 @@
-use anyhow::Error;
-use winit::{event_loop, platform::pump_events};
-
 pub trait Window {
     fn new() -> Self
     where
         Self: Sized;
-    fn loop_events(&mut self);
+    fn handle_events(&mut self);
 }
 
 pub trait Application {

@@ -1,7 +1,12 @@
 use std::sync::Arc;
 
 use super::prelude::Window;
-use winit::{event, event_loop::EventLoop, window};
+use winit::{
+    event::{self, Event, KeyEvent, WindowEvent},
+    event_loop::EventLoop,
+    keyboard::{Key, NamedKey},
+    window,
+};
 
 pub struct GearsWinitWindow {
     window: Arc<winit::window::Window>,
@@ -23,18 +28,33 @@ impl Window for GearsWinitWindow {
         }
     }
 
-    fn loop_events(&mut self) {
+    #[allow(unused)]
+    fn handle_events(&mut self) {
+        let window = Arc::clone(&self.window);
+
         if let Some(event_loop) = Option::take(&mut self.event_loop) {
             event_loop.run(move |event, ewlt| match event {
-                event::Event::NewEvents(_) => todo!(),
-                event::Event::WindowEvent { window_id, event } => todo!(),
-                event::Event::DeviceEvent { device_id, event } => todo!(),
-                event::Event::UserEvent(_) => todo!(),
-                event::Event::Suspended => todo!(),
-                event::Event::Resumed => todo!(),
-                event::Event::AboutToWait => todo!(),
-                event::Event::LoopExiting => todo!(),
-                event::Event::MemoryWarning => todo!(),
+                Event::DeviceEvent { .. } => (),
+                Event::WindowEvent {
+                    ref event,
+                    window_id,
+                } if window_id == window.id() => {
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            event:
+                                KeyEvent {
+                                    logical_key: Key::Named(NamedKey::Escape),
+                                    ..
+                                },
+                            ..
+                        } => ewlt.exit(),
+                        WindowEvent::Resized(physical_size) => {}
+                        WindowEvent::RedrawRequested => {}
+                        _ => {}
+                    };
+                }
+                _ => {}
             });
         }
     }
