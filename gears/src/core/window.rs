@@ -1,6 +1,4 @@
 use std::sync::Arc;
-
-use super::prelude::Window;
 use winit::{
     event::{self, Event, KeyEvent, WindowEvent},
     event_loop::EventLoop,
@@ -8,9 +6,22 @@ use winit::{
     window,
 };
 
+pub trait Window {
+    fn new() -> Self
+    where
+        Self: Sized;
+    fn handle_events(&mut self);
+    fn get_width(&self) -> u32;
+    fn get_height(&self) -> u32;
+    fn on_update(&mut self);
+    fn set_event_callback(&mut self);
+    fn set_vsync(&mut self, vsync: bool);
+    fn is_vsync(&self) -> bool;
+}
+
 pub struct GearsWinitWindow {
     window: Arc<winit::window::Window>,
-    pub event_loop: Option<winit::event_loop::EventLoop<()>>,
+    event_loop: Option<winit::event_loop::EventLoop<()>>,
 }
 
 impl Window for GearsWinitWindow {
@@ -57,5 +68,27 @@ impl Window for GearsWinitWindow {
                 _ => {}
             });
         }
+    }
+
+    fn get_width(&self) -> u32 {
+        self.window.inner_size().width
+    }
+
+    fn get_height(&self) -> u32 {
+        self.window.inner_size().height
+    }
+
+    fn on_update(&mut self) {
+        todo!()
+    }
+
+    fn set_event_callback(&mut self) {
+        todo!()
+    }
+
+    fn set_vsync(&mut self, vsync: bool) {}
+
+    fn is_vsync(&self) -> bool {
+        todo!()
     }
 }

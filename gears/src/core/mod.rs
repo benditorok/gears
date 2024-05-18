@@ -1,3 +1,5 @@
 pub mod application;
-pub mod prelude;
+pub mod event;
+pub mod gui;
+pub mod threadpool;
 pub mod window;
