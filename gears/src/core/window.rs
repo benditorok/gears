@@ -59,7 +59,11 @@ impl Window for GearsWinitWindow {
                                     ..
                                 },
                             ..
-                        } => ewlt.exit(),
+                        } => {
+                            // Send close event
+                            // Wait for response
+                            ewlt.exit()
+                        }
                         WindowEvent::Resized(physical_size) => {}
                         WindowEvent::RedrawRequested => {}
                         _ => {}

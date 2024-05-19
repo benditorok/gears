@@ -1,7 +1,11 @@
-use super::{threadpool::ThreadPool, window::Window};
+use super::{event::EventQueue, threadpool::ThreadPool, window::Window};
 use env_logger::Env;
 use log::info;
-use std::thread::{self, JoinHandle};
+use std::{
+    sync::Arc,
+    thread::{self, JoinHandle},
+};
+use winit::window;
 
 pub trait Application {
     fn new(window_context: Box<dyn Window>, threads: usize) -> Self;
@@ -9,15 +13,17 @@ pub trait Application {
 }
 
 pub struct GearsApplication {
-    window: Option<Box<dyn Window>>,
+    window_context: Option<Box<dyn Window>>,
     thread_pool: ThreadPool,
+    event_queue: EventQueue,
 }
 
 impl Application for GearsApplication {
     fn new(window_context: Box<dyn Window>, threads: usize) -> Self {
         Self {
-            window: Some(window_context),
+            window_context: Some(window_context),
             thread_pool: ThreadPool::new(threads),
+            event_queue: EventQueue::new(),
         }
     }
 
@@ -29,8 +35,8 @@ impl Application for GearsApplication {
 
         info!("Starting Gears...");
 
-        if let Some(window) = &mut self.window {
-            window.handle_events();
+        if let Some(window_context) = &mut self.window_context.take() {
+            window_context.handle_events();
         }
     }
 }
