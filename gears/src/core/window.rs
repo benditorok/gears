@@ -1,17 +1,19 @@
 use log::debug;
 use std::sync::{Arc, Mutex};
 use winit::{
-    event::{self, Event, KeyEvent, WindowEvent},
-    event_loop::EventLoop,
+    application::ApplicationHandler,
+    dpi::{PhysicalSize, Size},
+    event::{self, DeviceEvent, DeviceId, Event, KeyEvent, WindowEvent},
+    event_loop::{self, ActiveEventLoop, EventLoop},
     keyboard::{Key, NamedKey},
-    window,
+    window::{self, WindowAttributes, WindowId},
 };
 
 pub trait Window: Send {
     fn new() -> Self
     where
         Self: Sized;
-    fn handle_events(&mut self);
+    fn start(&mut self);
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
     fn on_update(&mut self);
@@ -20,8 +22,101 @@ pub trait Window: Send {
     fn is_vsync(&self) -> bool;
 }
 
+struct MyUserEvent {}
+
+impl MyUserEvent {}
+
+#[derive(Default)]
+struct WinitWindowState {
+    window: Option<winit::window::Window>,
+    counter: i32,
+}
+
+impl ApplicationHandler for WinitWindowState {
+    // This is a common indicator that you can create a window.
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let attr = WindowAttributes::default()
+            .with_inner_size(Size::Physical(PhysicalSize::new(800, 600)))
+            .with_resizable(true)
+            .with_title("gears winit 0.30.0");
+
+        self.window = Some(event_loop.create_window(attr).unwrap());
+
+        debug!("window created");
+    }
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        // `unwrap` is fine, the window will always be available when
+        // receiving a window event.
+        let window = self.window.as_ref().unwrap();
+        // Handle window event.
+    }
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        // Handle window event.
+    }
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(window) = self.window.as_ref() {
+            window.request_redraw();
+            self.counter += 1;
+            debug!("draw counter: {}", self.counter);
+        }
+    }
+}
+
+impl ApplicationHandler<MyUserEvent> for WinitWindowState {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, user_event: MyUserEvent) {
+        // Handle user event.
+    }
+
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        // Your application got resumed.
+        self.window = Some(
+            event_loop
+                .create_window(WindowAttributes::default())
+                .unwrap(),
+        );
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        // `unwrap` is fine, the window will always be available when
+        // receiving a window event.
+        let window = self.window.as_ref().unwrap();
+        // Handle window event.
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        // Handle device event.
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(window) = self.window.as_ref() {
+            window.request_redraw();
+            self.counter += 1;
+        }
+    }
+}
+
 pub struct GearsWinitWindow {
-    window: Arc<Mutex<winit::window::Window>>,
+    window_state: WinitWindowState,
     event_loop: Option<winit::event_loop::EventLoop<()>>,
 }
 
@@ -29,103 +124,38 @@ unsafe impl Send for GearsWinitWindow {}
 
 impl Window for GearsWinitWindow {
     fn new() -> Self {
-        let event_loop = EventLoop::new().expect("Failed to create winit event loop.");
-        let title = env!("CARGO_PKG_NAME");
-        let window = window::WindowBuilder::new()
-            .with_title(title)
-            .build(&event_loop)
-            .expect("Failed to create winit window.");
+        let event_loop = EventLoop::new().unwrap();
+        /*
+            let window = event_loop
+            .create_window(WindowAttributes::default())
+            .unwrap();
+        let state = WinitWindowState {
+            window: Some(window),
+            counter: 0,
+        };
+        */
+
+        let state = WinitWindowState::default();
 
         Self {
-            window: Arc::new(Mutex::new(window)),
+            window_state: state,
             event_loop: Some(event_loop),
         }
     }
 
     #[allow(unused)]
-    fn handle_events(&mut self) {
-        let window = Arc::clone(&self.window);
-        let mut event_iter: u32 = 0;
-
-        if let Some(event_loop) = Option::take(&mut self.event_loop) {
-            event_loop.run(move |event, ewlt| {
-                event_iter += 1;
-                debug!("Event iter: {}", event_iter);
-                let mut window = window.lock().unwrap();
-
-                // TODO: Thread panick on the 7th iteration when calling when calling 'GetMessageW'
-                // on line 327 of winit::event_loop.rs; when resize requested?
-                match event {
-                    Event::DeviceEvent { .. } => (),
-                    Event::WindowEvent {
-                        ref event,
-                        window_id,
-                    } if window_id == window.id() => {
-                        match event {
-                            WindowEvent::CloseRequested
-                            | WindowEvent::KeyboardInput {
-                                event:
-                                    KeyEvent {
-                                        logical_key: Key::Named(NamedKey::Escape),
-                                        ..
-                                    },
-                                ..
-                            } => {
-                                // Send close event
-                                // Wait for response
-                                ewlt.exit()
-                            }
-                            WindowEvent::Resized(physical_size) => {}
-                            WindowEvent::RedrawRequested => {}
-                            _ => {}
-                        };
-                    }
-                    _ => {}
-                };
-            });
+    fn start(&mut self) {
+        if let Some(event_loop) = self.event_loop.take() {
+            event_loop.run_app(&mut self.window_state);
         }
     }
-    /*
-    #[allow(unused)]
-    fn handle_events(&mut self) {
-        let window = Arc::clone(&self.window);
-
-        if let Some(event_loop) = Option::take(&mut self.event_loop) {
-            event_loop.run(move |event, ewlt| match event {
-                Event::DeviceEvent { .. } => (),
-                Event::WindowEvent {
-                    ref event,
-                    window_id,
-                } if window_id == window.id() => {
-                    match event {
-                        WindowEvent::CloseRequested
-                        | WindowEvent::KeyboardInput {
-                            event:
-                            KeyEvent {
-                                logical_key: Key::Named(NamedKey::Escape),
-                                ..
-                            },
-                            ..
-                        } => {
-                            // Send close event
-                            // Wait for response
-                            ewlt.exit()
-                        }
-                        WindowEvent::Resized(physical_size) => {}
-                        WindowEvent::RedrawRequested => {}
-                        _ => {}
-                    };
-                }
-                _ => {}
-            });
-        }*/
 
     fn get_width(&self) -> u32 {
-        self.window.lock().unwrap().inner_size().width
+        todo!()
     }
 
     fn get_height(&self) -> u32 {
-        self.window.lock().unwrap().inner_size().height
+        todo!()
     }
 
     fn on_update(&mut self) {

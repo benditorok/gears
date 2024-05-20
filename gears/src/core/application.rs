@@ -41,7 +41,7 @@ impl Application for GearsApplication {
             let mut window_context = Arc::clone(&window);
 
             self.thread_pool.execute(move || {
-                window_context.lock().unwrap().handle_events();
+                window_context.lock().unwrap().start();
             });
         }
 
