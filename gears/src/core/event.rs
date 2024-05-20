@@ -15,14 +15,14 @@ pub enum DeviceEvent {
     KeyboardInput,
 }
 
-pub enum Event {
+pub enum GearsEvent {
     WindowEvent(WindowEvent),
     DeviceEvent(DeviceEvent),
     CloseRequest,
 }
 
 pub struct EventQueue {
-    events: Arc<Mutex<VecDeque<Event>>>,
+    events: Arc<Mutex<VecDeque<GearsEvent>>>,
 }
 
 impl EventQueue {
@@ -32,12 +32,12 @@ impl EventQueue {
         }
     }
 
-    fn push(&mut self, event: Event) {
+    fn push(&mut self, event: GearsEvent) {
         let mut events = self.events.lock().unwrap();
         events.push_back(event);
     }
 
-    fn pop(&mut self) -> Option<Event> {
+    fn pop(&mut self) -> Option<GearsEvent> {
         let mut events = self.events.lock().unwrap();
         events.pop_front()
     }

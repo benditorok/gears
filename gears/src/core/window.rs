@@ -22,6 +22,11 @@ pub trait Window: Send {
     fn is_vsync(&self) -> bool;
 }
 
+pub enum WindowContextType {
+    None,
+    Winit,
+}
+
 struct MyUserEvent {}
 
 impl MyUserEvent {}
@@ -29,7 +34,6 @@ impl MyUserEvent {}
 #[derive(Default)]
 struct WinitWindowState {
     window: Option<winit::window::Window>,
-    counter: i32,
 }
 
 impl ApplicationHandler for WinitWindowState {
@@ -41,7 +45,6 @@ impl ApplicationHandler for WinitWindowState {
             .with_title("gears winit 0.30.0");
 
         self.window = Some(event_loop.create_window(attr).unwrap());
-
         debug!("window created");
     }
     fn window_event(
@@ -66,8 +69,6 @@ impl ApplicationHandler for WinitWindowState {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(window) = self.window.as_ref() {
             window.request_redraw();
-            self.counter += 1;
-            debug!("draw counter: {}", self.counter);
         }
     }
 }
@@ -110,41 +111,32 @@ impl ApplicationHandler<MyUserEvent> for WinitWindowState {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(window) = self.window.as_ref() {
             window.request_redraw();
-            self.counter += 1;
         }
     }
 }
 
-pub struct GearsWinitWindow {
+pub struct WinitWindow {
     window_state: WinitWindowState,
     event_loop: Option<winit::event_loop::EventLoop<()>>,
 }
 
-unsafe impl Send for GearsWinitWindow {}
+unsafe impl Send for WinitWindow {}
 
-impl Window for GearsWinitWindow {
+impl Window for WinitWindow {
     fn new() -> Self {
-        let event_loop = EventLoop::new().unwrap();
-        /*
-            let window = event_loop
-            .create_window(WindowAttributes::default())
-            .unwrap();
-        let state = WinitWindowState {
-            window: Some(window),
-            counter: 0,
-        };
-        */
-
         let state = WinitWindowState::default();
 
         Self {
             window_state: state,
-            event_loop: Some(event_loop),
+            event_loop: None,
         }
     }
 
     #[allow(unused)]
     fn start(&mut self) {
+        let event_loop = EventLoop::new().unwrap();
+        self.event_loop = Some(event_loop);
+
         if let Some(event_loop) = self.event_loop.take() {
             event_loop.run_app(&mut self.window_state);
         }
@@ -176,7 +168,7 @@ impl Window for GearsWinitWindow {
 pub struct WindowFactory {}
 
 impl WindowFactory {
-    pub fn new_winit_window() -> Box<GearsWinitWindow> {
-        Box::new(GearsWinitWindow::new())
+    pub fn new_winit_window() -> Box<WinitWindow> {
+        Box::new(WinitWindow::new())
     }
 }
