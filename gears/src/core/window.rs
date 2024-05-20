@@ -97,6 +97,13 @@ impl ApplicationHandler<MyUserEvent> for WinitWindowState {
         // receiving a window event.
         let window = self.window.as_ref().unwrap();
         // Handle window event.
+
+        match event {
+            WindowEvent::Resized(_) => todo!(),
+            WindowEvent::Moved(_) => todo!(),
+            WindowEvent::CloseRequested => todo!(),
+            _ => (),
+        }
     }
 
     fn device_event(

@@ -51,7 +51,7 @@ impl Application for GearsApplication {
             WindowContextType::Winit => {
                 let window_context = Box::new(window::WinitWindow::new());
                 self.window_context = Some(Arc::new(Mutex::new(window_context)));
-
+                /*
                 if let Some(window_context) = &self.window_context {
                     let window_context_ptr = Arc::clone(&window_context);
 
@@ -59,17 +59,16 @@ impl Application for GearsApplication {
                         window_context_ptr.lock().unwrap().start();
                     });
                 }
+                */
             }
             WindowContextType::None => (),
         }
 
-        let mut iter: u32 = 0;
+        // TODO: Set up event loop proxy on another thread
 
-        'main: loop {
-            iter += 1;
-            debug!("In the main loop, iter: {}", iter);
-
-            thread::sleep(Duration::from_millis(1000));
+        if let Some(window_context) = &self.window_context {
+            // Takes the main thread
+            window_context.lock().unwrap().start();
         }
     }
 }
