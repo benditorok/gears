@@ -18,6 +18,7 @@ pub enum DeviceEvent {
 pub enum GearsEvent {
     WindowEvent(WindowEvent),
     DeviceEvent(DeviceEvent),
+    CustomEvent,
     CloseRequest,
 }
 
