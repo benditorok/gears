@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use log::debug;
+use std::sync::{Arc, Mutex};
 use winit::{
     event::{self, Event, KeyEvent, WindowEvent},
     event_loop::EventLoop,
@@ -6,7 +7,7 @@ use winit::{
     window,
 };
 
-pub trait Window {
+pub trait Window: Send {
     fn new() -> Self
     where
         Self: Sized;
@@ -20,9 +21,11 @@ pub trait Window {
 }
 
 pub struct GearsWinitWindow {
-    window: Arc<winit::window::Window>,
+    window: Arc<Mutex<winit::window::Window>>,
     event_loop: Option<winit::event_loop::EventLoop<()>>,
 }
+
+unsafe impl Send for GearsWinitWindow {}
 
 impl Window for GearsWinitWindow {
     fn new() -> Self {
@@ -34,11 +37,55 @@ impl Window for GearsWinitWindow {
             .expect("Failed to create winit window.");
 
         Self {
-            window: Arc::new(window),
+            window: Arc::new(Mutex::new(window)),
             event_loop: Some(event_loop),
         }
     }
 
+    #[allow(unused)]
+    fn handle_events(&mut self) {
+        let window = Arc::clone(&self.window);
+        let mut event_iter: u32 = 0;
+
+        if let Some(event_loop) = Option::take(&mut self.event_loop) {
+            event_loop.run(move |event, ewlt| {
+                event_iter += 1;
+                debug!("Event iter: {}", event_iter);
+                let mut window = window.lock().unwrap();
+
+                // TODO: Thread panick on the 7th iteration when calling when calling 'GetMessageW'
+                // on line 327 of winit::event_loop.rs; when resize requested?
+                match event {
+                    Event::DeviceEvent { .. } => (),
+                    Event::WindowEvent {
+                        ref event,
+                        window_id,
+                    } if window_id == window.id() => {
+                        match event {
+                            WindowEvent::CloseRequested
+                            | WindowEvent::KeyboardInput {
+                                event:
+                                    KeyEvent {
+                                        logical_key: Key::Named(NamedKey::Escape),
+                                        ..
+                                    },
+                                ..
+                            } => {
+                                // Send close event
+                                // Wait for response
+                                ewlt.exit()
+                            }
+                            WindowEvent::Resized(physical_size) => {}
+                            WindowEvent::RedrawRequested => {}
+                            _ => {}
+                        };
+                    }
+                    _ => {}
+                };
+            });
+        }
+    }
+    /*
     #[allow(unused)]
     fn handle_events(&mut self) {
         let window = Arc::clone(&self.window);
@@ -54,10 +101,10 @@ impl Window for GearsWinitWindow {
                         WindowEvent::CloseRequested
                         | WindowEvent::KeyboardInput {
                             event:
-                                KeyEvent {
-                                    logical_key: Key::Named(NamedKey::Escape),
-                                    ..
-                                },
+                            KeyEvent {
+                                logical_key: Key::Named(NamedKey::Escape),
+                                ..
+                            },
                             ..
                         } => {
                             // Send close event
@@ -71,15 +118,14 @@ impl Window for GearsWinitWindow {
                 }
                 _ => {}
             });
-        }
-    }
+        }*/
 
     fn get_width(&self) -> u32 {
-        self.window.inner_size().width
+        self.window.lock().unwrap().inner_size().width
     }
 
     fn get_height(&self) -> u32 {
-        self.window.inner_size().height
+        self.window.lock().unwrap().inner_size().height
     }
 
     fn on_update(&mut self) {
@@ -94,5 +140,13 @@ impl Window for GearsWinitWindow {
 
     fn is_vsync(&self) -> bool {
         todo!()
+    }
+}
+
+pub struct WindowFactory {}
+
+impl WindowFactory {
+    pub fn new_winit_window() -> Box<GearsWinitWindow> {
+        Box::new(GearsWinitWindow::new())
     }
 }
