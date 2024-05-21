@@ -1,28 +1,25 @@
 use core::{fmt, str};
-use log::{debug, error, info};
+use log::{error, info};
 use std::{
     collections::HashMap,
     error::Error,
     fmt::Debug,
-    marker::PhantomData,
     mem,
     num::NonZeroU32,
-    ops::Deref,
-    rc::Rc,
     sync::{Arc, Mutex},
 };
 use winit::{
     application::ApplicationHandler,
-    dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size},
+    dpi::{LogicalSize, PhysicalPosition, PhysicalSize},
     event::{
-        self, DeviceEvent, DeviceId, Event, Ime, KeyEvent, MouseButton, MouseScrollDelta,
+        DeviceEvent, DeviceId, Ime, MouseButton, MouseScrollDelta,
         WindowEvent,
     },
-    event_loop::{self, ActiveEventLoop, EventLoop, EventLoopProxy},
-    keyboard::{Key, ModifiersState, NamedKey},
+    event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
+    keyboard::{Key, ModifiersState},
     window::{
-        self, Cursor, CursorGrabMode, CursorIcon, CustomCursor, CustomCursorSource, Fullscreen,
-        Icon, ResizeDirection, Theme, WindowAttributes, WindowId,
+        Cursor, CursorGrabMode, CursorIcon, CustomCursor, CustomCursorSource, Fullscreen,
+        Icon, ResizeDirection, Theme, WindowId,
     },
 };
 
@@ -95,7 +92,7 @@ impl Window for GearsWinitWindow<GearsEvent> {
         todo!()
     }
 
-    fn set_vsync(&mut self, vsync: bool) {
+    fn set_vsync(&mut self, _vsync: bool) {
         todo!()
     }
 
@@ -765,7 +762,7 @@ impl WinitWindowState {
         info!("Resized to {size:?}");
         #[cfg(not(any(android_platform, ios_platform)))]
         {
-            let (width, height) = match (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
+            let (_width, _height) = match (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
             {
                 (Some(width), Some(height)) => (width, height),
                 _ => return,

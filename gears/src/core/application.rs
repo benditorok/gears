@@ -1,6 +1,5 @@
 use crate::core::{
-    event::GearsEvent,
-    window::{self, GearsWinitWindow},
+    window::{self},
 };
 
 use super::{
@@ -9,11 +8,8 @@ use super::{
     window::{Window, WindowType},
 };
 use env_logger::Env;
-use log::{debug, info};
-use std::{
-    sync::{Arc, Mutex},
-    thread::{self, JoinHandle},
-};
+use log::{info};
+
 
 pub trait Application {
     fn new(window_context_type: WindowType, threads: usize) -> Self;

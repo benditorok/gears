@@ -31,6 +31,12 @@ pub struct EventQueue {
     events: Arc<Mutex<VecDeque<GearsEvent>>>,
 }
 
+impl Default for EventQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventQueue {
     pub fn new() -> Self {
         Self {
