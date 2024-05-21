@@ -1,27 +1,33 @@
-use super::{event::EventQueue, threadpool::ThreadPool, window::Window};
-use env_logger::Env;
-use instant::Duration;
-use log::{debug, info};
-use std::{
-    sync::{Arc, Mutex},
-    thread::{self, JoinHandle},
+use crate::core::{
+    window::{self},
 };
 
+use super::{
+    event::EventQueue,
+    threadpool::ThreadPool,
+    window::{Window, WindowType},
+};
+use env_logger::Env;
+use log::{info};
+
+
 pub trait Application {
-    fn new(window_context: Box<dyn Window + Send>, threads: usize) -> Self;
+    fn new(window_context_type: WindowType, threads: usize) -> Self;
     async fn run(&mut self);
 }
 
 pub struct GearsApplication {
-    window_context: Option<Arc<Mutex<Box<dyn Window>>>>,
+    window_context: Option<Box<dyn Window>>,
+    window_context_type: WindowType,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
 
 impl Application for GearsApplication {
-    fn new(window_context: Box<dyn Window + Send>, threads: usize) -> Self {
+    fn new(window_context_type: WindowType, threads: usize) -> Self {
         Self {
-            window_context: Some(Arc::new(Mutex::new(window_context))),
+            window_context: None,
+            window_context_type,
             thread_pool: ThreadPool::new(threads),
             event_queue: EventQueue::new(),
         }
@@ -35,23 +41,16 @@ impl Application for GearsApplication {
 
         info!("Starting Gears...");
 
-        //let mut window_context: Arc<Mutex<Box<dyn Window>>>;
-
-        if let Some(window) = &mut self.window_context {
-            let mut window_context = Arc::clone(&window);
-
-            self.thread_pool.execute(move || {
-                window_context.lock().unwrap().handle_events();
-            });
+        match self.window_context_type {
+            WindowType::Winit => {
+                let window_context = Box::new(window::GearsWinitWindow::new());
+                self.window_context = Some(window_context);
+            }
+            WindowType::None => (),
         }
 
-        let mut iter: u32 = 0;
-
-        'main: loop {
-            iter += 1;
-            debug!("In the main loop, iter: {}", iter);
-
-            thread::sleep(Duration::from_millis(1000));
+        if let Some(window_context) = self.window_context.as_mut() {
+            window_context.start();
         }
     }
 }

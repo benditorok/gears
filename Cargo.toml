@@ -2,13 +2,17 @@
 resolver = "2"
 members = ["gears", "sandbox"]
 
+[build]
+rustflags = ["-Z", "threads=8"]
+
 [workspace.dependencies]
 anyhow = "1.0"
 cfg-if = "1"
 instant = "0.1"
 env_logger = "0.11.3"
 log = "0.4"
-winit = "0.29.15"
+winit = "0.30.0"
 pollster = "0.3.0"
 wgpu = "0.19.3"
 cgmath = "0.18"
+image = "0.25.1"

@@ -1,28 +1,40 @@
 use std::{
     collections::VecDeque,
+    fmt::Debug,
     sync::{Arc, Mutex},
 };
 
+#[derive(Debug)]
 pub enum WindowEvent {
     Resize(u32, u32), // width, height
     Update,
     Redraw,
 }
 
+#[derive(Debug)]
 pub enum DeviceEvent {
     MouseMotion,
     MouseWheel,
     KeyboardInput,
 }
 
-pub enum Event {
+#[derive(Debug)]
+pub enum GearsEvent {
     WindowEvent(WindowEvent),
     DeviceEvent(DeviceEvent),
+    CustomEvent,
+    UserEvent,
     CloseRequest,
 }
 
 pub struct EventQueue {
-    events: Arc<Mutex<VecDeque<Event>>>,
+    events: Arc<Mutex<VecDeque<GearsEvent>>>,
+}
+
+impl Default for EventQueue {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EventQueue {
@@ -32,12 +44,12 @@ impl EventQueue {
         }
     }
 
-    fn push(&mut self, event: Event) {
+    fn push(&mut self, event: GearsEvent) {
         let mut events = self.events.lock().unwrap();
         events.push_back(event);
     }
 
-    fn pop(&mut self) -> Option<Event> {
+    fn pop(&mut self) -> Option<GearsEvent> {
         let mut events = self.events.lock().unwrap();
         events.pop_front()
     }
