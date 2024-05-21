@@ -1,12 +1,14 @@
-use crate::core::window::{self, WinitWindow};
+use crate::core::{
+    event::GearsEvent,
+    window::{self, GearsWinitWindow},
+};
 
 use super::{
     event::EventQueue,
     threadpool::ThreadPool,
-    window::{Window, WindowContextType},
+    window::{Window, WindowType},
 };
 use env_logger::Env;
-use instant::Duration;
 use log::{debug, info};
 use std::{
     sync::{Arc, Mutex},
@@ -14,19 +16,19 @@ use std::{
 };
 
 pub trait Application {
-    fn new(window_context_type: WindowContextType, threads: usize) -> Self;
+    fn new(window_context_type: WindowType, threads: usize) -> Self;
     async fn run(&mut self);
 }
 
 pub struct GearsApplication {
-    window_context: Option<Arc<Mutex<Box<dyn Window>>>>,
-    window_context_type: WindowContextType,
+    window_context: Option<Box<dyn Window>>,
+    window_context_type: WindowType,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
 
 impl Application for GearsApplication {
-    fn new(window_context_type: WindowContextType, threads: usize) -> Self {
+    fn new(window_context_type: WindowType, threads: usize) -> Self {
         Self {
             window_context: None,
             window_context_type,
@@ -43,13 +45,9 @@ impl Application for GearsApplication {
 
         info!("Starting Gears...");
 
-        //let mut window_context: Arc<Mutex<Box<dyn Window>>>;
-
-        // TODO: https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html
-
         match self.window_context_type {
-            WindowContextType::Winit => {
-                let window_context = Box::new(window::WinitWindow::new());
+            WindowType::Winit => {
+                let window_context = window::GearsWinitWindow::<Window>::new();
                 self.window_context = Some(Arc::new(Mutex::new(window_context)));
                 /*
                 if let Some(window_context) = &self.window_context {
@@ -61,7 +59,7 @@ impl Application for GearsApplication {
                 }
                 */
             }
-            WindowContextType::None => (),
+            WindowType::None => (),
         }
 
         // TODO: Set up event loop proxy on another thread

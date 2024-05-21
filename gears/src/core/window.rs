@@ -4,21 +4,30 @@ use std::{
     collections::HashMap,
     error::Error,
     fmt::Debug,
+    marker::PhantomData,
+    mem,
+    num::NonZeroU32,
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 use winit::{
     application::ApplicationHandler,
-    dpi::{PhysicalPosition, PhysicalSize, Size},
-    event::{self, DeviceEvent, DeviceId, Event, Ime, KeyEvent, MouseScrollDelta, WindowEvent},
-    event_loop::{self, ActiveEventLoop, EventLoop},
+    dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size},
+    event::{
+        self, DeviceEvent, DeviceId, Event, Ime, KeyEvent, MouseButton, MouseScrollDelta,
+        WindowEvent,
+    },
+    event_loop::{self, ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::{Key, ModifiersState, NamedKey},
     window::{
-        self, CursorGrabMode, CustomCursor, CustomCursorSource, Icon, Theme, WindowAttributes,
-        WindowId,
+        self, Cursor, CursorGrabMode, CursorIcon, CustomCursor, CustomCursorSource, Fullscreen,
+        Icon, ResizeDirection, Theme, WindowAttributes, WindowId,
     },
 };
 
-pub trait Window: Send {
+use super::event::GearsEvent;
+
+pub trait Window {
     fn new() -> Self
     where
         Self: Sized;
@@ -26,36 +35,99 @@ pub trait Window: Send {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
     fn on_update(&mut self);
-    fn set_event_callback(&mut self);
+    fn send_user_event(&mut self);
     fn set_vsync(&mut self, vsync: bool);
     fn is_vsync(&self) -> bool;
 }
 
-pub enum WindowContextType {
+pub enum WindowType {
     None,
     Winit,
 }
 
-#[derive(Debug)]
-struct UserEvent;
-
-struct GearsWinitWindow {
-    custom_cursors: Vec<CustomCursor>,
-    icon: Icon,
-    windows: HashMap<WindowId, WinitWindowState>,
+pub enum WindowContext {
+    None,
+    Wgpu,
 }
 
-impl GearsWinitWindow {
-    fn new<T>(event_loop: &EventLoop<T>) -> Self {
+/// The amount of points to around the window for drag resize direction calculations.
+const BORDER_SIZE: f64 = 20.;
+
+pub struct GearsWinitWindow<T: 'static> {
+    custom_cursors: Vec<CustomCursor>,
+    icon: Icon,
+    event_loop: Rc<EventLoop<T>>,
+    pub event_loop_proxy: Arc<Mutex<EventLoopProxy<T>>>,
+    windows: HashMap<WindowId, WinitWindowState>,
+    // TODO add wgpu context later
+    context: Option<WindowContext>,
+}
+
+impl Window for GearsWinitWindow<GearsEvent> {
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        let event_loop = EventLoop::<GearsEvent>::with_user_event().build().unwrap();
+        GearsWinitWindow::<GearsEvent>::new(event_loop)
+    }
+
+    fn start(&mut self) {
+        todo!()
+    }
+
+    fn get_width(&self) -> u32 {
+        todo!()
+    }
+
+    fn get_height(&self) -> u32 {
+        todo!()
+    }
+
+    fn on_update(&mut self) {
+        todo!()
+    }
+
+    fn send_user_event(&mut self) {
+        todo!()
+    }
+
+    fn set_vsync(&mut self, vsync: bool) {
+        todo!()
+    }
+
+    fn is_vsync(&self) -> bool {
+        todo!()
+    }
+}
+
+impl GearsWinitWindow<GearsEvent> {
+    pub fn new(event_loop: EventLoop<GearsEvent>) -> Self {
+        // TODO add wgpu context later
+        /*
+        // SAFETY: we drop the context right before the event loop is stopped, thus making it safe.
+        #[cfg(not(any(android_platform, ios_platform)))]
+        let context = Some(
+            Context::new(unsafe {
+                std::mem::transmute::<DisplayHandle<'_>, DisplayHandle<'static>>(
+                    event_loop.display_handle().unwrap(),
+                )
+            })
+            .unwrap(),
+        );
+        */
         let icon = load_icon(include_bytes!("../data/icon.png"));
         let custom_cursors =
             vec![event_loop
                 .create_custom_cursor(decode_cursor(include_bytes!("../data/cursor1.png")))];
 
         Self {
+            event_loop: Rc::new(event_loop),
+            event_loop_proxy: Arc::new(Mutex::new(event_loop.create_proxy())),
             icon,
             custom_cursors,
             windows: Default::default(),
+            context: None,
         }
     }
 
@@ -66,7 +138,7 @@ impl GearsWinitWindow {
     ) -> Result<WindowId, Box<dyn Error>> {
         #[allow(unused_mut)]
         let mut window_attributes = winit::window::Window::default_attributes()
-            .with_title("gears winit 0.30.0")
+            .with_title("gears(winit 0.30.0)")
             .with_transparent(true);
 
         #[cfg(any(x11_platform, wayland_platform))]
@@ -98,7 +170,7 @@ impl GearsWinitWindow {
             window.recognize_pan_gesture(true, 2, 2);
         }
 
-        let window_state = WinitWindowState::new(self, window)?;
+        let window_state = WinitWindowState::new::<GearsEvent>(self, window)?;
         let window_id = window_state.window.id();
         info!("Created new window with id={window_id:?}");
         self.windows.insert(window_id, window_state);
@@ -145,7 +217,7 @@ impl GearsWinitWindow {
             Action::DragWindow => window.drag_window(),
             Action::DragResizeWindow => window.drag_resize_window(),
             Action::ShowWindowMenu => window.show_menu(),
-            Action::PrintHelp => self.print_help(),
+            Action::PrintHelp => (),
             #[cfg(macos_platform)]
             Action::CycleOptionAsAlt => window.cycle_option_as_alt(),
             #[cfg(macos_platform)]
@@ -203,10 +275,51 @@ impl GearsWinitWindow {
             }
         }
     }
+
+    /// Process the key binding.
+    fn process_key_binding(key: &str, mods: &ModifiersState) -> Option<Action> {
+        KEY_BINDINGS.iter().find_map(|binding| {
+            binding
+                .is_triggered_by(&key, mods)
+                .then_some(binding.action)
+        })
+    }
+
+    /// Process mouse binding.
+    fn process_mouse_binding(button: MouseButton, mods: &ModifiersState) -> Option<Action> {
+        MOUSE_BINDINGS.iter().find_map(|binding| {
+            binding
+                .is_triggered_by(&button, mods)
+                .then_some(binding.action)
+        })
+    }
+
+    fn print_help(&self) {
+        info!("Keyboard bindings:");
+        for binding in KEY_BINDINGS {
+            info!(
+                "{}{:<10} - {} ({})",
+                modifiers_to_string(binding.mods),
+                binding.trigger,
+                binding.action,
+                binding.action.help(),
+            );
+        }
+        info!("Mouse bindings:");
+        for binding in MOUSE_BINDINGS {
+            info!(
+                "{}{:<10} - {} ({})",
+                modifiers_to_string(binding.mods),
+                mouse_button_to_string(binding.trigger),
+                binding.action,
+                binding.action.help(),
+            );
+        }
+    }
 }
 
-impl ApplicationHandler<UserEvent> for GearsWinitWindow {
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: UserEvent) {
+impl ApplicationHandler<GearsEvent> for GearsWinitWindow<GearsEvent> {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: GearsEvent) {
         info!("User event: {event:?}");
     }
 
@@ -433,17 +546,24 @@ struct WinitWindowState {
 }
 
 impl WinitWindowState {
-    fn new(app: &GearsWinitWindow, window: winit::window::Window) -> Result<Self, Box<dyn Error>> {
+    fn new<T>(
+        app: &GearsWinitWindow<T>,
+        window: winit::window::Window,
+    ) -> Result<Self, Box<dyn Error>> {
         let window = Arc::new(window);
 
         // SAFETY: the surface is dropped before the `window` which provided it with handle, thus
         // it doesn't outlive it.
-        // #[cfg(not(any(android_platform, ios_platform)))]
-        //let surface = Surface::new(app.context.as_ref().unwrap(), Arc::clone(&window))?;
+        // TODO WGPU SURFACE
+        /*
+        #[cfg(not(any(android_platform, ios_platform)))]
+        let surface = Surface::new(app.context.as_ref().unwrap(), Arc::clone(&window))?;
+        */
+
         let theme = window.theme().unwrap_or(Theme::Dark);
         info!("Theme: {theme:?}");
         let named_idx = 0;
-        //window.set_cursor(CURSORS[named_idx]);
+        window.set_cursor(CURSORS[named_idx]);
 
         // Allow IME out of the box.
         let ime = true;
@@ -644,9 +764,12 @@ impl WinitWindowState {
                 (Some(width), Some(height)) => (width, height),
                 _ => return,
             };
+            // TODO WGPU SURFACE
+            /*
             self.surface
-                .resize(width, height)
-                .expect("failed to resize inner buffer");
+            .resize(width, height)
+            .expect("failed to resize inner buffer");
+            */
         }
         self.window.request_redraw();
     }
@@ -868,3 +991,125 @@ fn load_icon(bytes: &[u8]) -> Icon {
     };
     Icon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
 }
+
+fn modifiers_to_string(mods: ModifiersState) -> String {
+    let mut mods_line = String::new();
+    // Always add + since it's printed as a part of the bindings.
+    for (modifier, desc) in [
+        (ModifiersState::SUPER, "Super+"),
+        (ModifiersState::ALT, "Alt+"),
+        (ModifiersState::CONTROL, "Ctrl+"),
+        (ModifiersState::SHIFT, "Shift+"),
+    ] {
+        if !mods.contains(modifier) {
+            continue;
+        }
+
+        mods_line.push_str(desc);
+    }
+    mods_line
+}
+
+fn mouse_button_to_string(button: MouseButton) -> &'static str {
+    match button {
+        MouseButton::Left => "LMB",
+        MouseButton::Right => "RMB",
+        MouseButton::Middle => "MMB",
+        MouseButton::Back => "Back",
+        MouseButton::Forward => "Forward",
+        MouseButton::Other(_) => "",
+    }
+}
+
+/// Cursor list to cycle through.
+const CURSORS: &[CursorIcon] = &[
+    CursorIcon::Default,
+    CursorIcon::Crosshair,
+    CursorIcon::Pointer,
+    CursorIcon::Move,
+    CursorIcon::Text,
+    CursorIcon::Wait,
+    CursorIcon::Help,
+    CursorIcon::Progress,
+    CursorIcon::NotAllowed,
+    CursorIcon::ContextMenu,
+    CursorIcon::Cell,
+    CursorIcon::VerticalText,
+    CursorIcon::Alias,
+    CursorIcon::Copy,
+    CursorIcon::NoDrop,
+    CursorIcon::Grab,
+    CursorIcon::Grabbing,
+    CursorIcon::AllScroll,
+    CursorIcon::ZoomIn,
+    CursorIcon::ZoomOut,
+    CursorIcon::EResize,
+    CursorIcon::NResize,
+    CursorIcon::NeResize,
+    CursorIcon::NwResize,
+    CursorIcon::SResize,
+    CursorIcon::SeResize,
+    CursorIcon::SwResize,
+    CursorIcon::WResize,
+    CursorIcon::EwResize,
+    CursorIcon::NsResize,
+    CursorIcon::NeswResize,
+    CursorIcon::NwseResize,
+    CursorIcon::ColResize,
+    CursorIcon::RowResize,
+];
+
+const KEY_BINDINGS: &[Binding<&'static str>] = &[
+    Binding::new("Q", ModifiersState::CONTROL, Action::CloseWindow),
+    Binding::new("H", ModifiersState::CONTROL, Action::PrintHelp),
+    Binding::new("F", ModifiersState::CONTROL, Action::ToggleFullscreen),
+    Binding::new("D", ModifiersState::CONTROL, Action::ToggleDecorations),
+    Binding::new("I", ModifiersState::CONTROL, Action::ToggleImeInput),
+    Binding::new("L", ModifiersState::CONTROL, Action::CycleCursorGrab),
+    Binding::new("P", ModifiersState::CONTROL, Action::ToggleResizeIncrements),
+    Binding::new("R", ModifiersState::CONTROL, Action::ToggleResizable),
+    Binding::new("R", ModifiersState::ALT, Action::RequestResize),
+    // M.
+    Binding::new("M", ModifiersState::CONTROL, Action::ToggleMaximize),
+    Binding::new("M", ModifiersState::ALT, Action::Minimize),
+    // N.
+    Binding::new("N", ModifiersState::CONTROL, Action::CreateNewWindow),
+    // C.
+    Binding::new("C", ModifiersState::CONTROL, Action::NextCursor),
+    Binding::new("C", ModifiersState::ALT, Action::NextCustomCursor),
+    #[cfg(web_platform)]
+    Binding::new(
+        "C",
+        ModifiersState::CONTROL.union(ModifiersState::SHIFT),
+        Action::UrlCustomCursor,
+    ),
+    #[cfg(web_platform)]
+    Binding::new(
+        "C",
+        ModifiersState::ALT.union(ModifiersState::SHIFT),
+        Action::AnimationCustomCursor,
+    ),
+    Binding::new("Z", ModifiersState::CONTROL, Action::ToggleCursorVisibility),
+    #[cfg(macos_platform)]
+    Binding::new("T", ModifiersState::SUPER, Action::CreateNewTab),
+    #[cfg(macos_platform)]
+    Binding::new("O", ModifiersState::CONTROL, Action::CycleOptionAsAlt),
+];
+
+const MOUSE_BINDINGS: &[Binding<MouseButton>] = &[
+    Binding::new(
+        MouseButton::Left,
+        ModifiersState::ALT,
+        Action::DragResizeWindow,
+    ),
+    Binding::new(
+        MouseButton::Left,
+        ModifiersState::CONTROL,
+        Action::DragWindow,
+    ),
+    Binding::new(
+        MouseButton::Right,
+        ModifiersState::CONTROL,
+        Action::ShowWindowMenu,
+    ),
+];

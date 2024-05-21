@@ -1,24 +1,29 @@
 use std::{
     collections::VecDeque,
+    fmt::Debug,
     sync::{Arc, Mutex},
 };
 
+#[derive(Debug)]
 pub enum WindowEvent {
     Resize(u32, u32), // width, height
     Update,
     Redraw,
 }
 
+#[derive(Debug)]
 pub enum DeviceEvent {
     MouseMotion,
     MouseWheel,
     KeyboardInput,
 }
 
+#[derive(Debug)]
 pub enum GearsEvent {
     WindowEvent(WindowEvent),
     DeviceEvent(DeviceEvent),
     CustomEvent,
+    UserEvent,
     CloseRequest,
 }
 
