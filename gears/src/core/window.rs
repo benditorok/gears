@@ -1,4 +1,4 @@
-use core::fmt;
+use core::{fmt, str};
 use log::{debug, error, info};
 use std::{
     collections::HashMap,
@@ -7,6 +7,7 @@ use std::{
     marker::PhantomData,
     mem,
     num::NonZeroU32,
+    ops::Deref,
     rc::Rc,
     sync::{Arc, Mutex},
 };
@@ -54,13 +55,8 @@ pub enum WindowContext {
 const BORDER_SIZE: f64 = 20.;
 
 pub struct GearsWinitWindow<T: 'static> {
-    custom_cursors: Vec<CustomCursor>,
-    icon: Icon,
-    event_loop: Rc<EventLoop<T>>,
+    event_loop: Option<EventLoop<T>>,
     pub event_loop_proxy: Arc<Mutex<EventLoopProxy<T>>>,
-    windows: HashMap<WindowId, WinitWindowState>,
-    // TODO add wgpu context later
-    context: Option<WindowContext>,
 }
 
 impl Window for GearsWinitWindow<GearsEvent> {
@@ -69,11 +65,18 @@ impl Window for GearsWinitWindow<GearsEvent> {
         Self: Sized,
     {
         let event_loop = EventLoop::<GearsEvent>::with_user_event().build().unwrap();
-        GearsWinitWindow::<GearsEvent>::new(event_loop)
+
+        Self {
+            event_loop_proxy: Arc::new(Mutex::new(event_loop.create_proxy())),
+            event_loop: Some(event_loop),
+        }
     }
 
     fn start(&mut self) {
-        todo!()
+        if let Some(event_loop) = self.event_loop.take() {
+            let mut state = WinitApplication::new(&event_loop);
+            event_loop.run_app(&mut state).unwrap();
+        }
     }
 
     fn get_width(&self) -> u32 {
@@ -101,8 +104,16 @@ impl Window for GearsWinitWindow<GearsEvent> {
     }
 }
 
-impl GearsWinitWindow<GearsEvent> {
-    pub fn new(event_loop: EventLoop<GearsEvent>) -> Self {
+struct WinitApplication {
+    custom_cursors: Vec<CustomCursor>,
+    icon: Icon,
+    windows: HashMap<WindowId, WinitWindowState>,
+    // TODO add wgpu context later
+    context: Option<WindowContext>,
+}
+
+impl WinitApplication {
+    fn new<T>(event_loop: &EventLoop<T>) -> Self {
         // TODO add wgpu context later
         /*
         // SAFETY: we drop the context right before the event loop is stopped, thus making it safe.
@@ -122,8 +133,6 @@ impl GearsWinitWindow<GearsEvent> {
                 .create_custom_cursor(decode_cursor(include_bytes!("../data/cursor1.png")))];
 
         Self {
-            event_loop: Rc::new(event_loop),
-            event_loop_proxy: Arc::new(Mutex::new(event_loop.create_proxy())),
             icon,
             custom_cursors,
             windows: Default::default(),
@@ -170,7 +179,7 @@ impl GearsWinitWindow<GearsEvent> {
             window.recognize_pan_gesture(true, 2, 2);
         }
 
-        let window_state = WinitWindowState::new::<GearsEvent>(self, window)?;
+        let window_state = WinitWindowState::new(self, window)?;
         let window_id = window_state.window.id();
         info!("Created new window with id={window_id:?}");
         self.windows.insert(window_id, window_state);
@@ -318,7 +327,7 @@ impl GearsWinitWindow<GearsEvent> {
     }
 }
 
-impl ApplicationHandler<GearsEvent> for GearsWinitWindow<GearsEvent> {
+impl ApplicationHandler<GearsEvent> for WinitApplication {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: GearsEvent) {
         info!("User event: {event:?}");
     }
@@ -546,10 +555,7 @@ struct WinitWindowState {
 }
 
 impl WinitWindowState {
-    fn new<T>(
-        app: &GearsWinitWindow<T>,
-        window: winit::window::Window,
-    ) -> Result<Self, Box<dyn Error>> {
+    fn new(app: &WinitApplication, window: winit::window::Window) -> Result<Self, Box<dyn Error>> {
         let window = Arc::new(window);
 
         // SAFETY: the surface is dropped before the `window` which provided it with handle, thus

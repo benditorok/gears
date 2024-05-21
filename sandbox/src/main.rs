@@ -1,6 +1,6 @@
 use gears::core::{
     application::{self, Application},
-    window::{self, Window, WindowFactory},
+    window,
 };
 
 fn main() {

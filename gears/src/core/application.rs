@@ -47,26 +47,14 @@ impl Application for GearsApplication {
 
         match self.window_context_type {
             WindowType::Winit => {
-                let window_context = window::GearsWinitWindow::<Window>::new();
-                self.window_context = Some(Arc::new(Mutex::new(window_context)));
-                /*
-                if let Some(window_context) = &self.window_context {
-                    let window_context_ptr = Arc::clone(&window_context);
-
-                    self.thread_pool.execute(move || {
-                        window_context_ptr.lock().unwrap().start();
-                    });
-                }
-                */
+                let window_context = Box::new(window::GearsWinitWindow::new());
+                self.window_context = Some(window_context);
             }
             WindowType::None => (),
         }
 
-        // TODO: Set up event loop proxy on another thread
-
-        if let Some(window_context) = &self.window_context {
-            // Takes the main thread
-            window_context.lock().unwrap().start();
+        if let Some(window_context) = self.window_context.as_mut() {
+            window_context.start();
         }
     }
 }

@@ -2,6 +2,9 @@
 resolver = "2"
 members = ["gears", "sandbox"]
 
+[build]
+rustflags = ["-Z", "threads=8"]
+
 [workspace.dependencies]
 anyhow = "1.0"
 cfg-if = "1"
