@@ -5,6 +5,5 @@ use gears::core::{
 
 fn main() {
     let mut app = application::GearsApplication::new(window::WindowContextType::Winit, 8);
-
     pollster::block_on(app.run());
 }
