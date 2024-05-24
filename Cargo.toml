@@ -2,6 +2,9 @@
 resolver = "2"
 members = ["gears", "sandbox"]
 
+[profile.dev]
+opt-level = 0
+
 [build]
 rustflags = ["-Z", "threads=8"]
 
@@ -14,5 +17,13 @@ log = "0.4"
 winit = "0.30.0"
 pollster = "0.3.0"
 wgpu = "0.19.3"
+egui = "0.27.2"
+egui-wgpu = "0.27.2"
+egui-winit = "0.27.2"
+egui_plot = "0.27.2"
 cgmath = "0.18"
-image = "0.25.1"
+image = {version = "0.25.1", default-features = false, features = ["png", "jpeg"]}
+tobj = { version = "4.0.2", features = ["async"]}
+bytemuck = { version = "1.12", features = [ "derive" ] }
+
+
