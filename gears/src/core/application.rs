@@ -1,7 +1,8 @@
 use std::thread;
 
 use super::{event::EventQueue, threadpool::ThreadPool};
-use crate::window::window::{self, Window, WindowType};
+use crate::window::{self, winit};
+use crate::window::{Window, WindowType};
 use env_logger::Env;
 use instant::Duration;
 use log::info;
@@ -38,7 +39,7 @@ impl Application for GearsApplication {
         // Create window context
         match self.window_context_type {
             WindowType::Winit => {
-                let window_context = Box::new(window::GearsWinitWindow::new());
+                let window_context = Box::new(window::winit::GearsWinitWindow::new());
                 self.window_context = Some(window_context);
             }
             WindowType::Headless => (),

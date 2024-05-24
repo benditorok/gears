@@ -1,4 +1,6 @@
+mod keybindings;
 use core::{fmt, str};
+use keybindings::{KEY_BINDINGS, MOUSE_BINDINGS};
 use log::{error, info};
 use std::{
     collections::HashMap,
@@ -22,28 +24,7 @@ use winit::{
 
 use crate::core::event::GearsEvent;
 
-pub trait Window {
-    fn new() -> Self
-    where
-        Self: Sized;
-    fn start(&mut self);
-    fn get_width(&self) -> u32;
-    fn get_height(&self) -> u32;
-    fn on_update(&mut self);
-    fn send_user_event(&mut self);
-    fn set_vsync(&mut self, vsync: bool);
-    fn is_vsync(&self) -> bool;
-}
-
-pub enum WindowType {
-    Headless,
-    Winit,
-}
-
-pub enum WindowContext {
-    None,
-    Wgpu,
-}
+use super::{Window, WindowContext};
 
 /// The amount of points to around the window for drag resize direction calculations.
 const BORDER_SIZE: f64 = 20.;
@@ -121,10 +102,10 @@ impl WinitApplication {
             .unwrap(),
         );
         */
-        let icon = load_icon(include_bytes!("../data/icon.png"));
-        let custom_cursors =
-            vec![event_loop
-                .create_custom_cursor(decode_cursor(include_bytes!("../data/cursor1.png")))];
+        // TODO replace this with an environment variable
+        let icon = load_icon(include_bytes!("../../data/icon.png"));
+        let custom_cursors = vec![event_loop
+            .create_custom_cursor(decode_cursor(include_bytes!("../../data/cursor1.png")))];
 
         Self {
             icon,
@@ -1057,59 +1038,4 @@ const CURSORS: &[CursorIcon] = &[
     CursorIcon::NwseResize,
     CursorIcon::ColResize,
     CursorIcon::RowResize,
-];
-
-const KEY_BINDINGS: &[Binding<&'static str>] = &[
-    Binding::new("Q", ModifiersState::CONTROL, Action::CloseWindow),
-    Binding::new("H", ModifiersState::CONTROL, Action::PrintHelp),
-    Binding::new("F", ModifiersState::CONTROL, Action::ToggleFullscreen),
-    Binding::new("D", ModifiersState::CONTROL, Action::ToggleDecorations),
-    Binding::new("I", ModifiersState::CONTROL, Action::ToggleImeInput),
-    Binding::new("L", ModifiersState::CONTROL, Action::CycleCursorGrab),
-    Binding::new("P", ModifiersState::CONTROL, Action::ToggleResizeIncrements),
-    Binding::new("R", ModifiersState::CONTROL, Action::ToggleResizable),
-    Binding::new("R", ModifiersState::ALT, Action::RequestResize),
-    // M.
-    Binding::new("M", ModifiersState::CONTROL, Action::ToggleMaximize),
-    Binding::new("M", ModifiersState::ALT, Action::Minimize),
-    // N.
-    Binding::new("N", ModifiersState::CONTROL, Action::CreateNewWindow),
-    // C.
-    Binding::new("C", ModifiersState::CONTROL, Action::NextCursor),
-    Binding::new("C", ModifiersState::ALT, Action::NextCustomCursor),
-    #[cfg(web_platform)]
-    Binding::new(
-        "C",
-        ModifiersState::CONTROL.union(ModifiersState::SHIFT),
-        Action::UrlCustomCursor,
-    ),
-    #[cfg(web_platform)]
-    Binding::new(
-        "C",
-        ModifiersState::ALT.union(ModifiersState::SHIFT),
-        Action::AnimationCustomCursor,
-    ),
-    Binding::new("Z", ModifiersState::CONTROL, Action::ToggleCursorVisibility),
-    #[cfg(macos_platform)]
-    Binding::new("T", ModifiersState::SUPER, Action::CreateNewTab),
-    #[cfg(macos_platform)]
-    Binding::new("O", ModifiersState::CONTROL, Action::CycleOptionAsAlt),
-];
-
-const MOUSE_BINDINGS: &[Binding<MouseButton>] = &[
-    Binding::new(
-        MouseButton::Left,
-        ModifiersState::ALT,
-        Action::DragResizeWindow,
-    ),
-    Binding::new(
-        MouseButton::Left,
-        ModifiersState::CONTROL,
-        Action::DragWindow,
-    ),
-    Binding::new(
-        MouseButton::Right,
-        ModifiersState::CONTROL,
-        Action::ShowWindowMenu,
-    ),
 ];
