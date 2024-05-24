@@ -11,19 +11,16 @@ use std::{
 use winit::{
     application::ApplicationHandler,
     dpi::{LogicalSize, PhysicalPosition, PhysicalSize},
-    event::{
-        DeviceEvent, DeviceId, Ime, MouseButton, MouseScrollDelta,
-        WindowEvent,
-    },
+    event::{DeviceEvent, DeviceId, Ime, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::{Key, ModifiersState},
     window::{
-        Cursor, CursorGrabMode, CursorIcon, CustomCursor, CustomCursorSource, Fullscreen,
-        Icon, ResizeDirection, Theme, WindowId,
+        Cursor, CursorGrabMode, CursorIcon, CustomCursor, CustomCursorSource, Fullscreen, Icon,
+        ResizeDirection, Theme, WindowId,
     },
 };
 
-use super::event::GearsEvent;
+use crate::core::event::GearsEvent;
 
 pub trait Window {
     fn new() -> Self
@@ -39,7 +36,7 @@ pub trait Window {
 }
 
 pub enum WindowType {
-    None,
+    Headless,
     Winit,
 }
 
@@ -762,11 +759,11 @@ impl WinitWindowState {
         info!("Resized to {size:?}");
         #[cfg(not(any(android_platform, ios_platform)))]
         {
-            let (_width, _height) = match (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
-            {
-                (Some(width), Some(height)) => (width, height),
-                _ => return,
-            };
+            let (_width, _height) =
+                match (NonZeroU32::new(size.width), NonZeroU32::new(size.height)) {
+                    (Some(width), Some(height)) => (width, height),
+                    _ => return,
+                };
             // TODO WGPU SURFACE
             /*
             self.surface

@@ -1,15 +1,10 @@
-use crate::core::{
-    window::{self},
-};
+use std::thread;
 
-use super::{
-    event::EventQueue,
-    threadpool::ThreadPool,
-    window::{Window, WindowType},
-};
+use super::{event::EventQueue, threadpool::ThreadPool};
+use crate::window::window::{self, Window, WindowType};
 use env_logger::Env;
-use log::{info};
-
+use instant::Duration;
+use log::info;
 
 pub trait Application {
     fn new(window_context_type: WindowType, threads: usize) -> Self;
@@ -38,17 +33,18 @@ impl Application for GearsApplication {
             .filter_or("MY_LOG_LEVEL", "trace")
             .write_style_or("MY_LOG_STYLE", "always");
         env_logger::init_from_env(env);
-
         info!("Starting Gears...");
 
+        // Create window context
         match self.window_context_type {
             WindowType::Winit => {
                 let window_context = Box::new(window::GearsWinitWindow::new());
                 self.window_context = Some(window_context);
             }
-            WindowType::None => (),
+            WindowType::Headless => (),
         }
 
+        // Start window
         if let Some(window_context) = self.window_context.as_mut() {
             window_context.start();
         }
