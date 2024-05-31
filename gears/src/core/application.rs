@@ -1,10 +1,7 @@
-use std::thread;
-
 use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::window::{self, winit};
 use crate::window::{Window, WindowType};
 use env_logger::Env;
-use instant::Duration;
 use log::info;
 
 pub trait Application {
@@ -14,16 +11,23 @@ pub trait Application {
 
 pub struct GearsApplication {
     window_context: Option<Box<dyn Window>>,
-    window_context_type: WindowType,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
 
 impl Application for GearsApplication {
     fn new(window_context_type: WindowType, threads: usize) -> Self {
+        // Create window context
+        let window_context: Option<Box<dyn Window>> = match window_context_type {
+            WindowType::Winit => {
+                let ctx = Box::new(window::winit::GearsWinitWindow::new());
+                Some(ctx)
+            }
+            WindowType::Headless => None,
+        };
+
         Self {
-            window_context: None,
-            window_context_type,
+            window_context,
             thread_pool: ThreadPool::new(threads),
             event_queue: EventQueue::new(),
         }
@@ -35,15 +39,6 @@ impl Application for GearsApplication {
             .write_style_or("MY_LOG_STYLE", "always");
         env_logger::init_from_env(env);
         info!("Starting Gears...");
-
-        // Create window context
-        match self.window_context_type {
-            WindowType::Winit => {
-                let window_context = Box::new(window::winit::GearsWinitWindow::new());
-                self.window_context = Some(window_context);
-            }
-            WindowType::Headless => (),
-        }
 
         // Start window
         if let Some(window_context) = self.window_context.as_mut() {
