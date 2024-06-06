@@ -1,4 +1,6 @@
 mod keybindings;
+use super::{Window, WindowContext};
+use crate::core::event::GearsEvent;
 use core::{fmt, str};
 use keybindings::{KEY_BINDINGS, MOUSE_BINDINGS};
 use log::{error, info};
@@ -21,10 +23,6 @@ use winit::{
         ResizeDirection, Theme, WindowId,
     },
 };
-
-use crate::core::event::GearsEvent;
-
-use super::{Window, WindowContext};
 
 /// The amount of points to around the window for drag resize direction calculations.
 const BORDER_SIZE: f64 = 20.;
