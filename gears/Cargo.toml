@@ -14,3 +14,4 @@ winit = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 wgpu = { workspace = true }
+bytemuck = { workspace = true }
