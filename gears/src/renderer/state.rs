@@ -1,7 +1,7 @@
 use winit::{
     event::*,
-    event_loop::EventLoop,
-    keyboard::{KeyCode, PhysicalKey},
+    event_loop::{ControlFlow, EventLoop},
+    keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
     window::{Window, WindowBuilder},
 };
 
@@ -16,32 +16,53 @@ pub async fn run() {
 
     let mut state = State::new(&window).await;
 
-    event_loop.run(move |event, control_flow| match event {
-        Event::WindowEvent {
-            ref event,
-            window_id,
-        } if window_id == state.window().id() => {
-            if !state.input(event) {
-                match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        event:
-                            KeyEvent {
-                                state: ElementState::Pressed,
-                                physical_key: PhysicalKey::Code(KeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    } => control_flow.exit(),
-                    WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
-                    }
-                    _ => {}
+    event_loop
+        .run(move |event, ewlt| match event {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == state.window().id() => {
+                if !state.input(event) {
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            event:
+                                KeyEvent {
+                                    state: ElementState::Pressed,
+                                    physical_key: PhysicalKey::Code(KeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => ewlt.exit(),
+                        WindowEvent::Resized(physical_size) => {
+                            state.resize(*physical_size);
+                        }
+                        WindowEvent::RedrawRequested => {
+                            state.update();
+
+                            match state.render() {
+                                Ok(_) => {}
+                                // Reconfigure the surface if it's lost or outdated
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                    state.resize(state.size)
+                                }
+                                // The system is out of memory, we should probably quit
+                                Err(wgpu::SurfaceError::OutOfMemory) => ewlt.exit(),
+                                // We're ignoring timeouts
+                                Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
+                            }
+                        }
+                        _ => {}
+                    };
                 }
             }
-        }
-        _ => {}
-    });
+            // Event::AboutToWait => {
+            //     // RedrawRequested will only trigger once unless manually requested.
+            //     state.window().request_redraw();
+            // }
+            _ => {}
+        })
+        .unwrap();
 }
 
 pub struct State<'a> {
