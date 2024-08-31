@@ -241,7 +241,7 @@ impl<'a> State<'a> {
         // Creating the render pass
         // It needs to be dropped before submitting the commands to the GPU
         {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
@@ -260,6 +260,9 @@ impl<'a> State<'a> {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
+
+            render_pass.set_pipeline(&self.render_pipeline); // Use the configured render pipeline
+            render_pass.draw(0..3, 0..1); // Draw a triangle
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
