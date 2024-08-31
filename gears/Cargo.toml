@@ -6,20 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+futures = { workspace = true }
 anyhow = { workspace = true }
 cfg-if = { workspace = true }
 instant = { workspace = true }
+winit = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
-winit = { workspace = true }
-futures = { workspace = true }
 wgpu = { workspace = true }
-egui = { workspace = true }
-egui-wgpu = { workspace = true }
-egui-winit = { workspace = true }
-egui_plot = { workspace = true }
-cgmath = { workspace = true }
-image = { workspace = true }
-tobj = { workspace = true }
-bytemuck = { workspace = true }
-
