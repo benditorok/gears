@@ -5,5 +5,5 @@ use gears::{
 
 fn main() {
     let mut app = application::GearsApplication::new(window::WindowType::Winit, 8);
-    pollster::block_on(app.run());
+    futures::executor::block_on(app.run());
 }
