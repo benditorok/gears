@@ -1,52 +1,61 @@
+use super::config::{self, Config, LogConfig, LogLevel};
 use super::{event::EventQueue, threadpool::ThreadPool};
+use crate::renderer::state;
 use crate::window::{self, Window, WindowType};
 use env_logger::Env;
-use log::info;
+use log::{info, Log};
 
 pub trait App {
-    fn new(window_context_type: WindowType, threads: usize) -> Self;
+    fn new(config: Config) -> Self;
     async fn run(&mut self);
 }
 
 pub struct GearsApp {
-    // window_context: Option<Box<dyn Window>>,
+    config: Config,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
 
-impl App for GearsApp {
-    fn new(window_context_type: WindowType, threads: usize) -> Self {
-        // Create window context
-        // let window_context: Option<Box<dyn Window>> = match window_context_type {
-        //     WindowType::Winit => {
-        //         let ctx = Box::new(window::winit::GearsWinitWindow::new());
-        //         Some(ctx)
-        //     }
-        //     WindowType::Headless => None,
-        // };
+impl Default for GearsApp {
+    fn default() -> Self {
+        let config = Config {
+            log: LogConfig {
+                level: LogLevel::Info,
+            },
+            threadpool_size: 8,
+        };
 
-        let mut threads = threads;
-        if threads < 4 {
-            threads = 4;
-        }
+        GearsApp::new(config)
+    }
+}
+
+impl App for GearsApp {
+    fn new(config: config::Config) -> Self {
+        assert!(config.threadpool_size > 1);
 
         Self {
-            //window_context,
-            thread_pool: ThreadPool::new(threads),
             event_queue: EventQueue::new(),
+            thread_pool: ThreadPool::new(config.threadpool_size),
+            config,
         }
     }
 
     async fn run(&mut self) {
-        let env = Env::default()
-            .filter_or("MY_LOG_LEVEL", "trace")
-            .write_style_or("MY_LOG_STYLE", "always");
-        env_logger::init_from_env(env);
+        // Initialize logger
+        let mut env_builder = env_logger::Builder::new();
+        // Set the minimum log level from the config.
+        env_builder.filter_level(match self.config.log.level {
+            LogLevel::Error => log::LevelFilter::Error,
+            LogLevel::Warn => log::LevelFilter::Warn,
+            LogLevel::Info => log::LevelFilter::Info,
+            LogLevel::Debug => log::LevelFilter::Debug,
+            LogLevel::Trace => log::LevelFilter::Trace,
+        });
+        env_builder.init();
+
         info!("Starting Gears...");
 
-        // Start window
-        // if let Some(window_context) = self.window_context.as_mut() {
-        //     window_context.start();
-        // }
+        // Run the event loop
+        state::run().await;
     }
 }
