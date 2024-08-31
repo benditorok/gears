@@ -26,6 +26,11 @@ impl Application for GearsApplication {
             WindowType::Headless => None,
         };
 
+        let mut threads = threads;
+        if threads < 4 {
+            threads = 4;
+        }
+
         Self {
             window_context,
             thread_pool: ThreadPool::new(threads),
