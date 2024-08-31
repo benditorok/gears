@@ -7,6 +7,7 @@ use log::{info, Log};
 
 pub trait App {
     fn new(config: Config) -> Self;
+    #[allow(async_fn_in_trait)]
     async fn run(&mut self);
 }
 
@@ -56,6 +57,6 @@ impl App for GearsApp {
         info!("Starting Gears...");
 
         // Run the event loop
-        state::run().await;
+        state::run().await
     }
 }
