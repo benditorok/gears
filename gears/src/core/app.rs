@@ -4,18 +4,18 @@ use crate::window::{Window, WindowType};
 use env_logger::Env;
 use log::info;
 
-pub trait Application {
+pub trait App {
     fn new(window_context_type: WindowType, threads: usize) -> Self;
     async fn run(&mut self);
 }
 
-pub struct GearsApplication {
+pub struct GearsApp {
     window_context: Option<Box<dyn Window>>,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
 
-impl Application for GearsApplication {
+impl App for GearsApp {
     fn new(window_context_type: WindowType, threads: usize) -> Self {
         // Create window context
         let window_context: Option<Box<dyn Window>> = match window_context_type {
