@@ -1,6 +1,5 @@
 use super::{event::EventQueue, threadpool::ThreadPool};
-use crate::window::{self, winit};
-use crate::window::{Window, WindowType};
+use crate::window::{self, Window, WindowType};
 use env_logger::Env;
 use log::info;
 
@@ -10,7 +9,7 @@ pub trait App {
 }
 
 pub struct GearsApp {
-    window_context: Option<Box<dyn Window>>,
+    // window_context: Option<Box<dyn Window>>,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
@@ -18,13 +17,13 @@ pub struct GearsApp {
 impl App for GearsApp {
     fn new(window_context_type: WindowType, threads: usize) -> Self {
         // Create window context
-        let window_context: Option<Box<dyn Window>> = match window_context_type {
-            WindowType::Winit => {
-                let ctx = Box::new(window::winit::GearsWinitWindow::new());
-                Some(ctx)
-            }
-            WindowType::Headless => None,
-        };
+        // let window_context: Option<Box<dyn Window>> = match window_context_type {
+        //     WindowType::Winit => {
+        //         let ctx = Box::new(window::winit::GearsWinitWindow::new());
+        //         Some(ctx)
+        //     }
+        //     WindowType::Headless => None,
+        // };
 
         let mut threads = threads;
         if threads < 4 {
@@ -32,7 +31,7 @@ impl App for GearsApp {
         }
 
         Self {
-            window_context,
+            //window_context,
             thread_pool: ThreadPool::new(threads),
             event_queue: EventQueue::new(),
         }
@@ -46,8 +45,8 @@ impl App for GearsApp {
         info!("Starting Gears...");
 
         // Start window
-        if let Some(window_context) = self.window_context.as_mut() {
-            window_context.start();
-        }
+        // if let Some(window_context) = self.window_context.as_mut() {
+        //     window_context.start();
+        // }
     }
 }

@@ -1,5 +1,3 @@
-pub mod winit;
-
 pub trait Window {
     fn new() -> Self
     where
