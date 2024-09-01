@@ -19,7 +19,7 @@ log = "0.4"
 wgpu = "22.0"
 bytemuck = { version = "1.17", features = [ "derive" ] }
 
-[dependencies.image]
+[workspace.dependencies.image]
 version = "0.24"
 default-features = false
 features = ["png", "jpeg"]
