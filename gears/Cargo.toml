@@ -16,3 +16,4 @@ log = { workspace = true }
 wgpu = { workspace = true }
 bytemuck = { workspace = true }
 image = { workspace = true }
+cgmath = { workspace = true }

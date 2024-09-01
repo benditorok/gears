@@ -18,6 +18,7 @@ env_logger = "0.10"
 log = "0.4"
 wgpu = "22.0"
 bytemuck = { version = "1.17", features = [ "derive" ] }
+cgmath = "0.18"
 
 [workspace.dependencies.image]
 version = "0.24"
