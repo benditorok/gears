@@ -1,5 +1,5 @@
 pub mod core;
-pub mod gui;
+pub mod ecs;
 pub mod prelude;
 pub mod renderer;
 pub mod window;
