@@ -3,6 +3,8 @@ pub mod utils;
 
 use std::cell::{RefCell, RefMut};
 
+use components::{Position, RenderObject};
+
 pub trait ComponentVec {
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -29,7 +31,6 @@ pub struct World {
 }
 
 impl World {
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             entities_count: 0,
@@ -92,5 +93,21 @@ impl World {
         }
 
         None
+    }
+}
+
+impl Default for World {
+    fn default() -> Self {
+        let mut world = World::new();
+        let cube = world.new_entity();
+        world.add_component_to_entity(cube, Position::new(0.0, 0.0, 0.0));
+        world.add_component_to_entity(
+            cube,
+            RenderObject {
+                file_path: "cube.obj",
+            },
+        );
+
+        world
     }
 }

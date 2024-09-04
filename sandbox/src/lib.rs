@@ -4,7 +4,7 @@ pub struct Health(i32);
 
 pub struct Name(&'static str);
 
-pub fn run_sample_code() {
+pub fn ecs_test() {
     // Create "ECS"
     // This contains all the entities and their components
     let mut world = World::new();
@@ -30,7 +30,7 @@ pub fn run_sample_code() {
     }
 }
 
-fn create_entities(mut world: &mut World) {
+fn create_entities(world: &mut World) {
     // Create entity without a builder.
     let entity_basic = world.new_entity();
     world.add_component_to_entity(entity_basic, Name("Entity1"));

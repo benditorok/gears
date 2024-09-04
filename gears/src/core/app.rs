@@ -4,7 +4,7 @@ use crate::ecs::World;
 use crate::renderer::state;
 use crate::window::{self, Window, WindowType};
 use env_logger::Env;
-use log::{info, Log};
+use log::{info, warn, Log};
 
 pub trait App {
     fn new(config: Config) -> Self;
@@ -16,7 +16,7 @@ pub trait App {
 /// The main application.
 pub struct GearsApp {
     config: Config,
-    world: World,
+    world: Option<World>,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
@@ -43,13 +43,13 @@ impl App for GearsApp {
             event_queue: EventQueue::new(),
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            world: World::new(),
+            world: Some(World::default()),
         }
     }
 
     /// Map the world to the app, giving it ownership over the ECS.
     fn map_world(&mut self, world: World) {
-        self.world = world;
+        self.world = Some(world);
     }
 
     /// Run the application.
@@ -69,6 +69,6 @@ impl App for GearsApp {
         info!("Starting Gears...");
 
         // Run the event loop
-        state::run().await
+        state::run(self.world.take().unwrap()).await
     }
 }

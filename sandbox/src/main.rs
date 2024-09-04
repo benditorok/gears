@@ -3,11 +3,11 @@ use gears::{
     core::app::{self, App},
     window,
 };
-use sandbox::run_sample_code;
+use sandbox::ecs_test;
 
 fn main() {
-    run_sample_code();
+    // ecs_test();
 
-    // let mut app = app::GearsApp::default();
-    // block_on(app.run());
+    let mut app = app::GearsApp::default();
+    block_on(app.run());
 }

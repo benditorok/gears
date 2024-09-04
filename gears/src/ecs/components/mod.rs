@@ -16,3 +16,7 @@ impl Position {
         Self { x, y, z }
     }
 }
+
+pub struct RenderObject<'a> {
+    pub file_path: &'a str,
+}

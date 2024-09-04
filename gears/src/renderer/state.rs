@@ -1,3 +1,6 @@
+use crate::ecs::components::RenderObject;
+use crate::ecs::World;
+
 use super::resources;
 use super::{
     camera::{self, Camera, CameraController, CameraUniform},
@@ -20,11 +23,11 @@ use winit::{
 /// # Returns
 ///
 /// A future which can be awaited.
-pub async fn run() {
+pub async fn run(world: World) {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let mut state = State::new(&window).await;
+    let mut state = State::new(&window, world).await;
 
     event_loop
         .run(move |event, ewlt| match event {
@@ -93,10 +96,13 @@ struct State<'a> {
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     window: &'a Window,
+    // ECS
+    world: World,
+    ecs_obj_models: Vec<model::Model>,
 }
 
 impl<'a> State<'a> {
-    async fn new(window: &'a Window) -> State<'a> {
+    async fn new(window: &'a Window, world: World) -> State<'a> {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -266,6 +272,24 @@ impl<'a> State<'a> {
                 .await
                 .unwrap();
 
+        // TODO ECS model loading
+        let mut ecs_obj_models = Vec::new();
+        {
+            let render_objects = world.borrow_component_vec_mut::<RenderObject>().unwrap();
+
+            for render_object in render_objects.iter().flatten() {
+                ecs_obj_models.push(
+                    resources::load_model(
+                        render_object.file_path,
+                        &device,
+                        &queue,
+                        &texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                );
+            }
+        }
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader.wgsl"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -352,6 +376,8 @@ impl<'a> State<'a> {
             instance_buffer,
             depth_texture,
             window,
+            world,
+            ecs_obj_models,
         }
     }
 
@@ -376,9 +402,9 @@ impl<'a> State<'a> {
 
     fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-        log::info!("{:?}", self.camera);
+        //log::info!("{:?}", self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
-        log::info!("{:?}", self.camera_uniform);
+        //log::info!("{:?}", self.camera_uniform);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -426,13 +452,15 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.draw_model_instanced(
-                &self.obj_model,
-                0..self.instances.len() as u32,
-                &self.camera_bind_group,
-            );
+            for (idx, entity) in self.ecs_obj_models.iter().enumerate() {
+                render_pass.set_vertex_buffer(idx as u32 + 1, self.instance_buffer.slice(..));
+                render_pass.set_pipeline(&self.render_pipeline);
+                render_pass.draw_model_instanced(
+                    entity,
+                    0..self.instances.len() as u32,
+                    &self.camera_bind_group,
+                );
+            }
         }
 
         self.queue.submit(iter::once(encoder.finish()));
