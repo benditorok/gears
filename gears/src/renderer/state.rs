@@ -74,6 +74,7 @@ pub async fn run() {
         })
         .unwrap();
 }
+
 struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
