@@ -82,7 +82,7 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    obj_model: model::Model,
+    obj_models: Vec<model::Model>,
     camera: Camera,
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
@@ -206,36 +206,6 @@ impl<'a> State<'a> {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        const SPACE_BETWEEN: f32 = 3.0;
-        let instances = (0..super::NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..super::NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - super::NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - super::NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
-
-                    let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
-
-                    Instance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -260,11 +230,39 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
-        log::warn!("Load model");
-        let obj_model =
+        log::warn!("Load model 1");
+        let obj_model1 =
             resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .unwrap();
+
+        log::warn!("Load model 2");
+        let obj_model2 =
+            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
+
+        let obj_models = vec![obj_model1, obj_model2];
+
+        // Create instances for each model
+        let instances: Vec<Instance> = obj_models
+            .iter()
+            .enumerate()
+            .map(|(i, _)| Instance {
+                position: cgmath::Vector3::new(0.0, i as f32 * 2.0, 0.0), // Adjust the y position
+                rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+            })
+            .collect();
+
+        // Convert instances to raw format
+        let instance_data: Vec<InstanceRaw> = instances.iter().map(Instance::to_raw).collect();
+
+        // Create a buffer for the instances
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader.wgsl"),
@@ -342,7 +340,7 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            obj_model,
+            obj_models,
             camera,
             camera_controller,
             camera_buffer,
@@ -376,9 +374,9 @@ impl<'a> State<'a> {
 
     fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-        log::info!("{:?}", self.camera);
+        //log::info!("{:?}", self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
-        log::info!("{:?}", self.camera_uniform);
+        //log::info!("{:?}", self.camera_uniform);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -428,11 +426,15 @@ impl<'a> State<'a> {
 
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.draw_model_instanced(
-                &self.obj_model,
-                0..self.instances.len() as u32,
-                &self.camera_bind_group,
-            );
+
+            // Iterate over the obj_models vector and draw each model
+            for obj_model in &self.obj_models {
+                render_pass.draw_model_instanced(
+                    obj_model,
+                    0..self.instances.len() as u32,
+                    &self.camera_bind_group,
+                );
+            }
         }
 
         self.queue.submit(iter::once(encoder.finish()));

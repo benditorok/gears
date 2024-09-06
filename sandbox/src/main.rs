@@ -6,8 +6,8 @@ use gears::{
 use sandbox::run_sample_code;
 
 fn main() {
-    run_sample_code();
+    //run_sample_code();
 
-    // let mut app = app::GearsApp::default();
-    // block_on(app.run());
+    let mut app = app::GearsApp::default();
+    block_on(app.run());
 }
