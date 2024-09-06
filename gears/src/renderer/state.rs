@@ -96,9 +96,11 @@ struct State<'a> {
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     window: &'a Window,
+    // CUSTOM
+    obj_models: Vec<model::Model>,
     // ECS
     world: World,
-    ecs_obj_models: Vec<model::Model>,
+    // ecs_obj_models: Vec<model::Model>,
 }
 
 impl<'a> State<'a> {
@@ -272,24 +274,35 @@ impl<'a> State<'a> {
                 .await
                 .unwrap();
 
-        // TODO ECS model loading
-        let mut ecs_obj_models = Vec::new();
-        {
-            let render_objects = world.borrow_component_vec_mut::<RenderObject>().unwrap();
+        let obj_model_1 =
+            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
 
-            for render_object in render_objects.iter().flatten() {
-                ecs_obj_models.push(
-                    resources::load_model(
-                        render_object.file_path,
-                        &device,
-                        &queue,
-                        &texture_bind_group_layout,
-                    )
-                    .await
-                    .unwrap(),
-                );
-            }
-        }
+        let obj_model_2 =
+            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
+
+        let obj_models = vec![obj_model_1, obj_model_2];
+        // // TODO ECS model loading
+        // let mut ecs_obj_models = Vec::new();
+        // {
+        //     let render_objects = world.borrow_component_vec_mut::<RenderObject>().unwrap();
+
+        //     for render_object in render_objects.iter().flatten() {
+        //         ecs_obj_models.push(
+        //             resources::load_model(
+        //                 render_object.file_path,
+        //                 &device,
+        //                 &queue,
+        //                 &texture_bind_group_layout,
+        //             )
+        //             .await
+        //             .unwrap(),
+        //         );
+        //     }
+        // }
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader.wgsl"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -376,8 +389,9 @@ impl<'a> State<'a> {
             instance_buffer,
             depth_texture,
             window,
+            obj_models,
             world,
-            ecs_obj_models,
+            //ecs_obj_models,
         }
     }
 
@@ -452,14 +466,10 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            for (idx, entity) in self.ecs_obj_models.iter().enumerate() {
-                render_pass.set_vertex_buffer(idx as u32 + 1, self.instance_buffer.slice(..));
-                render_pass.set_pipeline(&self.render_pipeline);
-                render_pass.draw_model_instanced(
-                    entity,
-                    0..self.instances.len() as u32,
-                    &self.camera_bind_group,
-                );
+            render_pass.set_pipeline(&self.render_pipeline);
+
+            for model in &self.obj_models {
+                render_pass.draw_model(model, &self.camera_bind_group);
             }
         }
 
