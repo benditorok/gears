@@ -220,8 +220,7 @@ impl<'a> State<'a> {
         // Load models
         log::warn!("Load model 1");
         let obj_model1 = resources::load_model(
-            "cube.obj",
-            "res/models/cube",
+            "res/models/cube/cube.obj",
             &device,
             &queue,
             &texture_bind_group_layout,
@@ -229,39 +228,59 @@ impl<'a> State<'a> {
         .await
         .unwrap();
 
-        log::warn!("Load model 2");
-        let obj_model2 = resources::load_model(
-            "cube.obj",
-            "res/models/cube",
-            &device,
-            &queue,
-            &texture_bind_group_layout,
-        )
-        .await
-        .unwrap();
+        // log::warn!("Load model 1");
+        // let obj_model1 = resources::load_model(
+        //     "cube.obj",
+        //     "res/models/cube",
+        //     &device,
+        //     &queue,
+        //     &texture_bind_group_layout,
+        // )
+        // .await
+        // .unwrap();
 
-        log::warn!("Load model 3");
-        let obj_model3 = resources::load_model(
-            "cube.obj",
-            "res/models/cube",
-            &device,
-            &queue,
-            &texture_bind_group_layout,
-        )
-        .await
-        .unwrap();
+        // log::warn!("Load model 2");
+        // let obj_model2 = resources::load_model(
+        //     "cube.obj",
+        //     "res/models/cube",
+        //     &device,
+        //     &queue,
+        //     &texture_bind_group_layout,
+        // )
+        // .await
+        // .unwrap();
 
-        let obj_models = vec![obj_model1, obj_model2, obj_model3];
+        // log::warn!("Load model 3");
+        // let obj_model3 = resources::load_model(
+        //     "cube.obj",
+        //     "res/models/cube",
+        //     &device,
+        //     &queue,
+        //     &texture_bind_group_layout,
+        // )
+        // .await
+        // .unwrap();
+
+        let obj_models = vec![obj_model1];
+        // let obj_models = vec![obj_model1, obj_model2, obj_model3];
 
         // Create instances for each model
-        let instances: Vec<Instance> = obj_models
-            .iter()
-            .enumerate()
-            .map(|(i, _)| Instance {
+        let mut instances = Vec::new();
+
+        for i in 0..=10 {
+            instances.push(Instance {
                 position: cgmath::Vector3::new(0.0, i as f32 * 2.0, 0.0), // Adjust the y position
                 rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
             })
-            .collect();
+        }
+        // let instances: Vec<Instance> = obj_models
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(i, _)| Instance {
+        //         position: cgmath::Vector3::new(0.0, i as f32 * 2.0, 0.0), // Adjust the y position
+        //         rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+        //     })
+        //     .collect();
 
         // Convert instances to raw format
         let instance_data: Vec<InstanceRaw> = instances.iter().map(Instance::to_raw).collect();

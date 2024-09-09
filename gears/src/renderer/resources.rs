@@ -1,6 +1,9 @@
 use super::{model, texture};
 use cfg_if::cfg_if;
-use std::io::{BufReader, Cursor};
+use std::{
+    io::{BufReader, Cursor},
+    path::Path,
+};
 use wgpu::util::DeviceExt;
 
 pub async fn load_string(file_path: &str) -> anyhow::Result<String> {
@@ -28,13 +31,16 @@ pub async fn load_texture(
 }
 
 pub async fn load_model(
-    file_name: &str,
     file_path: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
-    let obj_text = load_string([file_path, file_name].join(r"\").as_str()).await?;
+    let path = Path::new(file_path);
+    let model_root_dir = path.parent().unwrap();
+    let file_name = model_root_dir.file_name().unwrap().to_str().unwrap();
+
+    let obj_text = load_string(file_path).await?;
     let obj_cursor = Cursor::new(obj_text);
     let mut obj_reader = BufReader::new(obj_cursor);
 
@@ -46,7 +52,7 @@ pub async fn load_model(
             ..Default::default()
         },
         |p| async move {
-            let mat_text = load_string([file_path, &p].join(r"\").as_str())
+            let mat_text = load_string(model_root_dir.join(&p).to_str().unwrap())
                 .await
                 .unwrap_or_default();
 
@@ -58,7 +64,7 @@ pub async fn load_model(
     let mut materials = Vec::new();
     for m in obj_materials? {
         let diffuse_texture = load_texture(
-            [file_path, &m.diffuse_texture].join(r"\").as_str(),
+            model_root_dir.join(&m.diffuse_texture).to_str().unwrap(),
             device,
             queue,
         )
