@@ -231,18 +231,39 @@ impl<'a> State<'a> {
         });
 
         log::warn!("Load model 1");
-        let obj_model1 =
-            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
-                .await
-                .unwrap();
+        let obj_model1 = resources::load_model(
+            "cube.obj",
+            "res/models/cube",
+            &device,
+            &queue,
+            &texture_bind_group_layout,
+        )
+        .await
+        .unwrap();
 
         log::warn!("Load model 2");
-        let obj_model2 =
-            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
-                .await
-                .unwrap();
+        let obj_model2 = resources::load_model(
+            "cube.obj",
+            "res/models/cube",
+            &device,
+            &queue,
+            &texture_bind_group_layout,
+        )
+        .await
+        .unwrap();
 
-        let obj_models = vec![obj_model1, obj_model2];
+        log::warn!("Load model 3");
+        let obj_model3 = resources::load_model(
+            "cube.obj",
+            "res/models/cube",
+            &device,
+            &queue,
+            &texture_bind_group_layout,
+        )
+        .await
+        .unwrap();
+
+        let obj_models = vec![obj_model1, obj_model2, obj_model3];
 
         // Create instances for each model
         let instances: Vec<Instance> = obj_models
