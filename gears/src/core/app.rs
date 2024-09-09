@@ -2,7 +2,6 @@ use super::config::{self, Config, LogConfig, LogLevel};
 use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::ecs::World;
 use crate::renderer::state;
-use crate::window::{self, Window, WindowType};
 use env_logger::Env;
 use log::{info, Log};
 

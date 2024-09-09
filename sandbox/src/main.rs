@@ -2,7 +2,6 @@ use futures::executor::block_on;
 use gears::{
     core::app::{self, App},
     ecs::{components::Position, utils::EntityBuilder, World},
-    window,
 };
 
 pub struct Health(i32);
