@@ -1,55 +1,18 @@
-use std::io::{BufReader, Cursor};
-
+use super::{model, texture};
 use cfg_if::cfg_if;
+use std::io::{BufReader, Cursor};
 use wgpu::util::DeviceExt;
 
-use super::{model, texture};
-
-#[cfg(target_arch = "wasm32")]
-fn format_url(file_name: &str) -> reqwest::Url {
-    let window = web_sys::window().unwrap();
-    let location = window.location();
-    let mut origin = location.origin().unwrap();
-    if !origin.ends_with("learn-wgpu") {
-        origin = format!("{}/learn-wgpu", origin);
-    }
-    let base = reqwest::Url::parse(&format!("{}/", origin,)).unwrap();
-    base.join(file_name).unwrap()
-}
-
 pub async fn load_string(file_path: &str) -> anyhow::Result<String> {
-    cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            let url = format_url(file_path);
-            let txt = reqwest::get(url)
-                .await?
-                .text()
-                .await?;
-        } else {
-            let path = std::path::Path::new(env!("OUT_DIR")).join(file_path);
-
-            let txt = std::fs::read_to_string(path)?;
-        }
-    }
+    let path = std::path::Path::new(env!("OUT_DIR")).join(file_path);
+    let txt = std::fs::read_to_string(path)?;
 
     Ok(txt)
 }
 
 pub async fn load_binary(file_path: &str) -> anyhow::Result<Vec<u8>> {
-    cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            let url = format_url(file_path);
-            let data = reqwest::get(url)
-                .await?
-                .bytes()
-                .await?
-                .to_vec();
-        } else {
-            let path = std::path::Path::new(env!("OUT_DIR")).join(file_path);
-
-            let data = std::fs::read(path)?;
-        }
-    }
+    let path = std::path::Path::new(env!("OUT_DIR")).join(file_path);
+    let data = std::fs::read(path)?;
 
     Ok(data)
 }
@@ -60,6 +23,7 @@ pub async fn load_texture(
     queue: &wgpu::Queue,
 ) -> anyhow::Result<texture::Texture> {
     let data = load_binary(file_path).await?;
+
     texture::Texture::from_bytes(device, queue, &data, file_path)
 }
 

@@ -97,16 +97,12 @@ struct State<'a> {
 
 impl<'a> State<'a> {
     async fn new(window: &'a Window) -> State<'a> {
+        log::warn!("[State] Setup starting...");
         let size = window.inner_size();
 
-        // The instance is a handle to our GPU
-        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
-        log::warn!("WGPU setup");
+        // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
-            #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
             ..Default::default()
         });
 
@@ -120,32 +116,23 @@ impl<'a> State<'a> {
             })
             .await
             .unwrap();
-        log::warn!("device and queue");
+
+        log::warn!("[State] Device and Queue");
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: wgpu::Features::empty(),
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web we'll have to disable some.
-                    required_limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits::default()
-                    },
+                    required_limits: wgpu::Limits::default(),
                     memory_hints: Default::default(),
                 },
-                // Some(&std::path::Path::new("trace")), // Trace path
-                None, // Trace path
+                None,
             )
             .await
             .unwrap();
 
-        log::warn!("Surface");
+        log::warn!("[State] Surface");
         let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an Srgb surface texture. Using a different
-        // one will result all the colors comming out darker. If you want to support non
-        // Srgb surfaces, you'll need to account for that when drawing to the frame.
         let surface_format = surface_caps
             .formats
             .iter()
@@ -230,6 +217,7 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
+        // Load models
         log::warn!("Load model 1");
         let obj_model1 = resources::load_model(
             "cube.obj",
@@ -327,12 +315,8 @@ impl<'a> State<'a> {
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                // or Features::POLYGON_MODE_POINT
                 polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
                 unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
@@ -347,10 +331,7 @@ impl<'a> State<'a> {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            // If the pipeline will be used with a multiview render pass, this
-            // indicates how many array layers the attachments will have.
             multiview: None,
-            // Useful for optimizing shader compilation on Android
             cache: None,
         });
 
@@ -395,9 +376,7 @@ impl<'a> State<'a> {
 
     fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-        //log::info!("{:?}", self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
-        //log::info!("{:?}", self.camera_uniform);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
