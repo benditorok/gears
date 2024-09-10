@@ -5,8 +5,11 @@ use super::{
     model::{self, DrawModel, ModelVertex, Vertex},
     texture::{self, Texture},
 };
+use crate::ecs::components::{GearsModelData, Position};
+use crate::ecs::{GearsWorld, World};
 use cgmath::prelude::*;
 use std::iter;
+use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -20,11 +23,11 @@ use winit::{
 /// # Returns
 ///
 /// A future which can be awaited.
-pub async fn run() {
+pub async fn run(world: Arc<Mutex<GearsWorld>>) {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let mut state = State::new(&window).await;
+    let mut state = State::new(&window, world).await;
 
     event_loop
         .run(move |event, ewlt| match event {
@@ -82,21 +85,19 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    obj_models: Vec<model::Model>,
     camera: Camera,
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    instances: Vec<Instance>,
     #[allow(dead_code)]
-    instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     window: &'a Window,
+    world: Arc<Mutex<GearsWorld>>,
 }
 
 impl<'a> State<'a> {
-    async fn new(window: &'a Window) -> State<'a> {
+    async fn new(window: &'a Window, world: Arc<Mutex<GearsWorld>>) -> State<'a> {
         log::warn!("[State] Setup starting...");
         let size = window.inner_size();
 
@@ -217,16 +218,52 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
-        // Load models
-        log::warn!("Load model 1");
-        let obj_model1 = resources::load_model(
-            "res/models/cube/cube.obj",
-            &device,
-            &queue,
-            &texture_bind_group_layout,
-        )
-        .await
-        .unwrap();
+        // Load models and create instances
+        {
+            log::warn!("Loading models and instances");
+            let models = world
+                .lock()
+                .unwrap()
+                .borrow_component_vec_mut::<GearsModelData>()
+                .unwrap();
+            let positions = world
+                .lock()
+                .unwrap()
+                .borrow_component_vec_mut::<Position>()
+                .unwrap();
+
+            for (idx, model) in models.write().unwrap().iter_mut().enumerate() {
+                if let Some(model) = model {
+                    let obj_model = resources::load_model(
+                        model.file_path,
+                        &device,
+                        &queue,
+                        &texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap();
+
+                    model.model = Some(obj_model);
+
+                    if let Some(position) = positions.read().unwrap().get(idx).unwrap() {
+                        model.instance = Some(instance::Instance {
+                            position: cgmath::Vector3::new(position.x, position.y, position.z),
+                            rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+                        });
+                    }
+                }
+            }
+        }
+
+        // log::warn!("Load model 1");
+        // let obj_model1 = resources::load_model(
+        //     "res/models/cube/cube.obj",
+        //     &device,
+        //     &queue,
+        //     &texture_bind_group_layout,
+        // )
+        // .await
+        // .unwrap();
 
         // log::warn!("Load model 1");
         // let obj_model1 = resources::load_model(
@@ -261,18 +298,18 @@ impl<'a> State<'a> {
         // .await
         // .unwrap();
 
-        let obj_models = vec![obj_model1];
+        //et obj_models = vec![obj_model1];
         // let obj_models = vec![obj_model1, obj_model2, obj_model3];
 
         // Create instances for each model
-        let mut instances = Vec::new();
+        // let mut instances = Vec::new();
 
-        for i in 0..=10 {
-            instances.push(Instance {
-                position: cgmath::Vector3::new(0.0, i as f32 * 2.0, 0.0), // Adjust the y position
-                rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-            })
-        }
+        // for i in 0..=10 {
+        //     instances.push(Instance {
+        //         position: cgmath::Vector3::new(0.0, i as f32 * 2.0, 0.0), // Adjust the y position
+        //         rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+        //     })
+        // }
         // let instances: Vec<Instance> = obj_models
         //     .iter()
         //     .enumerate()
@@ -371,6 +408,7 @@ impl<'a> State<'a> {
             instance_buffer,
             depth_texture,
             window,
+            world,
         }
     }
 

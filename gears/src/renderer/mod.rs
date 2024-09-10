@@ -1,9 +1,9 @@
-mod camera;
-mod instance;
-mod model;
-mod resources;
+pub mod camera;
+pub mod instance;
+pub mod model;
+pub mod resources;
 pub mod state;
-mod texture;
+pub mod texture;
 
 #[rustfmt::skip]
 const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(

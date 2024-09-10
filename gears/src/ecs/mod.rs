@@ -56,12 +56,26 @@ impl<ComponentType: 'static> ComponentVec for Arc<RwLock<Vec<Option<ComponentTyp
     }
 }
 
-pub struct World {
-    entities_count: Arc<RwLock<usize>>,
-    component_vecs: Arc<Mutex<Vec<Arc<RwLock<Box<dyn ComponentVec>>>>>>,
+pub trait World {
+    fn new() -> Self;
+    fn new_entity(&self) -> usize;
+    fn add_component_to_entity<ComponentType: 'static>(
+        &self,
+        entity: usize,
+        component: ComponentType,
+    );
+    fn borrow_component_vec_mut<ComponentType: 'static>(
+        &self,
+    ) -> Option<Arc<RwLock<Vec<Option<ComponentType>>>>>;
 }
 
-impl fmt::Display for World {
+pub struct GearsWorld {
+    entities_count: Arc<RwLock<usize>>,
+    component_vecs: Arc<Mutex<Vec<Arc<RwLock<Box<dyn ComponentVec>>>>>>,
+    // TODO hashtable for accessing the comnponent vecs by type faster
+}
+
+impl fmt::Display for GearsWorld {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -72,16 +86,16 @@ impl fmt::Display for World {
     }
 }
 
-impl World {
+impl World for GearsWorld {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             entities_count: Arc::new(RwLock::new(0)),
             component_vecs: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    pub fn new_entity(&self) -> usize {
+    fn new_entity(&self) -> usize {
         let mut entities_count = self.entities_count.write().unwrap();
         let mut component_vecs = self.component_vecs.lock().unwrap();
 
@@ -95,7 +109,7 @@ impl World {
         entity_id
     }
 
-    pub fn add_component_to_entity<ComponentType: 'static>(
+    fn add_component_to_entity<ComponentType: 'static>(
         &self,
         entity: usize,
         component: ComponentType,
@@ -132,7 +146,7 @@ impl World {
         )));
     }
 
-    pub fn borrow_component_vec_mut<ComponentType: 'static>(
+    fn borrow_component_vec_mut<ComponentType: 'static>(
         &self,
     ) -> Option<Arc<RwLock<Vec<Option<ComponentType>>>>> {
         for component_vec_lock in self.component_vecs.lock().unwrap().iter() {
@@ -150,77 +164,77 @@ impl World {
     }
 }
 
-pub struct WorldSingle {
-    entities_count: usize,
-    component_vecs: Vec<Box<dyn ComponentVec>>,
-}
+// pub struct WorldSingle {
+//     entities_count: usize,
+//     component_vecs: Vec<Box<dyn ComponentVec>>,
+// }
 
-impl WorldSingle {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self {
-            entities_count: 0,
-            component_vecs: Vec::new(),
-        }
-    }
+// impl WorldSingle {
+//     #[allow(clippy::new_without_default)]
+//     pub fn new() -> Self {
+//         Self {
+//             entities_count: 0,
+//             component_vecs: Vec::new(),
+//         }
+//     }
 
-    pub fn new_entity(&mut self) -> usize {
-        let entity_id = self.entities_count;
+//     pub fn new_entity(&mut self) -> usize {
+//         let entity_id = self.entities_count;
 
-        for component_vec in self.component_vecs.iter_mut() {
-            component_vec.push_none();
-        }
+//         for component_vec in self.component_vecs.iter_mut() {
+//             component_vec.push_none();
+//         }
 
-        self.entities_count += 1;
-        entity_id
-    }
+//         self.entities_count += 1;
+//         entity_id
+//     }
 
-    pub fn add_component_to_entity<ComponentType: 'static>(
-        &mut self,
-        entity: usize,
-        component: ComponentType,
-    ) {
-        // Search for any existing ComponentVecs that match the type of the component being added.
-        for component_vec in self.component_vecs.iter_mut() {
-            if let Some(component_vec) = component_vec
-                .as_any_mut()
-                .downcast_mut::<RefCell<Vec<Option<ComponentType>>>>()
-            {
-                component_vec.borrow_mut()[entity] = Some(component);
-                return;
-            }
-        }
+//     pub fn add_component_to_entity<ComponentType: 'static>(
+//         &mut self,
+//         entity: usize,
+//         component: ComponentType,
+//     ) {
+//         // Search for any existing ComponentVecs that match the type of the component being added.
+//         for component_vec in self.component_vecs.iter_mut() {
+//             if let Some(component_vec) = component_vec
+//                 .as_any_mut()
+//                 .downcast_mut::<RefCell<Vec<Option<ComponentType>>>>()
+//             {
+//                 component_vec.borrow_mut()[entity] = Some(component);
+//                 return;
+//             }
+//         }
 
-        // No matching component storage exists yet, so we have to make one.
-        let mut new_component_vec: Vec<Option<ComponentType>> =
-            Vec::with_capacity(self.entities_count);
+//         // No matching component storage exists yet, so we have to make one.
+//         let mut new_component_vec: Vec<Option<ComponentType>> =
+//             Vec::with_capacity(self.entities_count);
 
-        // All existing entities don't have this component, so we give them `None`
-        for _ in 0..self.entities_count {
-            new_component_vec.push(None);
-        }
+//         // All existing entities don't have this component, so we give them `None`
+//         for _ in 0..self.entities_count {
+//             new_component_vec.push(None);
+//         }
 
-        // Give this Entity the Component.
-        new_component_vec[entity] = Some(component);
-        self.component_vecs
-            .push(Box::new(RefCell::new(new_component_vec)));
-    }
+//         // Give this Entity the Component.
+//         new_component_vec[entity] = Some(component);
+//         self.component_vecs
+//             .push(Box::new(RefCell::new(new_component_vec)));
+//     }
 
-    pub fn borrow_component_vec_mut<ComponentType: 'static>(
-        &self,
-    ) -> Option<RefMut<Vec<Option<ComponentType>>>> {
-        for component_vec in self.component_vecs.iter() {
-            if let Some(component_vec) = component_vec
-                .as_any()
-                .downcast_ref::<RefCell<Vec<Option<ComponentType>>>>()
-            {
-                return Some(component_vec.borrow_mut());
-            }
-        }
+//     pub fn borrow_component_vec_mut<ComponentType: 'static>(
+//         &self,
+//     ) -> Option<RefMut<Vec<Option<ComponentType>>>> {
+//         for component_vec in self.component_vecs.iter() {
+//             if let Some(component_vec) = component_vec
+//                 .as_any()
+//                 .downcast_ref::<RefCell<Vec<Option<ComponentType>>>>()
+//             {
+//                 return Some(component_vec.borrow_mut());
+//             }
+//         }
 
-        None
-    }
-}
+//         None
+//     }
+// }
 
 // pub struct WorldConcurrent {
 //     entities_count: usize,

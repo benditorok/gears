@@ -5,7 +5,7 @@ use winit::{
 };
 
 #[derive(Debug)]
-pub(super) struct Camera {
+pub(crate) struct Camera {
     pub eye: cgmath::Point3<f32>,
     pub target: cgmath::Point3<f32>,
     pub up: cgmath::Vector3<f32>,
@@ -25,7 +25,7 @@ impl Camera {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(super) struct CameraUniform {
+pub(crate) struct CameraUniform {
     pub view_proj: [[f32; 4]; 4],
 }
 
@@ -42,7 +42,7 @@ impl CameraUniform {
     }
 }
 
-pub(super) struct CameraController {
+pub(crate) struct CameraController {
     pub speed: f32,
     pub is_up_pressed: bool,
     pub is_down_pressed: bool,

@@ -1,13 +1,14 @@
 use super::config::{self, Config, LogConfig, LogLevel};
 use super::{event::EventQueue, threadpool::ThreadPool};
-use crate::ecs::World;
+use crate::ecs::{GearsWorld, World};
 use crate::renderer::state;
 use env_logger::Env;
 use log::{info, Log};
+use std::sync::{Arc, Mutex};
 
 pub trait App {
     fn new(config: Config) -> Self;
-    fn map_world(&mut self, world: World);
+    fn map_world(&mut self, world: GearsWorld) -> Arc<Mutex<GearsWorld>>;
     #[allow(async_fn_in_trait)]
     async fn run(&mut self);
 }
@@ -15,7 +16,7 @@ pub trait App {
 /// The main application.
 pub struct GearsApp {
     config: Config,
-    world: World,
+    world: Arc<Mutex<GearsWorld>>,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
@@ -42,13 +43,14 @@ impl App for GearsApp {
             event_queue: EventQueue::new(),
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            world: World::new(),
+            world: Arc::new(Mutex::new(GearsWorld::new())),
         }
     }
 
-    /// Map the world to the app, giving it ownership over the ECS.
-    fn map_world(&mut self, world: World) {
-        self.world = world;
+    /// Map the world to the app.
+    fn map_world(&mut self, world: GearsWorld) -> Arc<Mutex<GearsWorld>> {
+        self.world = Arc::new(Mutex::new(world));
+        Arc::clone(&self.world)
     }
 
     /// Run the application.
@@ -68,6 +70,6 @@ impl App for GearsApp {
         info!("Starting Gears...");
 
         // Run the event loop
-        state::run().await
+        state::run(Arc::clone(&self.world)).await
     }
 }

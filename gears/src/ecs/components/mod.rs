@@ -1,6 +1,4 @@
-use wgpu::core::instance;
-
-use crate::renderer::state;
+use crate::renderer::{instance, model, state};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Position {
@@ -30,16 +28,32 @@ pub enum ModelDataInstance {
     None,
 }
 
+pub struct GearsModelData<'a> {
+    pub file_path: &'a str,
+    pub(crate) model: Option<model::Model>,
+    pub(crate) instance: Option<instance::Instance>,
+    pub(crate) instance_buffer: Option<wgpu::Buffer>,
+}
+
+impl<'a> GearsModelData<'a> {
+    pub fn new(file_path: &'a str) -> Self {
+        Self {
+            file_path,
+            model: None,
+            instance: None,
+            instance_buffer: None,
+        }
+    }
+}
+
 pub struct ModelData<'a> {
-    entity: &'a usize,
     file_path: &'a str,
     instances: ModelDataInstance,
 }
 
 impl<'a> ModelData<'a> {
-    pub fn new(entity: &'a usize, file_path: &'a str) -> Self {
+    pub fn new(file_path: &'a str) -> Self {
         Self {
-            entity,
             file_path,
             instances: ModelDataInstance::None,
         }
