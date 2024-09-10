@@ -24,13 +24,32 @@ impl Position {
 #[derive(Clone, Copy, Debug)]
 pub struct Renderable;
 
-pub struct ModelData<'a> {
-    pub file_path: &'a str,
-    pub instances: ModelDataInstance,
-}
-
 pub enum ModelDataInstance {
     Single(instance::Instance),
     Multiple(Vec<instance::Instance>),
     None,
+}
+
+pub struct ModelData<'a> {
+    entity: &'a usize,
+    file_path: &'a str,
+    instances: ModelDataInstance,
+}
+
+impl<'a> ModelData<'a> {
+    pub fn new(entity: &'a usize, file_path: &'a str) -> Self {
+        Self {
+            entity,
+            file_path,
+            instances: ModelDataInstance::None,
+        }
+    }
+
+    pub fn set_instance(&mut self, instance: instance::Instance) {
+        self.instances = ModelDataInstance::Single(instance);
+    }
+
+    pub fn set_instances(&mut self, instances: Vec<instance::Instance>) {
+        self.instances = ModelDataInstance::Multiple(instances);
+    }
 }
