@@ -33,11 +33,12 @@ fn main() {
     //     .build();
 
     let ecs = ecs::Manager::new();
+
     let entity = ecs.create_entity();
     ecs.add_component(entity, "Hello, ECS!".to_string());
     ecs.add_component(entity, GearsModelData::new("res/models/cube/cube.obj"));
-    ecs.add_component(entity, Position::new(12.0, 30.0, 120.0));
     ecs.add_component(entity, Position::new(1.0, 1.0, 1.0));
+
     if let Some(component) = ecs.get_component::<String>(entity) {
         println!("Entity {:?} has component: {}", entity, component);
     }
@@ -46,6 +47,11 @@ fn main() {
     for (entity, component) in strigns {
         println!("Entity {:?} has a String component: {}", entity, component);
     }
+
+    let entity = ecs.create_entity();
+    ecs.add_component(entity, "Hello, ECS!".to_string());
+    ecs.add_component(entity, GearsModelData::new("res/models/cube/cube.obj"));
+    ecs.add_component(entity, Position::new(2.0, 2.0, 2.0));
 
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);

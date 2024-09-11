@@ -507,99 +507,54 @@ impl<'a> State<'a> {
 
         {
             let ecs_lock = self.ecs.lock().unwrap();
+
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
             for entity in ecs_lock.iter_entities() {
+                if let Some(instance_buffer) = ecs_lock.get_component::<wgpu::Buffer>(entity) {
+                    render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                }
+
                 if let Some(model) = ecs_lock.get_component::<model::Model>(entity) {
-                    if let Some(instance_buffer) = ecs_lock.get_component::<wgpu::Buffer>(entity) {
-                        let mut render_pass =
-                            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                                label: Some("Render Pass"),
-                                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                                    view: &view,
-                                    resolve_target: None,
-                                    ops: wgpu::Operations {
-                                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                                            r: 0.1,
-                                            g: 0.2,
-                                            b: 0.3,
-                                            a: 1.0,
-                                        }),
-                                        store: wgpu::StoreOp::Store,
-                                    },
-                                })],
-                                depth_stencil_attachment: Some(
-                                    wgpu::RenderPassDepthStencilAttachment {
-                                        view: &self.depth_texture.view,
-                                        depth_ops: Some(wgpu::Operations {
-                                            load: wgpu::LoadOp::Clear(1.0),
-                                            store: wgpu::StoreOp::Store,
-                                        }),
-                                        stencil_ops: None,
-                                    },
-                                ),
-                                occlusion_query_set: None,
-                                timestamp_writes: None,
-                            });
+                    let model_ref: &model::Model =
+                        unsafe { &*(model.as_ref() as *const model::Model) };
 
-                        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-                        render_pass.set_pipeline(&self.render_pipeline);
-
-                        render_pass.draw_model_instanced(&model, 0..1u32, &self.camera_bind_group);
-                    }
+                    render_pass.draw_model_instanced(
+                        model_ref,
+                        0..1 as u32,
+                        &self.camera_bind_group,
+                    );
                 }
             }
         }
-
-        //
-        // let mut model_data = self
-        //     .ecs
-        //     .lock()
-        //     .unwrap()
-        //     .borrow_component_vec_mut::<GearsModelData>()
-        //     .unwrap();
-
-        // let mut models = model_data.read().unwrap();
-
-        // for model in models.iter() {
-        //     if let Some(model) = model {
-        //         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //             label: Some("Render Pass"),
-        //             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //                 view: &view,
-        //                 resolve_target: None,
-        //                 ops: wgpu::Operations {
-        //                     load: wgpu::LoadOp::Clear(wgpu::Color {
-        //                         r: 0.1,
-        //                         g: 0.2,
-        //                         b: 0.3,
-        //                         a: 1.0,
-        //                     }),
-        //                     store: wgpu::StoreOp::Store,
-        //                 },
-        //             })],
-        //             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-        //                 view: &self.depth_texture.view,
-        //                 depth_ops: Some(wgpu::Operations {
-        //                     load: wgpu::LoadOp::Clear(1.0),
-        //                     store: wgpu::StoreOp::Store,
-        //                 }),
-        //                 stencil_ops: None,
-        //             }),
-        //             occlusion_query_set: None,
-        //             timestamp_writes: None,
-        //         });
-
-        //         if let Some(instance_buffer) = &model.instance_buffer {
-        //             render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-        //             render_pass.set_pipeline(&self.render_pipeline);
-
-        //             render_pass.draw_model_instanced(
-        //                 &model.model.as_ref().unwrap(),
-        //                 0..1u32,
-        //                 &self.camera_bind_group,
-        //             );
-        //         }
-        //     }
-        // }
 
         self.queue.submit(iter::once(encoder.finish()));
         output.present();
