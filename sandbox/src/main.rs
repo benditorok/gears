@@ -4,7 +4,7 @@ use gears::{
     ecs::{
         components::{GearsModelData, Position},
         utils::EntityBuilder,
-        GearsWorld,
+        GearsWorld, World,
     },
 };
 

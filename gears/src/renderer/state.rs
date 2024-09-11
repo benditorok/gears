@@ -218,7 +218,7 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
-        // Load models and create instances
+        // # START Load models and create instances #
         {
             log::warn!("Loading models and instances");
             let models = world
@@ -234,6 +234,7 @@ impl<'a> State<'a> {
 
             for (idx, model) in models.write().unwrap().iter_mut().enumerate() {
                 if let Some(model) = model {
+                    log::warn!("Loading model: {:?}", model.file_path);
                     let obj_model = resources::load_model(
                         model.file_path,
                         &device,
@@ -246,14 +247,32 @@ impl<'a> State<'a> {
                     model.model = Some(obj_model);
 
                     if let Some(position) = positions.read().unwrap().get(idx).unwrap() {
+                        // log position, with the models name
+                        log::warn!("Model {:?}, position: {:?}", model.file_path, position);
                         model.instance = Some(instance::Instance {
                             position: cgmath::Vector3::new(position.x, position.y, position.z),
                             rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
                         });
                     }
+
+                    if let Some(instance) = &model.instance {
+                        // Convert instances to raw format
+                        let instance_data = instance.to_raw();
+
+                        // Create a buffer for the instances
+                        let instance_buffer =
+                            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: Some("Instance Buffer"),
+                                contents: bytemuck::cast_slice(&[instance_data]),
+                                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                            });
+
+                        model.instance_buffer = Some(instance_buffer);
+                    }
                 }
             }
         }
+        // # Load models and create instances END #
 
         // log::warn!("Load model 1");
         // let obj_model1 = resources::load_model(
@@ -319,15 +338,15 @@ impl<'a> State<'a> {
         //     })
         //     .collect();
 
-        // Convert instances to raw format
-        let instance_data: Vec<InstanceRaw> = instances.iter().map(Instance::to_raw).collect();
+        // // Convert instances to raw format
+        // let instance_data: Vec<InstanceRaw> = instances.iter().map(Instance::to_raw).collect();
 
-        // Create a buffer for the instances
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        });
+        // // Create a buffer for the instances
+        // let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        //     label: Some("Instance Buffer"),
+        //     contents: bytemuck::cast_slice(&instance_data),
+        //     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        // });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader.wgsl"),
@@ -398,14 +417,11 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            obj_models,
             camera,
             camera_controller,
             camera_buffer,
             camera_bind_group,
             camera_uniform,
-            instances,
-            instance_buffer,
             depth_texture,
             window,
             world,
@@ -453,44 +469,96 @@ impl<'a> State<'a> {
                 label: Some("Render Encoder"),
             });
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
+        // {
+        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        //         label: Some("Render Pass"),
+        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+        //             view: &view,
+        //             resolve_target: None,
+        //             ops: wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
+        //                     r: 0.1,
+        //                     g: 0.2,
+        //                     b: 0.3,
+        //                     a: 1.0,
+        //                 }),
+        //                 store: wgpu::StoreOp::Store,
+        //             },
+        //         })],
+        //         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+        //             view: &self.depth_texture.view,
+        //             depth_ops: Some(wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(1.0),
+        //                 store: wgpu::StoreOp::Store,
+        //             }),
+        //             stencil_ops: None,
+        //         }),
+        //         occlusion_query_set: None,
+        //         timestamp_writes: None,
+        //     });
+
+        //     render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+        //     render_pass.set_pipeline(&self.render_pipeline);
+
+        //     // Iterate over the obj_models vector and draw each model
+        //     for obj_model in &self.obj_models {
+        //         render_pass.draw_model_instanced(
+        //             obj_model,
+        //             0..self.instances.len() as u32,
+        //             &self.camera_bind_group,
+        //         );
+        //     }
+        // }
+
+        //
+        let mut model_data = self
+            .world
+            .lock()
+            .unwrap()
+            .borrow_component_vec_mut::<GearsModelData>()
+            .unwrap();
+
+        let mut models = model_data.read().unwrap();
+
+        for model in models.iter() {
+            if let Some(model) = model {
+                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("Render Pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.1,
+                                g: 0.2,
+                                b: 0.3,
+                                a: 1.0,
+                            }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: &self.depth_texture.view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: wgpu::StoreOp::Store,
                         }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
+                        stencil_ops: None,
                     }),
-                    stencil_ops: None,
-                }),
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
+                    occlusion_query_set: None,
+                    timestamp_writes: None,
+                });
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_pipeline(&self.render_pipeline);
+                if let Some(instance_buffer) = &model.instance_buffer {
+                    render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                    render_pass.set_pipeline(&self.render_pipeline);
 
-            // Iterate over the obj_models vector and draw each model
-            for obj_model in &self.obj_models {
-                render_pass.draw_model_instanced(
-                    obj_model,
-                    0..self.instances.len() as u32,
-                    &self.camera_bind_group,
-                );
+                    render_pass.draw_model_instanced(
+                        &model.model.as_ref().unwrap(),
+                        0..1u32,
+                        &self.camera_bind_group,
+                    );
+                }
             }
         }
 
