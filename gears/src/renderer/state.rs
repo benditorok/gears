@@ -5,8 +5,11 @@ use super::{
     model::{self, DrawModel, ModelVertex, Vertex},
     texture::{self, Texture},
 };
+use crate::ecs;
+use crate::ecs::components::{GearsModelData, Position};
 use cgmath::prelude::*;
 use std::iter;
+use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -20,11 +23,11 @@ use winit::{
 /// # Returns
 ///
 /// A future which can be awaited.
-pub async fn run() {
+pub async fn run(world: Arc<Mutex<ecs::Manager>>) {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let mut state = State::new(&window).await;
+    let mut state = State::new(&window, world).await;
 
     event_loop
         .run(move |event, ewlt| match event {
@@ -82,31 +85,25 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    obj_model: model::Model,
     camera: Camera,
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    instances: Vec<Instance>,
     #[allow(dead_code)]
-    instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     window: &'a Window,
+    ecs: Arc<Mutex<ecs::Manager>>,
 }
 
 impl<'a> State<'a> {
-    async fn new(window: &'a Window) -> State<'a> {
+    async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
+        log::warn!("[State] Setup starting...");
         let size = window.inner_size();
 
-        // The instance is a handle to our GPU
-        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
-        log::warn!("WGPU setup");
+        // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
-            #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
             ..Default::default()
         });
 
@@ -120,32 +117,23 @@ impl<'a> State<'a> {
             })
             .await
             .unwrap();
-        log::warn!("device and queue");
+
+        log::warn!("[State] Device and Queue");
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: wgpu::Features::empty(),
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web we'll have to disable some.
-                    required_limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits::default()
-                    },
+                    required_limits: wgpu::Limits::default(),
                     memory_hints: Default::default(),
                 },
-                // Some(&std::path::Path::new("trace")), // Trace path
-                None, // Trace path
+                None,
             )
             .await
             .unwrap();
 
-        log::warn!("Surface");
+        log::warn!("[State] Surface");
         let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an Srgb surface texture. Using a different
-        // one will result all the colors comming out darker. If you want to support non
-        // Srgb surfaces, you'll need to account for that when drawing to the frame.
         let surface_format = surface_caps
             .formats
             .iter()
@@ -206,36 +194,6 @@ impl<'a> State<'a> {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        const SPACE_BETWEEN: f32 = 3.0;
-        let instances = (0..super::NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..super::NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - super::NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - super::NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
-
-                    let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
-
-                    Instance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -260,11 +218,55 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
-        log::warn!("Load model");
-        let obj_model =
-            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
-                .await
-                .unwrap();
+        // # START Load models and create instances #
+        {
+            log::warn!("Loading models and instances");
+
+            let ecs_lock = ecs.lock().unwrap();
+
+            for entity in ecs_lock.iter_entities() {
+                if let Some(model) = ecs_lock.get_component::<GearsModelData>(entity) {
+                    log::warn!("Loading model: {:?}", model.file_path);
+                    let obj_model = resources::load_model(
+                        model.file_path,
+                        &device,
+                        &queue,
+                        &texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap();
+
+                    ecs_lock.add_component(entity, obj_model);
+
+                    if let Some(position) = ecs_lock.get_component::<Position>(entity) {
+                        // log position, with the models name
+                        log::warn!("Model {:?}, position: {:?}", model.file_path, position);
+                        ecs_lock.add_component(
+                            entity,
+                            Instance {
+                                position: cgmath::Vector3::new(position.x, position.y, position.z),
+                                rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+                            },
+                        );
+                    }
+
+                    if let Some(instance) = ecs_lock.get_component::<Instance>(entity) {
+                        // Convert instances to raw format
+                        let instance_data = instance.to_raw();
+
+                        // Create a buffer for the instances
+                        let instance_buffer =
+                            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: Some("Instance Buffer"),
+                                contents: bytemuck::cast_slice(&[instance_data]),
+                                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                            });
+
+                        ecs_lock.add_component(entity, instance_buffer);
+                    }
+                }
+            }
+        }
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader.wgsl"),
@@ -308,12 +310,8 @@ impl<'a> State<'a> {
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                // or Features::POLYGON_MODE_POINT
                 polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
                 unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
@@ -328,10 +326,7 @@ impl<'a> State<'a> {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            // If the pipeline will be used with a multiview render pass, this
-            // indicates how many array layers the attachments will have.
             multiview: None,
-            // Useful for optimizing shader compilation on Android
             cache: None,
         });
 
@@ -342,16 +337,14 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            obj_model,
             camera,
             camera_controller,
             camera_buffer,
             camera_bind_group,
             camera_uniform,
-            instances,
-            instance_buffer,
             depth_texture,
             window,
+            ecs,
         }
     }
 
@@ -376,9 +369,7 @@ impl<'a> State<'a> {
 
     fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-        log::info!("{:?}", self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
-        log::info!("{:?}", self.camera_uniform);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -399,6 +390,8 @@ impl<'a> State<'a> {
             });
 
         {
+            let ecs_lock = self.ecs.lock().unwrap();
+
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -426,13 +419,22 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.draw_model_instanced(
-                &self.obj_model,
-                0..self.instances.len() as u32,
-                &self.camera_bind_group,
-            );
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
+            for entity in ecs_lock.iter_entities() {
+                if let Some(instance_buffer) = ecs_lock.get_component::<wgpu::Buffer>(entity) {
+                    render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                }
+
+                if let Some(model) = ecs_lock.get_component::<model::Model>(entity) {
+                    /* UNSAFE REF TO MODEL */
+                    let model_ref: &model::Model =
+                        unsafe { &*(model.as_ref() as *const model::Model) };
+
+                    render_pass.draw_model_instanced(model_ref, 0..1, &self.camera_bind_group);
+                }
+            }
         }
 
         self.queue.submit(iter::once(encoder.finish()));

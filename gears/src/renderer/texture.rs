@@ -1,7 +1,7 @@
 use anyhow::*;
 use image::GenericImageView;
 
-pub(super) struct Texture {
+pub(crate) struct Texture {
     #[allow(unused)]
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -53,7 +53,6 @@ impl Texture {
         }
     }
 
-    #[allow(dead_code)]
     pub fn from_bytes(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
