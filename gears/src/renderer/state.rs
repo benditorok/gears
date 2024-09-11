@@ -5,8 +5,8 @@ use super::{
     model::{self, DrawModel, ModelVertex, Vertex},
     texture::{self, Texture},
 };
+use crate::ecs;
 use crate::ecs::components::{GearsModelData, Position};
-use crate::ecs::{GearsWorld, World};
 use cgmath::prelude::*;
 use std::iter;
 use std::sync::{Arc, Mutex};
@@ -23,7 +23,7 @@ use winit::{
 /// # Returns
 ///
 /// A future which can be awaited.
-pub async fn run(world: Arc<Mutex<GearsWorld>>) {
+pub async fn run(world: Arc<Mutex<ecs::Manager>>) {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
@@ -93,11 +93,11 @@ struct State<'a> {
     #[allow(dead_code)]
     depth_texture: texture::Texture,
     window: &'a Window,
-    world: Arc<Mutex<GearsWorld>>,
+    ecs: Arc<Mutex<ecs::Manager>>,
 }
 
 impl<'a> State<'a> {
-    async fn new(window: &'a Window, world: Arc<Mutex<GearsWorld>>) -> State<'a> {
+    async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
         log::warn!("[State] Setup starting...");
         let size = window.inner_size();
 
@@ -221,19 +221,11 @@ impl<'a> State<'a> {
         // # START Load models and create instances #
         {
             log::warn!("Loading models and instances");
-            let models = world
-                .lock()
-                .unwrap()
-                .borrow_component_vec_mut::<GearsModelData>()
-                .unwrap();
-            let positions = world
-                .lock()
-                .unwrap()
-                .borrow_component_vec_mut::<Position>()
-                .unwrap();
 
-            for (idx, model) in models.write().unwrap().iter_mut().enumerate() {
-                if let Some(model) = model {
+            let ecs_lock = ecs.lock().unwrap();
+
+            for entity in ecs_lock.iter_entities() {
+                if let Some(model) = ecs_lock.get_component::<GearsModelData>(entity) {
                     log::warn!("Loading model: {:?}", model.file_path);
                     let obj_model = resources::load_model(
                         model.file_path,
@@ -244,18 +236,21 @@ impl<'a> State<'a> {
                     .await
                     .unwrap();
 
-                    model.model = Some(obj_model);
+                    ecs_lock.add_component(entity, obj_model);
 
-                    if let Some(position) = positions.read().unwrap().get(idx).unwrap() {
+                    if let Some(position) = ecs_lock.get_component::<Position>(entity) {
                         // log position, with the models name
                         log::warn!("Model {:?}, position: {:?}", model.file_path, position);
-                        model.instance = Some(instance::Instance {
-                            position: cgmath::Vector3::new(position.x, position.y, position.z),
-                            rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-                        });
+                        ecs_lock.add_component(
+                            entity,
+                            Instance {
+                                position: cgmath::Vector3::new(position.x, position.y, position.z),
+                                rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+                            },
+                        );
                     }
 
-                    if let Some(instance) = &model.instance {
+                    if let Some(instance) = ecs_lock.get_component::<Instance>(entity) {
                         // Convert instances to raw format
                         let instance_data = instance.to_raw();
 
@@ -267,7 +262,7 @@ impl<'a> State<'a> {
                                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                             });
 
-                        model.instance_buffer = Some(instance_buffer);
+                        ecs_lock.add_component(entity, instance_buffer);
                     }
                 }
             }
@@ -424,7 +419,7 @@ impl<'a> State<'a> {
             camera_uniform,
             depth_texture,
             window,
-            world,
+            ecs,
         }
     }
 
@@ -510,57 +505,101 @@ impl<'a> State<'a> {
         //     }
         // }
 
-        //
-        let mut model_data = self
-            .world
-            .lock()
-            .unwrap()
-            .borrow_component_vec_mut::<GearsModelData>()
-            .unwrap();
+        {
+            let ecs_lock = self.ecs.lock().unwrap();
+            for entity in ecs_lock.iter_entities() {
+                if let Some(model) = ecs_lock.get_component::<model::Model>(entity) {
+                    if let Some(instance_buffer) = ecs_lock.get_component::<wgpu::Buffer>(entity) {
+                        let mut render_pass =
+                            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                                label: Some("Render Pass"),
+                                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                                    view: &view,
+                                    resolve_target: None,
+                                    ops: wgpu::Operations {
+                                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                                            r: 0.1,
+                                            g: 0.2,
+                                            b: 0.3,
+                                            a: 1.0,
+                                        }),
+                                        store: wgpu::StoreOp::Store,
+                                    },
+                                })],
+                                depth_stencil_attachment: Some(
+                                    wgpu::RenderPassDepthStencilAttachment {
+                                        view: &self.depth_texture.view,
+                                        depth_ops: Some(wgpu::Operations {
+                                            load: wgpu::LoadOp::Clear(1.0),
+                                            store: wgpu::StoreOp::Store,
+                                        }),
+                                        stencil_ops: None,
+                                    },
+                                ),
+                                occlusion_query_set: None,
+                                timestamp_writes: None,
+                            });
 
-        let mut models = model_data.read().unwrap();
+                        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                        render_pass.set_pipeline(&self.render_pipeline);
 
-        for model in models.iter() {
-            if let Some(model) = model {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Render Pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.1,
-                                g: 0.2,
-                                b: 0.3,
-                                a: 1.0,
-                            }),
-                            store: wgpu::StoreOp::Store,
-                        },
-                    })],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: &self.depth_texture.view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: wgpu::StoreOp::Store,
-                        }),
-                        stencil_ops: None,
-                    }),
-                    occlusion_query_set: None,
-                    timestamp_writes: None,
-                });
-
-                if let Some(instance_buffer) = &model.instance_buffer {
-                    render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-                    render_pass.set_pipeline(&self.render_pipeline);
-
-                    render_pass.draw_model_instanced(
-                        &model.model.as_ref().unwrap(),
-                        0..1u32,
-                        &self.camera_bind_group,
-                    );
+                        render_pass.draw_model_instanced(&model, 0..1u32, &self.camera_bind_group);
+                    }
                 }
             }
         }
+
+        //
+        // let mut model_data = self
+        //     .ecs
+        //     .lock()
+        //     .unwrap()
+        //     .borrow_component_vec_mut::<GearsModelData>()
+        //     .unwrap();
+
+        // let mut models = model_data.read().unwrap();
+
+        // for model in models.iter() {
+        //     if let Some(model) = model {
+        //         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        //             label: Some("Render Pass"),
+        //             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+        //                 view: &view,
+        //                 resolve_target: None,
+        //                 ops: wgpu::Operations {
+        //                     load: wgpu::LoadOp::Clear(wgpu::Color {
+        //                         r: 0.1,
+        //                         g: 0.2,
+        //                         b: 0.3,
+        //                         a: 1.0,
+        //                     }),
+        //                     store: wgpu::StoreOp::Store,
+        //                 },
+        //             })],
+        //             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+        //                 view: &self.depth_texture.view,
+        //                 depth_ops: Some(wgpu::Operations {
+        //                     load: wgpu::LoadOp::Clear(1.0),
+        //                     store: wgpu::StoreOp::Store,
+        //                 }),
+        //                 stencil_ops: None,
+        //             }),
+        //             occlusion_query_set: None,
+        //             timestamp_writes: None,
+        //         });
+
+        //         if let Some(instance_buffer) = &model.instance_buffer {
+        //             render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+        //             render_pass.set_pipeline(&self.render_pipeline);
+
+        //             render_pass.draw_model_instanced(
+        //                 &model.model.as_ref().unwrap(),
+        //                 0..1u32,
+        //                 &self.camera_bind_group,
+        //             );
+        //         }
+        //     }
+        // }
 
         self.queue.submit(iter::once(encoder.finish()));
         output.present();

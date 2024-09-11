@@ -1,4 +1,4 @@
-use super::{GearsWorld, World};
+use super::GearsWorld;
 
 /// Builder for creating entities.
 pub struct EntityBuilder<'a> {
