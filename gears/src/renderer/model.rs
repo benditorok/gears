@@ -62,7 +62,7 @@ pub(crate) struct Model {
     pub materials: Vec<Material>,
 }
 
-pub trait DrawModel<'a> {
+pub(crate) trait DrawModel<'a> {
     #[allow(unused)]
     fn draw_mesh(
         &mut self,

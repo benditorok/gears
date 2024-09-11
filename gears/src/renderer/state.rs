@@ -267,81 +267,6 @@ impl<'a> State<'a> {
                 }
             }
         }
-        // # Load models and create instances END #
-
-        // log::warn!("Load model 1");
-        // let obj_model1 = resources::load_model(
-        //     "res/models/cube/cube.obj",
-        //     &device,
-        //     &queue,
-        //     &texture_bind_group_layout,
-        // )
-        // .await
-        // .unwrap();
-
-        // log::warn!("Load model 1");
-        // let obj_model1 = resources::load_model(
-        //     "cube.obj",
-        //     "res/models/cube",
-        //     &device,
-        //     &queue,
-        //     &texture_bind_group_layout,
-        // )
-        // .await
-        // .unwrap();
-
-        // log::warn!("Load model 2");
-        // let obj_model2 = resources::load_model(
-        //     "cube.obj",
-        //     "res/models/cube",
-        //     &device,
-        //     &queue,
-        //     &texture_bind_group_layout,
-        // )
-        // .await
-        // .unwrap();
-
-        // log::warn!("Load model 3");
-        // let obj_model3 = resources::load_model(
-        //     "cube.obj",
-        //     "res/models/cube",
-        //     &device,
-        //     &queue,
-        //     &texture_bind_group_layout,
-        // )
-        // .await
-        // .unwrap();
-
-        //et obj_models = vec![obj_model1];
-        // let obj_models = vec![obj_model1, obj_model2, obj_model3];
-
-        // Create instances for each model
-        // let mut instances = Vec::new();
-
-        // for i in 0..=10 {
-        //     instances.push(Instance {
-        //         position: cgmath::Vector3::new(0.0, i as f32 * 2.0, 0.0), // Adjust the y position
-        //         rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-        //     })
-        // }
-        // let instances: Vec<Instance> = obj_models
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(i, _)| Instance {
-        //         position: cgmath::Vector3::new(0.0, i as f32 * 2.0, 0.0), // Adjust the y position
-        //         rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-        //     })
-        //     .collect();
-
-        // // Convert instances to raw format
-        // let instance_data: Vec<InstanceRaw> = instances.iter().map(Instance::to_raw).collect();
-
-        // // Create a buffer for the instances
-        // let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Instance Buffer"),
-        //     contents: bytemuck::cast_slice(&instance_data),
-        //     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        // });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader.wgsl"),
@@ -464,47 +389,6 @@ impl<'a> State<'a> {
                 label: Some("Render Encoder"),
             });
 
-        // {
-        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         label: Some("Render Pass"),
-        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //             view: &view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
-        //                     r: 0.1,
-        //                     g: 0.2,
-        //                     b: 0.3,
-        //                     a: 1.0,
-        //                 }),
-        //                 store: wgpu::StoreOp::Store,
-        //             },
-        //         })],
-        //         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-        //             view: &self.depth_texture.view,
-        //             depth_ops: Some(wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(1.0),
-        //                 store: wgpu::StoreOp::Store,
-        //             }),
-        //             stencil_ops: None,
-        //         }),
-        //         occlusion_query_set: None,
-        //         timestamp_writes: None,
-        //     });
-
-        //     render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-        //     render_pass.set_pipeline(&self.render_pipeline);
-
-        //     // Iterate over the obj_models vector and draw each model
-        //     for obj_model in &self.obj_models {
-        //         render_pass.draw_model_instanced(
-        //             obj_model,
-        //             0..self.instances.len() as u32,
-        //             &self.camera_bind_group,
-        //         );
-        //     }
-        // }
-
         {
             let ecs_lock = self.ecs.lock().unwrap();
 
@@ -544,14 +428,11 @@ impl<'a> State<'a> {
                 }
 
                 if let Some(model) = ecs_lock.get_component::<model::Model>(entity) {
+                    /* UNSAFE REF TO MODEL */
                     let model_ref: &model::Model =
                         unsafe { &*(model.as_ref() as *const model::Model) };
 
-                    render_pass.draw_model_instanced(
-                        model_ref,
-                        0..1 as u32,
-                        &self.camera_bind_group,
-                    );
+                    render_pass.draw_model_instanced(model_ref, 0..1, &self.camera_bind_group);
                 }
             }
         }

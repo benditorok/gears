@@ -1,5 +1,4 @@
 use super::{model, texture};
-use cfg_if::cfg_if;
 use std::{
     io::{BufReader, Cursor},
     path::Path,

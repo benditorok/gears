@@ -53,6 +53,16 @@ fn main() {
     ecs.add_component(entity, GearsModelData::new("res/models/cube/cube.obj"));
     ecs.add_component(entity, Position::new(2.0, 2.0, 2.0));
 
+    let entity = ecs.create_entity();
+    ecs.add_component(entity, "Hello, ECS!".to_string());
+    ecs.add_component(entity, GearsModelData::new("res/models/cube/cube.obj"));
+    ecs.add_component(entity, Position::new(10.0, -10.0, 10.0));
+
+    let entity = ecs.create_entity();
+    ecs.add_component(entity, "Hello, ECS!".to_string());
+    ecs.add_component(entity, GearsModelData::new("res/models/cube/cube.obj"));
+    ecs.add_component(entity, Position::new(5.0, -5.0, 5.0));
+
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
 
