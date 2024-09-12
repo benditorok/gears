@@ -48,10 +48,10 @@ fn main() {
         println!("Entity {:?} has a String component: {}", entity, component);
     }
 
-    let entity = ecs.create_entity();
-    ecs.add_component_to_entity(entity, "Hello, ECS!".to_string());
-    ecs.add_component_to_entity(entity, GearsModelData::new("res/models/cube/cube.obj"));
-    ecs.add_component_to_entity(entity, Position::new(2.0, 2.0, 2.0));
+    // let entity = ecs.create_entity();
+    // ecs.add_component_to_entity(entity, "Hello, ECS!".to_string());
+    // ecs.add_component_to_entity(entity, GearsModelData::new("res/models/cube/cube.obj"));
+    // ecs.add_component_to_entity(entity, Position::new(2.0, 2.0, 2.0));
 
     let entity = ecs.create_entity();
     ecs.add_component_to_entity(entity, "Hello, ECS!".to_string());
@@ -62,6 +62,11 @@ fn main() {
     ecs.add_component_to_entity(entity, "Hello, ECS!".to_string());
     ecs.add_component_to_entity(entity, GearsModelData::new("res/models/cube/cube.obj"));
     ecs.add_component_to_entity(entity, Position::new(5.0, -5.0, 5.0));
+
+    let entity = ecs.create_entity();
+    ecs.add_component_to_entity(entity, "SPHERE".to_string());
+    ecs.add_component_to_entity(entity, GearsModelData::new("res/models/sphere/sphere.obj"));
+    ecs.add_component_to_entity(entity, Position::new(0.0, 0.0, 0.0));
 
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
