@@ -11,7 +11,7 @@ opt-level = 0
 rustflags = ["-Z", "threads=8"]
 
 [workspace.dependencies]
-futures = "0.3.30"
+tokio = { version = "1.40.0", features = ["full"] }
 anyhow = "1.0"
 cfg-if = "1"
 instant = "0.1"

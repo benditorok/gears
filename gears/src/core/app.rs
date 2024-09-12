@@ -8,7 +8,8 @@ pub trait App {
     fn new(config: Config) -> Self;
     fn map_ecs(&mut self, ecs: ecs::Manager) -> Arc<Mutex<ecs::Manager>>;
     #[allow(async_fn_in_trait)]
-    async fn run(&mut self);
+    async fn run(&mut self) -> anyhow::Result<()>;
+    // TODO add a create job fn to access the thread pool
 }
 
 /// The main application.
@@ -52,7 +53,7 @@ impl App for GearsApp {
     }
 
     /// Run the application.
-    async fn run(&mut self) {
+    async fn run(&mut self) -> anyhow::Result<()> {
         // Initialize logger
         let mut env_builder = env_logger::Builder::new();
         // Set the minimum log level from the config.

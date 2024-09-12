@@ -1,14 +1,14 @@
-use futures::executor::block_on;
 use gears::prelude::*;
 use rand::Rng;
 use std::sync::Arc;
-use std::thread;
+use std::{any, thread};
 
 pub struct Health(i32);
 
 pub struct Name(&'static str);
 
-fn main() {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let ecs = ecs::Manager::new();
 
     // Cube 1
@@ -78,37 +78,37 @@ fn main() {
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
 
-    // let ecs_clone = Arc::clone(&ecs);
-
-    // thread::spawn(move || {
-    //     let mut rng = rand::thread_rng();
-    //     loop {
-    //         {
-    //             let ecs = ecs_clone.lock().unwrap();
-
-    //             let entity = ecs.create_entity();
-    //             ecs.add_component_to_entity(entity, "SPHERE".to_string());
-    //             ecs.add_component_to_entity(
-    //                 entity,
-    //                 components::GearsModelData::new("res/models/sphere/v2/sphere.obj"),
-    //             );
-    //             // add a randdom position to them in the range of -20 to 20
-    //             ecs.add_component_to_entity(
-    //                 entity,
-    //                 components::Position::new(
-    //                     rng.gen::<f32>() * 40.0 - 20.0,
-    //                     rng.gen::<f32>() * 40.0 - 20.0,
-    //                     rng.gen::<f32>() * 40.0 - 20.0,
-    //                 ),
-    //             );
-    //         }
-
-    //         thread::sleep(std::time::Duration::from_secs(1));
-    //     }
-    // });
-
-    block_on(app.run());
+    app.run().await
 }
+
+// let ecs_clone = Arc::clone(&ecs);
+
+// thread::spawn(move || {
+//     let mut rng = rand::thread_rng();
+//     loop {
+//         {
+//             let ecs = ecs_clone.lock().unwrap();
+
+//             let entity = ecs.create_entity();
+//             ecs.add_component_to_entity(entity, "SPHERE".to_string());
+//             ecs.add_component_to_entity(
+//                 entity,
+//                 components::GearsModelData::new("res/models/sphere/v2/sphere.obj"),
+//             );
+//             // add a randdom position to them in the range of -20 to 20
+//             ecs.add_component_to_entity(
+//                 entity,
+//                 components::Position::new(
+//                     rng.gen::<f32>() * 40.0 - 20.0,
+//                     rng.gen::<f32>() * 40.0 - 20.0,
+//                     rng.gen::<f32>() * 40.0 - 20.0,
+//                 ),
+//             );
+//         }
+
+//         thread::sleep(std::time::Duration::from_secs(1));
+//     }
+// });
 
 // //run_sample_code();
 
