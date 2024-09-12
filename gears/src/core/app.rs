@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 pub trait App {
     fn new(config: Config) -> Self;
-    fn map_ecs(&mut self, ecs: ecs::Manager) -> Arc<Mutex<ecs::Manager>>;
+    fn map_ecs(&mut self, ecs: ecs::EntityManager) -> Arc<Mutex<ecs::EntityManager>>;
     #[allow(async_fn_in_trait)]
     async fn run(&mut self);
 }
@@ -16,7 +16,7 @@ pub trait App {
 /// The main application.
 pub struct GearsApp {
     config: Config,
-    world: Arc<Mutex<ecs::Manager>>,
+    world: Arc<Mutex<ecs::EntityManager>>,
     thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
@@ -43,12 +43,12 @@ impl App for GearsApp {
             event_queue: EventQueue::new(),
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            world: Arc::new(Mutex::new(ecs::Manager::new())),
+            world: Arc::new(Mutex::new(ecs::EntityManager::new())),
         }
     }
 
     /// Map the world to the app.
-    fn map_ecs(&mut self, world: ecs::Manager) -> Arc<Mutex<ecs::Manager>> {
+    fn map_ecs(&mut self, world: ecs::EntityManager) -> Arc<Mutex<ecs::EntityManager>> {
         self.world = Arc::new(Mutex::new(world));
         Arc::clone(&self.world)
     }

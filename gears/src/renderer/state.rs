@@ -23,7 +23,7 @@ use winit::{
 /// # Returns
 ///
 /// A future which can be awaited.
-pub async fn run(world: Arc<Mutex<ecs::Manager>>) {
+pub async fn run(world: Arc<Mutex<ecs::EntityManager>>) {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
@@ -93,11 +93,11 @@ struct State<'a> {
     #[allow(dead_code)]
     depth_texture: texture::Texture,
     window: &'a Window,
-    ecs: Arc<Mutex<ecs::Manager>>,
+    ecs: Arc<Mutex<ecs::EntityManager>>,
 }
 
 impl<'a> State<'a> {
-    async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
+    async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::EntityManager>>) -> State<'a> {
         log::warn!("[State] Setup starting...");
         let size = window.inner_size();
 
@@ -225,7 +225,7 @@ impl<'a> State<'a> {
             let ecs_lock = ecs.lock().unwrap();
 
             for entity in ecs_lock.iter_entities() {
-                if let Some(model) = ecs_lock.get_component::<GearsModelData>(entity) {
+                if let Some(model) = ecs_lock.get_component_from_entity::<GearsModelData>(entity) {
                     log::warn!("Loading model: {:?}", model.file_path);
                     let obj_model = resources::load_model(
                         model.file_path,
@@ -236,12 +236,12 @@ impl<'a> State<'a> {
                     .await
                     .unwrap();
 
-                    ecs_lock.add_component(entity, obj_model);
+                    ecs_lock.add_component_to_entity(entity, obj_model);
 
-                    if let Some(position) = ecs_lock.get_component::<Position>(entity) {
+                    if let Some(position) = ecs_lock.get_component_from_entity::<Position>(entity) {
                         // log position, with the models name
                         log::warn!("Model {:?}, position: {:?}", model.file_path, position);
-                        ecs_lock.add_component(
+                        ecs_lock.add_component_to_entity(
                             entity,
                             Instance {
                                 position: cgmath::Vector3::new(position.x, position.y, position.z),
@@ -250,7 +250,7 @@ impl<'a> State<'a> {
                         );
                     }
 
-                    if let Some(instance) = ecs_lock.get_component::<Instance>(entity) {
+                    if let Some(instance) = ecs_lock.get_component_from_entity::<Instance>(entity) {
                         // Convert instances to raw format
                         let instance_data = instance.to_raw();
 
@@ -262,7 +262,7 @@ impl<'a> State<'a> {
                                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                             });
 
-                        ecs_lock.add_component(entity, instance_buffer);
+                        ecs_lock.add_component_to_entity(entity, instance_buffer);
                     }
                 }
             }
@@ -423,11 +423,13 @@ impl<'a> State<'a> {
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
             for entity in ecs_lock.iter_entities() {
-                if let Some(instance_buffer) = ecs_lock.get_component::<wgpu::Buffer>(entity) {
+                if let Some(instance_buffer) =
+                    ecs_lock.get_component_from_entity::<wgpu::Buffer>(entity)
+                {
                     render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
                 }
 
-                if let Some(model) = ecs_lock.get_component::<model::Model>(entity) {
+                if let Some(model) = ecs_lock.get_component_from_entity::<model::Model>(entity) {
                     /* UNSAFE REF TO MODEL */
                     let model_ref: &model::Model =
                         unsafe { &*(model.as_ref() as *const model::Model) };

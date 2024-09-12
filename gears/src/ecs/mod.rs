@@ -3,24 +3,28 @@ pub mod components;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(u32);
 
-pub struct Manager {
+/// Entity component system manager.
+pub struct EntityManager {
     entities: RwLock<HashMap<Entity, HashMap<TypeId, Arc<dyn Any + Send + Sync>>>>,
     next_entity: AtomicU32,
 }
 
-impl Manager {
+impl EntityManager {
+    #[allow(clippy::new_without_default)]
+    /// Create a new EntityManager.
     pub fn new() -> Self {
-        Manager {
+        EntityManager {
             entities: RwLock::new(HashMap::new()),
             next_entity: AtomicU32::new(0),
         }
     }
 
+    /// Create a new entity and return it.
     pub fn create_entity(&self) -> Entity {
         let id = self.next_entity.fetch_add(1, Ordering::SeqCst);
         let entity = Entity(id);
@@ -31,13 +35,18 @@ impl Manager {
         entity
     }
 
-    pub fn add_component<T: 'static + Send + Sync>(&self, entity: Entity, component: T) {
+    /// Add a component of a specific type to a specific entity.
+    pub fn add_component_to_entity<T: 'static + Send + Sync>(&self, entity: Entity, component: T) {
         if let Some(components) = self.entities.write().unwrap().get_mut(&entity) {
             components.insert(TypeId::of::<T>(), Arc::new(component));
         }
     }
 
-    pub fn get_component<T: 'static + Send + Sync>(&self, entity: Entity) -> Option<Arc<T>> {
+    ///Get a component of a specific type for a specific entity.
+    pub fn get_component_from_entity<T: 'static + Send + Sync>(
+        &self,
+        entity: Entity,
+    ) -> Option<Arc<T>> {
         self.entities
             .write()
             .unwrap()
@@ -48,6 +57,8 @@ impl Manager {
                     .and_then(|component| component.clone().downcast::<T>().ok())
             })
     }
+
+    /// Get an iterator over the entities currently in the EntityManager.
     pub fn iter_entities(&self) -> impl Iterator<Item = Entity> + '_ {
         self.entities
             .read()
@@ -58,6 +69,7 @@ impl Manager {
             .into_iter()
     }
 
+    /// Get all components of a specific type currently in the EntityManager.
     pub fn get_all_components_of_type<T: 'static + Send + Sync>(&self) -> Vec<(Entity, Arc<T>)> {
         let mut result = Vec::new();
         for (entity, components) in self.entities.write().unwrap().iter() {
