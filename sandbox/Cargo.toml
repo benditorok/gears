@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 gears = { path = "../gears" }
 futures = { workspace = true }
+rand = { workspace = true }
 
 [[bin]]
 name = "sandbox"

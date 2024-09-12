@@ -25,3 +25,4 @@ tobj = { version = "3.2.1", features = [
     "async",
 ]}
 image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
+rand = "0.8"

@@ -4,6 +4,8 @@ use gears::{
     core::app::{self, App},
     ecs::components::{GearsModelData, Position},
 };
+use rand::random;
+use rand::Rng;
 
 pub struct Health(i32);
 
@@ -70,6 +72,24 @@ fn main() {
         GearsModelData::new("res/models/sphere/v2/sphere.obj"),
     );
     ecs.add_component_to_entity(entity, Position::new(0.0, 0.0, 0.0));
+
+    for i in 0..=20 {
+        let entity = ecs.create_entity();
+        ecs.add_component_to_entity(entity, "SPHERE".to_string());
+        ecs.add_component_to_entity(
+            entity,
+            GearsModelData::new("res/models/sphere/v2/sphere.obj"),
+        );
+        // add a randdom position to them in the range of -20 to 20
+        ecs.add_component_to_entity(
+            entity,
+            Position::new(
+                rand::random::<f32>() * 40.0 - 20.0,
+                rand::random::<f32>() * 40.0 - 20.0,
+                rand::random::<f32>() * 40.0 - 20.0,
+            ),
+        );
+    }
 
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
