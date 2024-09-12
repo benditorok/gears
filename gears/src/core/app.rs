@@ -9,6 +9,7 @@ pub trait App {
     fn map_ecs(&mut self, ecs: ecs::Manager) -> Arc<Mutex<ecs::Manager>>;
     #[allow(async_fn_in_trait)]
     async fn run(&mut self) -> anyhow::Result<()>;
+
     // TODO add a create job fn to access the thread pool
 }
 
@@ -16,7 +17,7 @@ pub trait App {
 pub struct GearsApp {
     config: Config,
     world: Arc<Mutex<ecs::Manager>>,
-    thread_pool: ThreadPool,
+    pub thread_pool: ThreadPool,
     event_queue: EventQueue,
 }
 

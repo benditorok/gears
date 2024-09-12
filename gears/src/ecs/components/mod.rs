@@ -1,6 +1,6 @@
 use crate::renderer::{instance, model};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
     pub x: f32,
     pub y: f32,

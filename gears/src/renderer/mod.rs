@@ -59,7 +59,12 @@ pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
                             state.resize(*physical_size);
                         }
                         WindowEvent::RedrawRequested => {
-                            state.update();
+                            // Block on update, which *needs* to be awaited.
+                            {
+                                // let handle = tokio::runtime::Handle::current();
+                                // handle.enter();
+                                futures::executor::block_on(state.update());
+                            }
 
                             match state.render() {
                                 Ok(_) => {}
@@ -94,7 +99,6 @@ struct State<'a> {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
-    //texture_bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
     camera_controller: camera::CameraController,
@@ -259,23 +263,24 @@ impl<'a> State<'a> {
                                 rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
                             },
                         );
-                    }
 
-                    if let Some(instance) =
-                        ecs_lock.get_component_from_entity::<instance::Instance>(entity)
-                    {
-                        // Convert instances to raw format
-                        let instance_data = instance.to_raw();
+                        if let Some(instance) =
+                            ecs_lock.get_component_from_entity::<instance::Instance>(entity)
+                        {
+                            // Convert instances to raw format
+                            let instance_data = instance.to_raw();
 
-                        // Create a buffer for the instances
-                        let instance_buffer =
-                            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                label: Some("Instance Buffer"),
-                                contents: bytemuck::cast_slice(&[instance_data]),
-                                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                            });
+                            // Create a buffer for the instances
+                            let instance_buffer =
+                                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                    label: Some("Instance Buffer"),
+                                    contents: bytemuck::cast_slice(&[instance_data]),
+                                    usage: wgpu::BufferUsages::VERTEX
+                                        | wgpu::BufferUsages::COPY_DST,
+                                });
 
-                        ecs_lock.add_component_to_entity(entity, instance_buffer);
+                            ecs_lock.add_component_to_entity(entity, instance_buffer);
+                        }
                     }
                 }
             }
@@ -367,7 +372,6 @@ impl<'a> State<'a> {
             queue,
             config,
             size,
-            // texture_bind_group_layout,
             render_pipeline,
             camera,
             camera_controller,
@@ -399,7 +403,7 @@ impl<'a> State<'a> {
         self.camera_controller.process_events(event)
     }
 
-    fn update(&mut self) {
+    async fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
@@ -407,6 +411,42 @@ impl<'a> State<'a> {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
+
+        // Update positions and instace buffers
+        {
+            let ecs_lock = self.ecs.lock().unwrap();
+
+            for entity in ecs_lock.iter_entities() {
+                if let Some(position) = ecs_lock.get_component_from_entity::<Pos3>(entity) {
+                    ecs_lock.upsert_component_to_entity(
+                        entity,
+                        instance::Instance {
+                            position: cgmath::Vector3::new(position.x, position.y, position.z),
+                            rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+                        },
+                    );
+
+                    if let Some(instance) =
+                        ecs_lock.get_component_from_entity::<instance::Instance>(entity)
+                    {
+                        // Convert instances to raw format
+                        let instance_data = instance.to_raw();
+
+                        // Create a buffer for the instances
+                        let instance_buffer =
+                            self.device
+                                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                    label: Some("Instance Buffer"),
+                                    contents: bytemuck::cast_slice(&[instance_data]),
+                                    usage: wgpu::BufferUsages::VERTEX
+                                        | wgpu::BufferUsages::COPY_DST,
+                                });
+
+                        ecs_lock.upsert_component_to_entity(entity, instance_buffer);
+                    }
+                }
+            }
+        }
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
