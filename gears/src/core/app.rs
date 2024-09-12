@@ -1,7 +1,6 @@
 use super::config::{self, Config, LogConfig, LogLevel};
 use super::{event::EventQueue, threadpool::ThreadPool};
-use crate::ecs;
-use crate::renderer::state;
+use crate::{ecs, renderer};
 use log::info;
 use std::sync::{Arc, Mutex};
 
@@ -69,6 +68,6 @@ impl App for GearsApp {
         info!("Starting Gears...");
 
         // Run the event loop
-        state::run(Arc::clone(&self.world)).await
+        renderer::run(Arc::clone(&self.world)).await
     }
 }

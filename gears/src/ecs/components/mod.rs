@@ -1,4 +1,4 @@
-use crate::renderer::{instance, model, state};
+use crate::renderer::{instance, model};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Pos3 {
