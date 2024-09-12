@@ -5,21 +5,21 @@ use std::{
 };
 use wgpu::util::DeviceExt;
 
-pub async fn load_string(file_path: &str) -> anyhow::Result<String> {
+pub(crate) async fn load_string(file_path: &str) -> anyhow::Result<String> {
     let path = std::path::Path::new(env!("OUT_DIR")).join(file_path);
     let txt = std::fs::read_to_string(path)?;
 
     Ok(txt)
 }
 
-pub async fn load_binary(file_path: &str) -> anyhow::Result<Vec<u8>> {
+pub(crate) async fn load_binary(file_path: &str) -> anyhow::Result<Vec<u8>> {
     let path = std::path::Path::new(env!("OUT_DIR")).join(file_path);
     let data = std::fs::read(path)?;
 
     Ok(data)
 }
 
-pub async fn load_texture(
+pub(crate) async fn load_texture(
     file_path: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -29,7 +29,7 @@ pub async fn load_texture(
     texture::Texture::from_bytes(device, queue, &data, file_path)
 }
 
-pub async fn load_model(
+pub(crate) async fn load_model(
     file_path: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
