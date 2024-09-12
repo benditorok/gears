@@ -10,7 +10,7 @@ pub struct Entity(u32);
 
 /// Entity component system manager.
 pub struct Manager {
-    entities: RwLock<HashMap<Entity, HashMap<TypeId, Arc<dyn Any + Send + Sync>>>>,
+    entities: RwLock<HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>>,
     next_entity: AtomicU32,
 }
 
@@ -38,7 +38,7 @@ impl Manager {
     /// Add a component of a specific type to a specific entity.
     pub fn add_component_to_entity<T: 'static + Send + Sync>(&self, entity: Entity, component: T) {
         if let Some(components) = self.entities.write().unwrap().get_mut(&entity) {
-            components.insert(TypeId::of::<T>(), Arc::new(component));
+            components.insert(TypeId::of::<T>(), Arc::new(RwLock::new(component)));
         }
     }
 
@@ -50,10 +50,11 @@ impl Manager {
     ) {
         let mut entities = self.entities.write().unwrap();
         if let Some(components) = entities.get_mut(&entity) {
-            components.insert(TypeId::of::<T>(), Arc::new(component));
+            components.insert(TypeId::of::<T>(), Arc::new(RwLock::new(component)));
         } else {
-            let mut components: HashMap<TypeId, Arc<dyn Any + Send + Sync>> = HashMap::new();
-            components.insert(TypeId::of::<T>(), Arc::new(component));
+            let mut components: HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>> =
+                HashMap::new();
+            components.insert(TypeId::of::<T>(), Arc::new(RwLock::new(component)));
             entities.insert(entity, components);
         }
     }
@@ -70,7 +71,7 @@ impl Manager {
             .and_then(|components| {
                 components
                     .get(&TypeId::of::<T>())
-                    .and_then(|component| component.clone().downcast::<T>().ok())
+                    .and_then(|component| component.clone().downcast::<RwLock<T>>().ok())
             })
     }
 
@@ -86,11 +87,13 @@ impl Manager {
     }
 
     /// Get all components of a specific type currently in the EntityManager.
-    pub fn get_all_components_of_type<T: 'static + Send + Sync>(&self) -> Vec<(Entity, Arc<T>)> {
+    pub fn get_all_components_of_type<T: 'static + Send + Sync>(
+        &self,
+    ) -> Vec<(Entity, Arc<RwLock<T>>)> {
         let mut result = Vec::new();
         for (entity, components) in self.entities.write().unwrap().iter() {
             if let Some(component) = components.get(&TypeId::of::<T>()) {
-                if let Ok(component) = component.clone().downcast::<T>() {
+                if let Ok(component) = component.clone().downcast::<RwLock<T>>() {
                     result.push((*entity, component));
                 }
             }

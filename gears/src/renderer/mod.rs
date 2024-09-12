@@ -504,13 +504,9 @@ impl<'a> State<'a> {
 
                     if let Some(model) = ecs_lock.get_component_from_entity::<model::Model>(entity)
                     {
-                        /* UNSAFE REF TO MODEL */
-                        let model_ref: &model::Model =
-                            unsafe { &*(model.as_ref() as *const model::Model) };
-
                         model::DrawModel::draw_model_instanced(
                             &mut render_pass,
-                            model_ref,
+                            &model,
                             0..1,
                             &self.camera_bind_group,
                         );
