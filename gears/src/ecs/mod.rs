@@ -9,16 +9,16 @@ use std::sync::{Arc, RwLock};
 pub struct Entity(u32);
 
 /// Entity component system manager.
-pub struct EntityManager {
+pub struct Manager {
     entities: RwLock<HashMap<Entity, HashMap<TypeId, Arc<dyn Any + Send + Sync>>>>,
     next_entity: AtomicU32,
 }
 
-impl EntityManager {
+impl Manager {
     #[allow(clippy::new_without_default)]
     /// Create a new EntityManager.
     pub fn new() -> Self {
-        EntityManager {
+        Manager {
             entities: RwLock::new(HashMap::new()),
             next_entity: AtomicU32::new(0),
         }

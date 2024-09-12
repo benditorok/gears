@@ -19,6 +19,7 @@ impl Position {
     }
 }
 
+// TODO create Renderable enum with model, pos, rotation, ...
 #[derive(Clone, Copy, Debug)]
 pub struct Renderable;
 

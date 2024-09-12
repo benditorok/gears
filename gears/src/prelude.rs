@@ -1,9 +1,6 @@
-// TODO place traits and other essentials into this module
-macro_rules! gears_collect_strings {
-    ($($input:expr),*) => {
-        {
-            let inputs: &[&str] = &[$($input),*];
-            inputs
-        }
-    };
-}
+#[allow(unused)]
+pub use crate::{
+    core::app::{self, App},
+    ecs,
+    ecs::components,
+};

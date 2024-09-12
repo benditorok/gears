@@ -23,7 +23,7 @@ use winit::{
 /// # Returns
 ///
 /// A future which can be awaited.
-pub async fn run(world: Arc<Mutex<ecs::EntityManager>>) {
+pub async fn run(world: Arc<Mutex<ecs::Manager>>) {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
@@ -93,11 +93,11 @@ struct State<'a> {
     #[allow(dead_code)]
     depth_texture: texture::Texture,
     window: &'a Window,
-    ecs: Arc<Mutex<ecs::EntityManager>>,
+    ecs: Arc<Mutex<ecs::Manager>>,
 }
 
 impl<'a> State<'a> {
-    async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::EntityManager>>) -> State<'a> {
+    async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
         log::warn!("[State] Setup starting...");
         let size = window.inner_size();
 
