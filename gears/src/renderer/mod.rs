@@ -94,7 +94,7 @@ struct State<'a> {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
-    texture_bind_group_layout: wgpu::BindGroupLayout,
+    //texture_bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
     camera_controller: camera::CameraController,
@@ -229,6 +229,58 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
+        // # START Load models and create instances #
+        {
+            log::warn!("Loading models and instances");
+
+            let ecs_lock = ecs.lock().unwrap();
+
+            for entity in ecs_lock.iter_entities() {
+                if let Some(model) = ecs_lock.get_component_from_entity::<GearsModelData>(entity) {
+                    log::warn!("Loading model: {:?}", model.file_path);
+                    let obj_model = resources::load_model(
+                        model.file_path,
+                        &device,
+                        &queue,
+                        &texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap();
+
+                    ecs_lock.add_component_to_entity(entity, obj_model);
+
+                    if let Some(position) = ecs_lock.get_component_from_entity::<Pos3>(entity) {
+                        // log position, with the models name
+                        log::warn!("Model {:?}, position: {:?}", model.file_path, position);
+                        ecs_lock.add_component_to_entity(
+                            entity,
+                            instance::Instance {
+                                position: cgmath::Vector3::new(position.x, position.y, position.z),
+                                rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+                            },
+                        );
+                    }
+
+                    if let Some(instance) =
+                        ecs_lock.get_component_from_entity::<instance::Instance>(entity)
+                    {
+                        // Convert instances to raw format
+                        let instance_data = instance.to_raw();
+
+                        // Create a buffer for the instances
+                        let instance_buffer =
+                            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: Some("Instance Buffer"),
+                                contents: bytemuck::cast_slice(&[instance_data]),
+                                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                            });
+
+                        ecs_lock.add_component_to_entity(entity, instance_buffer);
+                    }
+                }
+            }
+        }
+
         // /* LIGHT */
         // let light_uniform = light::LightUniform {
         //     position: [2.0, 2.0, 2.0],
@@ -315,7 +367,7 @@ impl<'a> State<'a> {
             queue,
             config,
             size,
-            texture_bind_group_layout,
+            // texture_bind_group_layout,
             render_pipeline,
             camera,
             camera_controller,
@@ -347,7 +399,7 @@ impl<'a> State<'a> {
         self.camera_controller.process_events(event)
     }
 
-    async fn update(&mut self) {
+    fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
@@ -355,60 +407,6 @@ impl<'a> State<'a> {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
-
-        // # START Load models and create instances #
-        {
-            log::warn!("Loading models and instances");
-
-            let ecs_lock = self.ecs.lock().unwrap();
-
-            for entity in ecs_lock.iter_entities() {
-                if let Some(model) = ecs_lock.get_component_from_entity::<GearsModelData>(entity) {
-                    log::warn!("Loading model: {:?}", model.file_path);
-                    let obj_model = resources::load_model(
-                        model.file_path,
-                        &self.device,
-                        &self.queue,
-                        &self.texture_bind_group_layout,
-                    )
-                    .await
-                    .unwrap();
-
-                    ecs_lock.upsert_component_to_entity(entity, obj_model);
-
-                    if let Some(position) = ecs_lock.get_component_from_entity::<Pos3>(entity) {
-                        // log position, with the models name
-                        log::warn!("Model {:?}, position: {:?}", model.file_path, position);
-                        ecs_lock.upsert_component_to_entity(
-                            entity,
-                            instance::Instance {
-                                position: cgmath::Vector3::new(position.x, position.y, position.z),
-                                rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-                            },
-                        );
-                    }
-
-                    if let Some(instance) =
-                        ecs_lock.get_component_from_entity::<instance::Instance>(entity)
-                    {
-                        // Convert instances to raw format
-                        let instance_data = instance.to_raw();
-
-                        // Create a buffer for the instances
-                        let instance_buffer =
-                            self.device
-                                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                    label: Some("Instance Buffer"),
-                                    contents: bytemuck::cast_slice(&[instance_data]),
-                                    usage: wgpu::BufferUsages::VERTEX
-                                        | wgpu::BufferUsages::COPY_DST,
-                                });
-
-                        ecs_lock.upsert_component_to_entity(entity, instance_buffer);
-                    }
-                }
-            }
-        }
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
