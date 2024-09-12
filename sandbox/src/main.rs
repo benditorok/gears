@@ -65,7 +65,10 @@ fn main() {
 
     let entity = ecs.create_entity();
     ecs.add_component_to_entity(entity, "SPHERE".to_string());
-    ecs.add_component_to_entity(entity, GearsModelData::new("res/models/sphere/sphere.obj"));
+    ecs.add_component_to_entity(
+        entity,
+        GearsModelData::new("res/models/sphere/v2/sphere.obj"),
+    );
     ecs.add_component_to_entity(entity, Position::new(0.0, 0.0, 0.0));
 
     let mut app = app::GearsApp::default();
