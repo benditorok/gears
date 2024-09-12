@@ -18,7 +18,7 @@ fn main() {
         entity,
         components::GearsModelData::new("res/models/cube/cube.obj"),
     );
-    ecs.add_component_to_entity(entity, components::Position::new(10.0, 0.0, 10.0));
+    ecs.add_component_to_entity(entity, components::Pos3::new(10.0, 0.0, 10.0));
 
     // Cube 2
     let entity = ecs.create_entity();
@@ -27,7 +27,7 @@ fn main() {
         entity,
         components::GearsModelData::new("res/models/cube/cube.obj"),
     );
-    ecs.add_component_to_entity(entity, components::Position::new(10.0, 0.0, -10.0));
+    ecs.add_component_to_entity(entity, components::Pos3::new(10.0, 0.0, -10.0));
 
     // Cube 3
     let entity = ecs.create_entity();
@@ -36,7 +36,7 @@ fn main() {
         entity,
         components::GearsModelData::new("res/models/cube/cube.obj"),
     );
-    ecs.add_component_to_entity(entity, components::Position::new(-10.0, 0.0, -10.0));
+    ecs.add_component_to_entity(entity, components::Pos3::new(-10.0, 0.0, -10.0));
 
     // Cube 4
     let entity = ecs.create_entity();
@@ -45,7 +45,7 @@ fn main() {
         entity,
         components::GearsModelData::new("res/models/cube/cube.obj"),
     );
-    ecs.add_component_to_entity(entity, components::Position::new(-10.0, 0.0, 10.0));
+    ecs.add_component_to_entity(entity, components::Pos3::new(-10.0, 0.0, 10.0));
 
     // Center sphere
     let entity = ecs.create_entity();
@@ -54,7 +54,7 @@ fn main() {
         entity,
         components::GearsModelData::new("res/models/sphere/sphere.obj"),
     );
-    ecs.add_component_to_entity(entity, components::Position::new(00.0, 0.0, 0.0));
+    ecs.add_component_to_entity(entity, components::Pos3::new(00.0, 0.0, 0.0));
 
     // Add random spheres
     for i in 0..=20 {
@@ -67,7 +67,7 @@ fn main() {
         // add a randdom position to them in the range of -20 to 20
         ecs.add_component_to_entity(
             entity,
-            components::Position::new(
+            components::Pos3::new(
                 rand::random::<f32>() * 40.0 - 20.0,
                 rand::random::<f32>() * 40.0 - 20.0,
                 rand::random::<f32>() * 40.0 - 20.0,

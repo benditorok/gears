@@ -6,7 +6,7 @@ use super::{
     texture::{self, Texture},
 };
 use crate::ecs;
-use crate::ecs::components::{GearsModelData, Position};
+use crate::ecs::components::{GearsModelData, Pos3};
 use cgmath::prelude::*;
 use std::iter;
 use std::sync::{Arc, Mutex};
@@ -238,7 +238,7 @@ impl<'a> State<'a> {
 
                     ecs_lock.add_component_to_entity(entity, obj_model);
 
-                    if let Some(position) = ecs_lock.get_component_from_entity::<Position>(entity) {
+                    if let Some(position) = ecs_lock.get_component_from_entity::<Pos3>(entity) {
                         // log position, with the models name
                         log::warn!("Model {:?}, position: {:?}", model.file_path, position);
                         ecs_lock.add_component_to_entity(
@@ -390,8 +390,6 @@ impl<'a> State<'a> {
             });
 
         {
-            let ecs_lock = self.ecs.lock().unwrap();
-
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -422,19 +420,24 @@ impl<'a> State<'a> {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
-            for entity in ecs_lock.iter_entities() {
-                if let Some(instance_buffer) =
-                    ecs_lock.get_component_from_entity::<wgpu::Buffer>(entity)
-                {
-                    render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-                }
+            {
+                let ecs_lock = self.ecs.lock().unwrap();
 
-                if let Some(model) = ecs_lock.get_component_from_entity::<model::Model>(entity) {
-                    /* UNSAFE REF TO MODEL */
-                    let model_ref: &model::Model =
-                        unsafe { &*(model.as_ref() as *const model::Model) };
+                for entity in ecs_lock.iter_entities() {
+                    if let Some(instance_buffer) =
+                        ecs_lock.get_component_from_entity::<wgpu::Buffer>(entity)
+                    {
+                        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                    }
 
-                    render_pass.draw_model_instanced(model_ref, 0..1, &self.camera_bind_group);
+                    if let Some(model) = ecs_lock.get_component_from_entity::<model::Model>(entity)
+                    {
+                        /* UNSAFE REF TO MODEL */
+                        let model_ref: &model::Model =
+                            unsafe { &*(model.as_ref() as *const model::Model) };
+
+                        render_pass.draw_model_instanced(model_ref, 0..1, &self.camera_bind_group);
+                    }
                 }
             }
         }
