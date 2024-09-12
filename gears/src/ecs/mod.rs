@@ -42,6 +42,22 @@ impl Manager {
         }
     }
 
+    /// Add or overwrite a component of a specific type to a specific entity.
+    pub fn upsert_component_to_entity<T: 'static + Send + Sync>(
+        &self,
+        entity: Entity,
+        component: T,
+    ) {
+        let mut entities = self.entities.write().unwrap();
+        if let Some(components) = entities.get_mut(&entity) {
+            components.insert(TypeId::of::<T>(), Arc::new(component));
+        } else {
+            let mut components: HashMap<TypeId, Arc<dyn Any + Send + Sync>> = HashMap::new();
+            components.insert(TypeId::of::<T>(), Arc::new(component));
+            entities.insert(entity, components);
+        }
+    }
+
     ///Get a component of a specific type for a specific entity.
     pub fn get_component_from_entity<T: 'static + Send + Sync>(
         &self,
