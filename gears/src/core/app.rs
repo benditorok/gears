@@ -2,6 +2,7 @@ use super::config::{self, Config, LogConfig, LogLevel};
 use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::{ecs, renderer};
 use log::info;
+use std::env;
 use std::sync::{Arc, Mutex};
 
 pub trait App {
@@ -65,6 +66,8 @@ impl App for GearsApp {
             LogLevel::Debug => log::LevelFilter::Debug,
             LogLevel::Trace => log::LevelFilter::Trace,
         });
+        // Filter out specific log messages
+        env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
         env_builder.init();
 
         info!("Starting Gears...");

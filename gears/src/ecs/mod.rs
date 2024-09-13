@@ -3,14 +3,16 @@ pub mod components;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(pub u32);
 
+type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>;
+
 /// Entity component system manager.
 pub struct Manager {
-    entities: RwLock<HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>>,
+    entities: RwLock<EntityStore>,
     next_entity: AtomicU32,
 }
 
