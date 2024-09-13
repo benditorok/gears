@@ -5,36 +5,29 @@ use std::{
     thread,
 };
 
+/// A job to be executed by the thread pool.
 type Job = Box<dyn FnOnce(Arc<AtomicBool>) + Send + 'static>;
 
-enum Message {
-    NewJob(Job),
-    Terminate,
-}
-
+/// A worker for the thread pool.
 struct Worker {
     id: usize,
     thread: Option<thread::JoinHandle<()>>,
 }
 
 impl Worker {
+    /// Create a new worker.
     fn new(
         id: usize,
-        receiver: Arc<Mutex<mpsc::Receiver<Message>>>,
+        receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
         stop_flag: Arc<AtomicBool>,
     ) -> Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv();
 
             match message {
-                Ok(Message::NewJob(job)) => {
+                Ok(job) => {
                     info!("Worker {id} got a job; executing.");
-
                     job(Arc::clone(&stop_flag));
-                }
-                Ok(Message::Terminate) => {
-                    info!("Worker {id} was told to terminate.");
-                    break;
                 }
                 Err(_) => {
                     info!("Worker {id} disconnected; shutting down.");
@@ -50,13 +43,15 @@ impl Worker {
     }
 }
 
+/// A thread pool for executing jobs in parallel.
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: Option<mpsc::Sender<Message>>,
+    sender: Option<mpsc::Sender<Job>>,
     stop_flag: Arc<AtomicBool>,
 }
 
 impl ThreadPool {
+    /// Create a new ThreadPool with the specified number of workers.
     pub fn new(size: usize) -> Self {
         assert!(size > 0);
 
@@ -80,6 +75,7 @@ impl ThreadPool {
         }
     }
 
+    /// Execute a job on the thread pool.
     pub fn execute<F>(&self, f: F)
     where
         F: FnOnce(Arc<AtomicBool>) + Send + 'static,
@@ -89,28 +85,29 @@ impl ThreadPool {
         self.sender
             .as_ref()
             .unwrap()
-            .send(Message::NewJob(job))
+            .send(job)
             .expect("Failed to send job to thread pool");
     }
 
+    /// Stop all workers.
     pub fn stop(&self) {
         self.stop_flag.store(true, Ordering::SeqCst);
     }
 
+    /// Resume all workers.
     pub fn resume(&self) {
         self.stop_flag.store(false, Ordering::SeqCst);
     }
 }
 
 impl Drop for ThreadPool {
+    /// Stop all workers and join them.
     fn drop(&mut self) {
+        // Request all workers to stop
+        self.stop();
+
         // Drop the sender to close the channel
-        if let Some(sender) = self.sender.take() {
-            // Send the terminate message to each worker
-            for _ in &self.workers {
-                sender.send(Message::Terminate).unwrap();
-            }
-        }
+        self.sender.take();
 
         // Join all the worker threads
         for worker in &mut self.workers {

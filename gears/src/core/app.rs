@@ -70,8 +70,6 @@ impl App for GearsApp {
         info!("Starting Gears...");
 
         // Run the event loop
-        renderer::run(Arc::clone(&self.world)).await?;
-        self.thread_pool.stop();
-        Ok(())
+        renderer::run(Arc::clone(&self.world)).await
     }
 }
