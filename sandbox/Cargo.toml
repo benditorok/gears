@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 gears = { path = "../gears" }
-futures = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
 rand = { workspace = true }
 
 [[bin]]
