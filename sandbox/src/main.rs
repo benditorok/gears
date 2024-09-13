@@ -83,14 +83,14 @@ async fn main() -> anyhow::Result<()> {
 
     let ecs_sanbox_t2_access = Arc::clone(&ecs);
 
-    app.thread_pool.execute(move || {
+    app.thread_pool.execute(move |stop_flag| {
         let mut rng = rand::thread_rng();
-        loop {
+        while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
             {
                 let ecs = ecs_sanbox_t2_access.lock().unwrap();
                 for entity in ecs.iter_entities() {
                     if let Some(name) = ecs.get_component_from_entity::<Name>(entity) {
-                        if !name.read().unwrap().0.contains("Cube") {
+                        if name.read().unwrap().0.contains("Sphere_rand") {
                             if let Some(pos) =
                                 ecs.get_component_from_entity::<components::Pos3>(entity)
                             {
