@@ -60,7 +60,8 @@ async fn main() -> anyhow::Result<()> {
     // Add random spheres
     for i in 0..=20 {
         let entity = ecs.create_entity();
-        ecs.add_component_to_entity(entity, "SPHERE".to_string());
+        let name = format!("Sphere_rand{}", i);
+        ecs.add_component_to_entity(entity, Name(Box::leak(name.into_boxed_str())));
         ecs.add_component_to_entity(
             entity,
             components::GearsModelData::new("res/models/sphere/sphere.obj"),
@@ -75,29 +76,30 @@ async fn main() -> anyhow::Result<()> {
             ),
         );
     }
-    // Get all models using get_all_components_of_type
-    let models = ecs.get_all_components_of_type::<components::GearsModelData>();
 
-    // Get a model from the first entity
-    let model = ecs
-        .get_component_from_entity::<components::GearsModelData>(Entity(0))
-        .unwrap();
-
+    // Create the app
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
 
     let ecs_sanbox_t2_access = Arc::clone(&ecs);
+
     app.thread_pool.execute(move || {
         let mut rng = rand::thread_rng();
         loop {
             {
                 let ecs = ecs_sanbox_t2_access.lock().unwrap();
                 for entity in ecs.iter_entities() {
-                    if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(entity) {
-                        let mut pos = pos.write().unwrap();
-                        pos.x = rand::random::<f32>() * 40.0 - 20.0;
-                        pos.y = rand::random::<f32>() * 40.0 - 20.0;
-                        pos.z = rand::random::<f32>() * 40.0 - 20.0;
+                    if let Some(name) = ecs.get_component_from_entity::<Name>(entity) {
+                        if !name.read().unwrap().0.contains("Cube") {
+                            if let Some(pos) =
+                                ecs.get_component_from_entity::<components::Pos3>(entity)
+                            {
+                                let mut pos = pos.write().unwrap();
+                                pos.x = rng.gen::<f32>() * 40.0 - 20.0;
+                                pos.y = rng.gen::<f32>() * 40.0 - 20.0;
+                                pos.z = rng.gen::<f32>() * 40.0 - 20.0;
+                            }
+                        }
                     }
                 }
             }
