@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Entity(u32);
+pub struct Entity(pub u32);
 
 /// Entity component system manager.
 pub struct Manager {
@@ -37,50 +37,28 @@ impl Manager {
 
     /// Add a component of a specific type to a specific entity.
     pub fn add_component_to_entity<T: 'static + Send + Sync>(&self, entity: Entity, component: T) {
-        if let Some(components) = self.entities.write().unwrap().get_mut(&entity) {
-            components.insert(TypeId::of::<T>(), Arc::new(RwLock::new(component)));
-        }
-    }
-
-    /// Add or overwrite a component of a specific type to a specific entity.
-    pub fn upsert_component_to_entity<T: 'static + Send + Sync>(
-        &self,
-        entity: Entity,
-        component: T,
-    ) {
         let mut entities = self.entities.write().unwrap();
         if let Some(components) = entities.get_mut(&entity) {
             components.insert(TypeId::of::<T>(), Arc::new(RwLock::new(component)));
-        } else {
-            let mut components: HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>> =
-                HashMap::new();
-            components.insert(TypeId::of::<T>(), Arc::new(RwLock::new(component)));
-            entities.insert(entity, components);
         }
     }
 
-    ///Get a component of a specific type for a specific entity.
+    /// Get a component of a specific type for a specific entity.
     pub fn get_component_from_entity<T: 'static + Send + Sync>(
         &self,
         entity: Entity,
     ) -> Option<Arc<RwLock<T>>> {
-        self.entities
-            .write()
-            .unwrap()
-            .get(&entity)
-            .and_then(|components| {
-                components.get(&TypeId::of::<T>()).and_then(|component| {
-                    let component = Arc::clone(&component);
-                    let component_any = {
-                        let mut component_guard = component.write().unwrap();
-                        component_guard
-                            .downcast_ref::<Arc<RwLock<T>>>()
-                            .map(Arc::clone)
-                    };
-
-                    component_any
-                })
+        let entities = self.entities.read().unwrap();
+        entities.get(&entity).and_then(|components| {
+            components.get(&TypeId::of::<T>()).and_then(|component| {
+                let component = component.clone();
+                unsafe {
+                    // SAFETY: We ensure that the component is of type T
+                    let component_ptr = Arc::into_raw(component) as *const RwLock<T>;
+                    Some(Arc::from_raw(component_ptr))
+                }
             })
+        })
     }
 
     /// Get an iterator over the entities currently in the EntityManager.
@@ -99,12 +77,14 @@ impl Manager {
         &self,
     ) -> Vec<(Entity, Arc<RwLock<T>>)> {
         let mut result: Vec<(Entity, Arc<RwLock<T>>)> = Vec::new();
-        for (entity, components) in self.entities.write().unwrap().iter() {
+        let entities = self.entities.read().unwrap();
+        for (entity, components) in entities.iter() {
             if let Some(component) = components.get(&TypeId::of::<T>()) {
-                if let Ok(component_guard) = component.read() {
-                    if let Some(component) = component_guard.downcast_ref::<Arc<RwLock<T>>>() {
-                        result.push((entity.clone(), Arc::clone(component)));
-                    }
+                let component = component.clone();
+                unsafe {
+                    // SAFETY: We ensure that the component is of type T
+                    let component_ptr = Arc::into_raw(component) as *const RwLock<T>;
+                    result.push((*entity, Arc::from_raw(component_ptr)));
                 }
             }
         }

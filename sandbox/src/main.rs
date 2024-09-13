@@ -1,3 +1,4 @@
+use ecs::Entity;
 use gears::prelude::*;
 use rand::Rng;
 use std::sync::Arc;
@@ -74,30 +75,36 @@ async fn main() -> anyhow::Result<()> {
             ),
         );
     }
+    // Get all models using get_all_components_of_type
+    let models = ecs.get_all_components_of_type::<components::GearsModelData>();
+
+    // Get a model from the first entity
+    let model = ecs
+        .get_component_from_entity::<components::GearsModelData>(Entity(0))
+        .unwrap();
 
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
 
-    //let ecs_clone = Arc::clone(&ecs);
+    let ecs_sanbox_t2_access = Arc::clone(&ecs);
+    app.thread_pool.execute(move || {
+        let mut rng = rand::thread_rng();
+        loop {
+            {
+                let ecs = ecs_sanbox_t2_access.lock().unwrap();
+                for entity in ecs.iter_entities() {
+                    if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(entity) {
+                        let mut pos = pos.write().unwrap();
+                        pos.x = rand::random::<f32>() * 40.0 - 20.0;
+                        pos.y = rand::random::<f32>() * 40.0 - 20.0;
+                        pos.z = rand::random::<f32>() * 40.0 - 20.0;
+                    }
+                }
+            }
 
-    // app.thread_pool.execute(move || {
-    //     let mut rng = rand::thread_rng();
-    //     loop {
-    //         {
-    //             let ecs = ecs_clone.lock().unwrap();
-    //             for entity in ecs.iter_entities() {
-    //                 if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(entity) {
-    //                     let mut pos = pos.write().unwrap();
-    //                     pos.x = rand::random::<f32>() * 40.0 - 20.0;
-    //                     pos.y = rand::random::<f32>() * 40.0 - 20.0;
-    //                     pos.z = rand::random::<f32>() * 40.0 - 20.0;
-    //                 }
-    //             }
-    //         }
-
-    //         thread::sleep(std::time::Duration::from_secs(1));
-    //     }
-    // });
+            thread::sleep(std::time::Duration::from_secs(1));
+        }
+    });
 
     app.run().await
 }

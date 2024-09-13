@@ -426,7 +426,7 @@ impl<'a> State<'a> {
 
             for entity in ecs_lock.iter_entities() {
                 if let Some(position) = ecs_lock.get_component_from_entity::<Pos3>(entity) {
-                    ecs_lock.upsert_component_to_entity(
+                    ecs_lock.add_component_to_entity(
                         entity,
                         instance::Instance {
                             position: cgmath::Vector3::new(
@@ -454,7 +454,7 @@ impl<'a> State<'a> {
                                         | wgpu::BufferUsages::COPY_DST,
                                 });
 
-                        ecs_lock.upsert_component_to_entity(entity, instance_buffer);
+                        ecs_lock.add_component_to_entity(entity, instance_buffer);
                     }
                 }
             }
