@@ -241,9 +241,9 @@ impl<'a> State<'a> {
 
             for entity in ecs_lock.iter_entities() {
                 if let Some(model) = ecs_lock.get_component_from_entity::<GearsModelData>(entity) {
-                    log::warn!("Loading model: {:?}", model.file_path);
+                    log::warn!("Loading model: {:?}", model.read().unwrap().file_path);
                     let obj_model = resources::load_model(
-                        model.file_path,
+                        model.read().unwrap().file_path,
                         &device,
                         &queue,
                         &texture_bind_group_layout,
@@ -255,11 +255,19 @@ impl<'a> State<'a> {
 
                     if let Some(position) = ecs_lock.get_component_from_entity::<Pos3>(entity) {
                         // log position, with the models name
-                        log::warn!("Model {:?}, position: {:?}", model.file_path, position);
+                        log::warn!(
+                            "Model {:?}, position: {:?}",
+                            model.read().unwrap().file_path,
+                            position
+                        );
                         ecs_lock.add_component_to_entity(
                             entity,
                             instance::Instance {
-                                position: cgmath::Vector3::new(position.x, position.y, position.z),
+                                position: cgmath::Vector3::new(
+                                    position.read().unwrap().x,
+                                    position.read().unwrap().y,
+                                    position.read().unwrap().z,
+                                ),
                                 rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
                             },
                         );
@@ -268,7 +276,7 @@ impl<'a> State<'a> {
                             ecs_lock.get_component_from_entity::<instance::Instance>(entity)
                         {
                             // Convert instances to raw format
-                            let instance_data = instance.to_raw();
+                            let instance_data = instance.read().unwrap().to_raw();
 
                             // Create a buffer for the instances
                             let instance_buffer =
@@ -385,7 +393,7 @@ impl<'a> State<'a> {
     }
 
     pub fn window(&self) -> &Window {
-        &self.window
+        self.window
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -421,7 +429,11 @@ impl<'a> State<'a> {
                     ecs_lock.upsert_component_to_entity(
                         entity,
                         instance::Instance {
-                            position: cgmath::Vector3::new(position.x, position.y, position.z),
+                            position: cgmath::Vector3::new(
+                                position.read().unwrap().x,
+                                position.read().unwrap().y,
+                                position.read().unwrap().z,
+                            ),
                             rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
                         },
                     );
@@ -430,7 +442,7 @@ impl<'a> State<'a> {
                         ecs_lock.get_component_from_entity::<instance::Instance>(entity)
                     {
                         // Convert instances to raw format
-                        let instance_data = instance.to_raw();
+                        let instance_data = instance.read().unwrap().to_raw();
 
                         // Create a buffer for the instances
                         let instance_buffer =
@@ -499,14 +511,16 @@ impl<'a> State<'a> {
                     if let Some(instance_buffer) =
                         ecs_lock.get_component_from_entity::<wgpu::Buffer>(entity)
                     {
-                        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                        render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
                     }
 
                     if let Some(model) = ecs_lock.get_component_from_entity::<model::Model>(entity)
                     {
+                        let model = unsafe { &*(&*model.read().unwrap() as *const _) };
+
                         model::DrawModel::draw_model_instanced(
                             &mut render_pass,
-                            &model,
+                            model,
                             0..1,
                             &self.camera_bind_group,
                         );

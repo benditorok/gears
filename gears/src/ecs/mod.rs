@@ -3,7 +3,7 @@ pub mod components;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(u32);
@@ -63,15 +63,23 @@ impl Manager {
     pub fn get_component_from_entity<T: 'static + Send + Sync>(
         &self,
         entity: Entity,
-    ) -> Option<Arc<T>> {
+    ) -> Option<Arc<RwLock<T>>> {
         self.entities
             .write()
             .unwrap()
             .get(&entity)
             .and_then(|components| {
-                components
-                    .get(&TypeId::of::<T>())
-                    .and_then(|component| component.clone().downcast::<RwLock<T>>().ok())
+                components.get(&TypeId::of::<T>()).and_then(|component| {
+                    let component = Arc::clone(&component);
+                    let component_any = {
+                        let mut component_guard = component.write().unwrap();
+                        component_guard
+                            .downcast_ref::<Arc<RwLock<T>>>()
+                            .map(Arc::clone)
+                    };
+
+                    component_any
+                })
             })
     }
 
@@ -90,14 +98,17 @@ impl Manager {
     pub fn get_all_components_of_type<T: 'static + Send + Sync>(
         &self,
     ) -> Vec<(Entity, Arc<RwLock<T>>)> {
-        let mut result = Vec::new();
+        let mut result: Vec<(Entity, Arc<RwLock<T>>)> = Vec::new();
         for (entity, components) in self.entities.write().unwrap().iter() {
             if let Some(component) = components.get(&TypeId::of::<T>()) {
-                if let Ok(component) = component.clone().downcast::<RwLock<T>>() {
-                    result.push((*entity, component));
+                if let Ok(component_guard) = component.read() {
+                    if let Some(component) = component_guard.downcast_ref::<Arc<RwLock<T>>>() {
+                        result.push((entity.clone(), Arc::clone(component)));
+                    }
                 }
             }
         }
+
         result
     }
 }
