@@ -138,20 +138,46 @@ mod tests {
         let entity1 = manager.create_entity();
         let entity2 = manager.create_entity();
         let entities: Vec<Entity> = manager.iter_entities().collect();
-        assert_eq!(entities, vec![entity1, entity2]);
+        assert_eq!(entities.len(), 2);
+        assert!(entities.contains(&entity1));
+        assert!(entities.contains(&entity2));
     }
 
     #[test]
     fn test_get_all_components_of_type() {
         let manager = Manager::new();
         let entity1 = manager.create_entity();
+        manager.add_component_to_entity(entity1, TestComponent(10));
         let entity2 = manager.create_entity();
-        manager.add_component_to_entity(entity1, TestComponent(42));
-        manager.add_component_to_entity(entity2, TestComponent(43));
+        manager.add_component_to_entity(entity2, TestComponent(20));
 
         let components = manager.get_all_components_of_type::<TestComponent>();
         assert_eq!(components.len(), 2);
-        assert_eq!(*components[0].1.read().unwrap(), TestComponent(42));
-        assert_eq!(*components[1].1.read().unwrap(), TestComponent(43));
+        assert!(components
+            .iter()
+            .any(|(e, c)| *e == entity1 && *c.read().unwrap() == TestComponent(10)));
+        assert!(components
+            .iter()
+            .any(|(e, c)| *e == entity2 && *c.read().unwrap() == TestComponent(20)));
+    }
+
+    #[test]
+    fn test_add_multiple_components_to_entity() {
+        let manager = Manager::new();
+        let entity = manager.create_entity();
+        manager.add_component_to_entity(entity, TestComponent(42));
+        manager.add_component_to_entity(entity, TestComponent(84));
+
+        let components = manager.get_all_components_of_type::<TestComponent>();
+        assert_eq!(components.len(), 1);
+        assert_eq!(*components[0].1.read().unwrap(), TestComponent(84));
+    }
+
+    #[test]
+    fn test_get_all_components_of_type_with_no_components() {
+        let manager = Manager::new();
+        let entity = manager.create_entity();
+        let components = manager.get_all_components_of_type::<TestComponent>();
+        assert!(components.is_empty());
     }
 }
