@@ -1,6 +1,7 @@
 // Vertex shader
 
 struct Camera {
+    view_pos: vec4<f32>,
     view_proj: mat4x4<f32>,
 }
 @group(1) @binding(0)
@@ -45,12 +46,15 @@ fn vs_main(
         instance.normal_matrix_1,
         instance.normal_matrix_2,
     );
+
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
     out.world_normal = normal_matrix * model.normal;
+    
     var world_position: vec4<f32> = model_matrix * vec4<f32>(model.position, 1.0);
     out.world_position = world_position.xyz;
     out.clip_position = camera.view_proj * world_position;
+    
     return out;
 }
 
@@ -78,7 +82,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
     let diffuse_color = light.color * diffuse_strength;
 
-    let result = (ambient_color + diffuse_color) * object_color.xyz;
+    // let view_dir = normalize(camera.view_pos.xyz - in.world_position);
+    // let reflect_dir = reflect(-light_dir, in.world_normal);
+    // let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
+    let view_dir = normalize(camera.view_pos.xyz - in.world_position);
+    let half_dir = normalize(view_dir + light_dir);
+    let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
+    let specular_color = specular_strength * light.color;
+    let result = (ambient_color + diffuse_color + specular_color) * object_color.xyz;
 
     return vec4<f32>(result, object_color.a);
 }
