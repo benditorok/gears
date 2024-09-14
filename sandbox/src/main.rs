@@ -92,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            thread::sleep(std::time::Duration::from_secs(1));
+            thread::sleep(std::time::Duration::from_millis(250));
         }
     });
 

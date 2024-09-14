@@ -70,12 +70,8 @@ pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
                                 1.0 / &dt.as_secs_f32(),
                                 &dt.as_millis()
                             );
-                            // Block on update, which *needs* to be awaited.
-                            {
-                                // let handle = tokio::runtime::Handle::current();
-                                // handle.enter();
-                                futures::executor::block_on(state.update());
-                            }
+
+                            futures::executor::block_on(state.update());
 
                             match state.render() {
                                 Ok(_) => {}

@@ -10,7 +10,6 @@ impl Instance {
             cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation);
         InstanceRaw {
             model: model.into(),
-            // NEW!
             normal: cgmath::Matrix3::from(self.rotation).into(),
         }
     }
