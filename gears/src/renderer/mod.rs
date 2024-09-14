@@ -8,7 +8,7 @@ pub mod texture;
 use crate::ecs::{self, components};
 use cgmath::prelude::*;
 use log::info;
-use model::Vertex;
+use model::{DrawLight, Vertex};
 use std::iter;
 use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
@@ -111,11 +111,13 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
+    light_render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
     camera_controller: camera::CameraController,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+    light_model: model::Model,
     light_uniform: light::LightUniform,
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
@@ -285,6 +287,15 @@ impl<'a> State<'a> {
             label: None,
         });
 
+        let light_model = resources::load_model(
+            "res/models/sphere/sphere.obj",
+            &device,
+            &queue,
+            &texture_bind_group_layout,
+        )
+        .await
+        .unwrap();
+
         // # START Load models and create instances #
         {
             log::warn!("Loading models and instances");
@@ -422,11 +433,13 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
+            light_render_pipeline,
             camera,
             camera_controller,
             camera_buffer,
             camera_bind_group,
             camera_uniform,
+            light_model,
             light_uniform,
             light_buffer,
             light_bind_group,
@@ -621,6 +634,13 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
+            // Draw light
+            render_pass.set_pipeline(&self.light_render_pipeline);
+            render_pass.draw_light_model(
+                &self.light_model,
+                &self.camera_bind_group,
+                &self.light_bind_group,
+            );
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
@@ -643,6 +663,7 @@ impl<'a> State<'a> {
                             model,
                             0..1,
                             &self.camera_bind_group,
+                            &self.light_bind_group,
                         );
                     }
                 }
