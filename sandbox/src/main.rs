@@ -15,37 +15,25 @@ async fn main() -> anyhow::Result<()> {
     // Cube 1
     let entity = ecs.create_entity();
     ecs.add_component_to_entity(entity, Name("Cube1"));
-    ecs.add_component_to_entity(
-        entity,
-        components::GearsModelData::new("res/models/cube/cube.obj"),
-    );
+    ecs.add_component_to_entity(entity, components::ModelSource("res/models/cube/cube.obj"));
     ecs.add_component_to_entity(entity, components::Pos3::new(10.0, 0.0, 10.0));
 
     // Cube 2
     let entity = ecs.create_entity();
     ecs.add_component_to_entity(entity, Name("Cube2"));
-    ecs.add_component_to_entity(
-        entity,
-        components::GearsModelData::new("res/models/cube/cube.obj"),
-    );
+    ecs.add_component_to_entity(entity, components::ModelSource("res/models/cube/cube.obj"));
     ecs.add_component_to_entity(entity, components::Pos3::new(10.0, 0.0, -10.0));
 
     // Cube 3
     let entity = ecs.create_entity();
     ecs.add_component_to_entity(entity, Name("Cube3"));
-    ecs.add_component_to_entity(
-        entity,
-        components::GearsModelData::new("res/models/cube/cube.obj"),
-    );
+    ecs.add_component_to_entity(entity, components::ModelSource("res/models/cube/cube.obj"));
     ecs.add_component_to_entity(entity, components::Pos3::new(-10.0, 0.0, -10.0));
 
     // Cube 4
     let entity = ecs.create_entity();
     ecs.add_component_to_entity(entity, Name("Cube4"));
-    ecs.add_component_to_entity(
-        entity,
-        components::GearsModelData::new("res/models/cube/cube.obj"),
-    );
+    ecs.add_component_to_entity(entity, components::ModelSource("res/models/cube/cube.obj"));
     ecs.add_component_to_entity(entity, components::Pos3::new(-10.0, 0.0, 10.0));
 
     // Center sphere
@@ -53,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     ecs.add_component_to_entity(entity, Name("Sphere1"));
     ecs.add_component_to_entity(
         entity,
-        components::GearsModelData::new("res/models/sphere/sphere.obj"),
+        components::ModelSource("res/models/sphere/sphere.obj"),
     );
     ecs.add_component_to_entity(entity, components::Pos3::new(00.0, 0.0, 0.0));
 
@@ -64,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
         ecs.add_component_to_entity(entity, Name(Box::leak(name.into_boxed_str())));
         ecs.add_component_to_entity(
             entity,
-            components::GearsModelData::new("res/models/sphere/sphere.obj"),
+            components::ModelSource("res/models/sphere/sphere.obj"),
         );
         // add a randdom position to them in the range of -20 to 20
         ecs.add_component_to_entity(

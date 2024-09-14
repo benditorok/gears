@@ -52,12 +52,12 @@ impl Manager {
     ) -> Option<Arc<RwLock<T>>> {
         let entities = self.entities.read().unwrap();
         entities.get(&entity).and_then(|components| {
-            components.get(&TypeId::of::<T>()).and_then(|component| {
-                let component = component.clone();
+            components.get(&TypeId::of::<T>()).map(|component| {
+                let component = Arc::clone(component);
                 unsafe {
                     // SAFETY: We ensure that the component is of type T
                     let component_ptr = Arc::into_raw(component) as *const RwLock<T>;
-                    Some(Arc::from_raw(component_ptr))
+                    Arc::from_raw(component_ptr)
                 }
             })
         })

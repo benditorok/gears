@@ -5,8 +5,7 @@ pub mod model;
 pub mod resources;
 pub mod texture;
 
-use crate::ecs;
-use crate::ecs::components::{GearsModelData, Pos3};
+use crate::ecs::{self, components};
 use cgmath::prelude::*;
 use log::info;
 use std::iter;
@@ -251,10 +250,12 @@ impl<'a> State<'a> {
             let ecs_lock = ecs.lock().unwrap();
 
             for entity in ecs_lock.iter_entities() {
-                if let Some(model) = ecs_lock.get_component_from_entity::<GearsModelData>(entity) {
-                    log::warn!("Loading model: {:?}", model.read().unwrap().file_path);
+                if let Some(model) =
+                    ecs_lock.get_component_from_entity::<components::ModelSource>(entity)
+                {
+                    log::warn!("Loading model: {:?}", model.read().unwrap().0);
                     let obj_model = resources::load_model(
-                        model.read().unwrap().file_path,
+                        model.read().unwrap().0,
                         &device,
                         &queue,
                         &texture_bind_group_layout,
@@ -264,11 +265,13 @@ impl<'a> State<'a> {
 
                     ecs_lock.add_component_to_entity(entity, obj_model);
 
-                    if let Some(position) = ecs_lock.get_component_from_entity::<Pos3>(entity) {
+                    if let Some(position) =
+                        ecs_lock.get_component_from_entity::<components::Pos3>(entity)
+                    {
                         // log position, with the models name
                         log::warn!(
                             "Model {:?}, position: {:?}",
-                            model.read().unwrap().file_path,
+                            model.read().unwrap().0,
                             position
                         );
                         ecs_lock.add_component_to_entity(
@@ -436,7 +439,9 @@ impl<'a> State<'a> {
             let ecs_lock = self.ecs.lock().unwrap();
 
             for entity in ecs_lock.iter_entities() {
-                if let Some(position) = ecs_lock.get_component_from_entity::<Pos3>(entity) {
+                if let Some(position) =
+                    ecs_lock.get_component_from_entity::<components::Pos3>(entity)
+                {
                     ecs_lock.add_component_to_entity(
                         entity,
                         instance::Instance {
