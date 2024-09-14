@@ -54,7 +54,6 @@ async fn main() -> anyhow::Result<()> {
             entity,
             components::ModelSource("res/models/sphere/sphere.obj"),
         );
-        // add a randdom position to them in the range of -20 to 20
         ecs.add_component_to_entity(
             entity,
             components::Pos3::new(
@@ -65,12 +64,20 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
+    let entity = ecs.create_entity();
+    ecs.add_component_to_entity(entity, Name("LIGHTSRC1"));
+    ecs.add_component_to_entity(entity, components::LightSource::Ambient);
+    ecs.add_component_to_entity(entity, components::Pos3::new(0.0, 5.0, 0.0));
+    ecs.add_component_to_entity(
+        entity,
+        components::ModelSource("res/models/sphere/sphere.obj"),
+    );
+
     // Create the app
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
 
     let ecs_sanbox_t2_access = Arc::clone(&ecs);
-
     app.thread_pool.execute(move |stop_flag| {
         let mut rng = rand::thread_rng();
         while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
