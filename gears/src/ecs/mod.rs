@@ -94,3 +94,64 @@ impl Manager {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, PartialEq)]
+    struct TestComponent(i32);
+
+    #[test]
+    fn test_create_entity() {
+        let manager = Manager::new();
+        let entity = manager.create_entity();
+        assert_eq!(entity, Entity(0));
+        let entity2 = manager.create_entity();
+        assert_eq!(entity2, Entity(1));
+    }
+
+    #[test]
+    fn test_add_and_get_component() {
+        let manager = Manager::new();
+        let entity = manager.create_entity();
+        let component = TestComponent(42);
+        manager.add_component_to_entity(entity, component);
+
+        let retrieved_component = manager
+            .get_component_from_entity::<TestComponent>(entity)
+            .unwrap();
+        assert_eq!(*retrieved_component.read().unwrap(), TestComponent(42));
+    }
+
+    #[test]
+    fn test_get_nonexistent_component() {
+        let manager = Manager::new();
+        let entity = manager.create_entity();
+        let retrieved_component = manager.get_component_from_entity::<TestComponent>(entity);
+        assert!(retrieved_component.is_none());
+    }
+
+    #[test]
+    fn test_iter_entities() {
+        let manager = Manager::new();
+        let entity1 = manager.create_entity();
+        let entity2 = manager.create_entity();
+        let entities: Vec<Entity> = manager.iter_entities().collect();
+        assert_eq!(entities, vec![entity1, entity2]);
+    }
+
+    #[test]
+    fn test_get_all_components_of_type() {
+        let manager = Manager::new();
+        let entity1 = manager.create_entity();
+        let entity2 = manager.create_entity();
+        manager.add_component_to_entity(entity1, TestComponent(42));
+        manager.add_component_to_entity(entity2, TestComponent(43));
+
+        let components = manager.get_all_components_of_type::<TestComponent>();
+        assert_eq!(components.len(), 2);
+        assert_eq!(*components[0].1.read().unwrap(), TestComponent(42));
+        assert_eq!(*components[1].1.read().unwrap(), TestComponent(43));
+    }
+}
