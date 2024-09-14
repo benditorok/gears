@@ -8,6 +8,7 @@ pub mod texture;
 use crate::ecs;
 use crate::ecs::components::{GearsModelData, Pos3};
 use cgmath::prelude::*;
+use log::info;
 use std::iter;
 use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
@@ -36,6 +37,7 @@ pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
     let mut state = State::new(&window, world).await;
+    let mut last_render_time = instant::Instant::now();
 
     event_loop
         .run(move |event, ewlt| match event {
@@ -59,6 +61,15 @@ pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
                             state.resize(*physical_size);
                         }
                         WindowEvent::RedrawRequested => {
+                            let now = instant::Instant::now();
+                            let dt = now - last_render_time;
+                            last_render_time = now;
+
+                            info!(
+                                "FPS: {:.0}, frame time: {} ms",
+                                1.0 / &dt.as_secs_f32(),
+                                &dt.as_millis()
+                            );
                             // Block on update, which *needs* to be awaited.
                             {
                                 // let handle = tokio::runtime::Handle::current();
