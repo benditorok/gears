@@ -376,29 +376,26 @@ impl<'a> State<'a> {
         //     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         // });
         // /* LIGHT */
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("shader.wgsl"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
-        });
-
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let render_pipeline = {
+            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
+                bind_group_layouts: &[
+                    &texture_bind_group_layout,
+                    &camera_bind_group_layout,
+                    &light_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
-
-        let render_pipeline = {
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Normal Shader"),
                 source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
             };
             Self::create_render_pipeline(
                 &device,
-                &render_pipeline_layout,
+                &layout,
                 config.format,
                 Some(texture::Texture::DEPTH_FORMAT),
                 &[model::ModelVertex::desc(), instance::InstanceRaw::desc()],
