@@ -96,7 +96,7 @@ pub(crate) async fn load_model(
             let vertices = (0..m.mesh.positions.len() / 3)
                 .map(|i| {
                     if m.mesh.normals.is_empty() {
-                        model::ModelVertex {
+                        model::ModelUniform {
                             position: [
                                 m.mesh.positions[i * 3],
                                 m.mesh.positions[i * 3 + 1],
@@ -109,7 +109,7 @@ pub(crate) async fn load_model(
                             normal: [0.0, 0.0, 0.0],
                         }
                     } else {
-                        model::ModelVertex {
+                        model::ModelUniform {
                             position: [
                                 m.mesh.positions[i * 3],
                                 m.mesh.positions[i * 3 + 1],

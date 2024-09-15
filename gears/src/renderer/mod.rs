@@ -8,7 +8,7 @@ pub mod texture;
 use crate::ecs::{self, components};
 use cgmath::prelude::*;
 use log::info;
-use model::{DrawLight, Vertex};
+use model::{DrawLight, VertexLayout};
 use std::iter;
 use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
@@ -126,17 +126,14 @@ struct State<'a> {
 
 impl<'a> State<'a> {
     async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
-        log::warn!("[State] Setup starting...");
-        let size = window.inner_size();
-
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
 
+        let size = window.inner_size();
         let surface = instance.create_surface(window).unwrap();
-
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -145,8 +142,6 @@ impl<'a> State<'a> {
             })
             .await
             .unwrap();
-
-        log::warn!("[State] Device and Queue");
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -159,8 +154,6 @@ impl<'a> State<'a> {
             )
             .await
             .unwrap();
-
-        log::warn!("[State] Surface");
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps
             .formats
@@ -201,27 +194,6 @@ impl<'a> State<'a> {
                 ],
                 label: Some("texture_bind_group_layout"),
             });
-
-        let camera = camera::Camera {
-            eye: (0.0, 5.0, -10.0).into(),
-            target: (0.0, 0.0, 0.0).into(),
-            up: cgmath::Vector3::unit_y(),
-            aspect: config.width as f32 / config.height as f32,
-            fovy: 45.0,
-            znear: 0.1,
-            zfar: 100.0,
-        };
-        let camera_controller = camera::CameraController::new(0.2);
-
-        let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -236,6 +208,40 @@ impl<'a> State<'a> {
                 }],
                 label: Some("camera_bind_group_layout"),
             });
+        let light_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: None,
+            });
+
+        let camera = camera::Camera {
+            eye: (0.0, 5.0, -10.0).into(),
+            target: (0.0, 0.0, 0.0).into(),
+            up: cgmath::Vector3::unit_y(),
+            aspect: config.width as f32 / config.height as f32,
+            fovy: 45.0,
+            znear: 0.1,
+            zfar: 100.0,
+        };
+
+        let camera_controller = camera::CameraController::new(0.2);
+        let mut camera_uniform = camera::CameraUniform::new();
+        camera_uniform.update_view_proj(&camera);
+
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
@@ -258,21 +264,6 @@ impl<'a> State<'a> {
             contents: bytemuck::cast_slice(&[light_uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-
-        let light_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: None,
-            });
 
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &light_bind_group_layout,
@@ -299,12 +290,12 @@ impl<'a> State<'a> {
             let ecs_lock = ecs.lock().unwrap();
 
             for entity in ecs_lock.iter_entities() {
-                if let Some(model) =
+                if let Some(model_source) =
                     ecs_lock.get_component_from_entity::<components::ModelSource>(entity)
                 {
-                    log::warn!("Loading model: {:?}", model.read().unwrap().0);
-                    let obj_model = resources::load_model(
-                        model.read().unwrap().0,
+                    log::info!("Loading model: {:?}", model_source.read().unwrap().0);
+                    let model = resources::load_model(
+                        model_source.read().unwrap().0,
                         &device,
                         &queue,
                         &texture_bind_group_layout,
@@ -312,15 +303,15 @@ impl<'a> State<'a> {
                     .await
                     .unwrap();
 
-                    ecs_lock.add_component_to_entity(entity, obj_model);
+                    ecs_lock.add_component_to_entity(entity, model);
 
                     if let Some(position) =
                         ecs_lock.get_component_from_entity::<components::Pos3>(entity)
                     {
                         // log position, with the models name
-                        log::warn!(
+                        log::info!(
                             "Model {:?}, position: {:?}",
-                            model.read().unwrap().0,
+                            model_source.read().unwrap().0,
                             position
                         );
                         ecs_lock.add_component_to_entity(
@@ -357,21 +348,6 @@ impl<'a> State<'a> {
             }
         }
 
-        // /* LIGHT */
-        // let light_uniform = light::LightUniform {
-        //     position: [2.0, 2.0, 2.0],
-        //     _padding: 0,
-        //     color: [1.0, 1.0, 1.0],
-        //     _padding2: 0,
-        // };
-
-        // // We'll want to update our lights position, so we use COPY_DST
-        // let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Light VB"),
-        //     contents: bytemuck::cast_slice(&[light_uniform]),
-        //     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        // });
-        // /* LIGHT */
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
@@ -394,7 +370,10 @@ impl<'a> State<'a> {
                 &layout,
                 config.format,
                 Some(texture::Texture::DEPTH_FORMAT),
-                &[model::ModelVertex::desc(), instance::InstanceRaw::desc()],
+                &[
+                    model::ModelUniform::desc(),
+                    instance::InstanceUniform::desc(),
+                ],
                 shader,
             )
         };
@@ -414,7 +393,7 @@ impl<'a> State<'a> {
                 &layout,
                 config.format,
                 Some(texture::Texture::DEPTH_FORMAT),
-                &[model::ModelVertex::desc()],
+                &[model::ModelUniform::desc()],
                 shader,
             )
         };
@@ -634,9 +613,8 @@ impl<'a> State<'a> {
                 &self.camera_bind_group,
                 &self.light_bind_group,
             );
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
+            render_pass.set_pipeline(&self.render_pipeline);
             {
                 let ecs_lock = self.ecs.lock().unwrap();
 

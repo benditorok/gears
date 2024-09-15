@@ -21,3 +21,12 @@ impl Pos3 {
 /// A component that stores the path source of a model.
 #[derive(Clone, Copy, Debug)]
 pub struct ModelSource<'a>(pub &'a str);
+
+/// A component that stores a type of light source.
+#[derive(Clone, Copy, Debug)]
+pub enum LightSource {
+    Ambient,
+    Directional,
+    Point,
+    Spot,
+}

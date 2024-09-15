@@ -45,6 +45,16 @@ async fn main() -> anyhow::Result<()> {
     );
     ecs.add_component_to_entity(entity, components::Pos3::new(00.0, 0.0, 0.0));
 
+    // Light src
+    let entity = ecs.create_entity();
+    ecs.add_component_to_entity(entity, Name("LIGHT"));
+    ecs.add_component_to_entity(
+        entity,
+        components::ModelSource("res/models/sphere/sphere.obj"),
+    );
+    ecs.add_component_to_entity(entity, components::Pos3::new(00.0, 0.0, 0.0));
+    ecs.add_component_to_entity(entity, components::LightSource::Ambient);
+
     // Add random spheres
     for i in 0..=20 {
         let entity = ecs.create_entity();
