@@ -1,5 +1,4 @@
-use crate::renderer::{instance, model};
-
+/// A component that stores the positiobn of a 3D object.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
     pub x: f32,
@@ -19,18 +18,6 @@ impl Pos3 {
     }
 }
 
-// TODO create Renderable enum with model, pos, rotation, ...
-pub enum Renderable {
-    Spatial { model: model::Model, position: Pos3 },
-    Sprite,
-}
-
-pub struct GearsModelData<'a> {
-    pub file_path: &'a str,
-}
-
-impl<'a> GearsModelData<'a> {
-    pub fn new(file_path: &'a str) -> Self {
-        Self { file_path }
-    }
-}
+/// A component that stores the path source of a model.
+#[derive(Clone, Copy, Debug)]
+pub struct ModelSource<'a>(pub &'a str);

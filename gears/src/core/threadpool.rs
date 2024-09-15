@@ -119,3 +119,109 @@ impl Drop for ThreadPool {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        sync::atomic::{AtomicUsize, Ordering},
+        thread,
+        time::Duration,
+    };
+
+    #[test]
+    fn test_thread_pool_creation() {
+        let pool = ThreadPool::new(4);
+        assert_eq!(pool.workers.len(), 4);
+    }
+
+    #[test]
+    fn test_thread_pool_execute() {
+        let pool = ThreadPool::new(4);
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        for _ in 0..10 {
+            let counter = Arc::clone(&counter);
+            pool.execute(move |_| {
+                counter.fetch_add(1, Ordering::SeqCst);
+            });
+        }
+
+        // Give some time for all jobs to be executed
+        thread::sleep(Duration::from_millis(100));
+
+        assert_eq!(counter.load(Ordering::SeqCst), 10);
+    }
+
+    #[test]
+    fn test_thread_pool_stop_resume() {
+        let pool = ThreadPool::new(4);
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        for _ in 0..5 {
+            let counter = Arc::clone(&counter);
+            pool.execute(move |stop_flag| {
+                if !stop_flag.load(Ordering::SeqCst) {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                }
+            });
+        }
+
+        // Give some time for all jobs to be executed
+        thread::sleep(Duration::from_millis(100));
+
+        // Stop the execution of jobs
+        pool.stop();
+
+        for _ in 0..5 {
+            let counter = Arc::clone(&counter);
+            pool.execute(move |stop_flag| {
+                if !stop_flag.load(Ordering::SeqCst) {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                }
+            });
+        }
+
+        // Give some time for all jobs to be executed
+        thread::sleep(Duration::from_millis(100));
+
+        // Ensure no jobs are executed after stop is called
+        assert!(counter.load(Ordering::SeqCst) <= 5);
+
+        // Resume the execution of jobs
+        pool.resume();
+
+        for _ in 0..5 {
+            let counter = Arc::clone(&counter);
+            pool.execute(move |stop_flag| {
+                if !stop_flag.load(Ordering::SeqCst) {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                }
+            });
+        }
+
+        // Give some time for all jobs to be executed
+        thread::sleep(Duration::from_millis(100));
+        assert!(counter.load(Ordering::SeqCst) > 5 && counter.load(Ordering::SeqCst) <= 10);
+    }
+
+    #[test]
+    fn test_thread_pool_drop() {
+        let pool = ThreadPool::new(4);
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        for _ in 0..10 {
+            let counter = Arc::clone(&counter);
+            pool.execute(move |_| {
+                counter.fetch_add(1, Ordering::SeqCst);
+            });
+        }
+
+        // Give some time for all jobs to be executed
+        thread::sleep(Duration::from_millis(100));
+
+        assert_eq!(counter.load(Ordering::SeqCst), 10);
+
+        // Dropping the pool should stop all workers
+        drop(pool);
+    }
+}

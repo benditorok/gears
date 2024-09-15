@@ -7,6 +7,9 @@ members = ["gears", "sandbox"]
 [profile.dev]
 opt-level = 0
 
+[profile.release]
+opt-level = 3
+
 [build]
 rustflags = ["-Z", "threads=8"]
 
