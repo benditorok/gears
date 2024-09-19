@@ -1,4 +1,4 @@
-use ecs::Entity;
+use ecs::{AddCoreComponent, Entity};
 use gears::prelude::*;
 use rand::Rng;
 use std::sync::Arc;
@@ -46,14 +46,18 @@ async fn main() -> anyhow::Result<()> {
     ecs.add_component_to_entity(entity, components::Pos3::new(00.0, 0.0, 0.0));
 
     // Light src
-    let entity = ecs.create_entity();
-    ecs.add_component_to_entity(entity, Name("LIGHT"));
-    ecs.add_component_to_entity(
-        entity,
-        components::ModelSource("res/models/sphere/sphere.obj"),
-    );
-    ecs.add_component_to_entity(entity, components::Pos3::new(00.0, 0.0, 0.0));
-    ecs.add_component_to_entity(entity, components::LightSource::Ambient);
+    ecs.add_point_light(components::PointLight {
+        position: cgmath::Vector3::new(0.0, 10.0, 0.0),
+        color: cgmath::Vector3::new(1.0, 1.0, 1.0),
+    });
+    // let entity = ecs.create_entity();
+    // ecs.add_component_to_entity(entity, Name("LIGHT"));
+    // ecs.add_component_to_entity(
+    //     entity,
+    //     components::ModelSource("res/models/sphere/sphere.obj"),
+    // );
+    // ecs.add_component_to_entity(entity, components::Pos3::new(00.0, 0.0, 0.0));
+    // ecs.add_component_to_entity(entity, components::LightSource::Ambient);
 
     // Add random spheres
     for i in 0..=20 {
@@ -102,7 +106,7 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            thread::sleep(std::time::Duration::from_millis(250));
+            thread::sleep(std::time::Duration::from_millis(1000));
         }
     });
 

@@ -1,3 +1,5 @@
+use crate::renderer;
+
 /// A component that stores the positiobn of a 3D object.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
@@ -29,4 +31,21 @@ pub enum LightSource {
     Directional,
     Point,
     Spot,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct PointLight {
+    pub position: cgmath::Vector3<f32>,
+    pub color: cgmath::Vector3<f32>,
+}
+
+impl PointLight {
+    fn to_raw(&self) -> renderer::light::LightUniform {
+        renderer::light::LightUniform {
+            position: self.position.into(),
+            _padding: 0,
+            color: self.color.into(),
+            _padding2: 0,
+        }
+    }
 }

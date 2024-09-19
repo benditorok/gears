@@ -512,16 +512,16 @@ impl<'a> State<'a> {
         );
 
         // Update the light
-        let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
-        self.light_uniform.position =
-            (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
-                * old_position)
-                .into();
-        self.queue.write_buffer(
-            &self.light_buffer,
-            0,
-            bytemuck::cast_slice(&[self.light_uniform]),
-        );
+        // let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
+        // self.light_uniform.position =
+        //     (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
+        //         * old_position)
+        //         .into();
+        // self.queue.write_buffer(
+        //     &self.light_buffer,
+        //     0,
+        //     bytemuck::cast_slice(&[self.light_uniform]),
+        // );
 
         // Update positions and instace buffers
         {

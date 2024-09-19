@@ -8,7 +8,8 @@ use std::sync::{Arc, RwLock};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(pub u32);
 
-type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>;
+type Component = dyn Any + Send + Sync;
+type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<Component>>>>;
 
 /// Entity component system manager.
 pub struct Manager {
@@ -96,6 +97,17 @@ impl Manager {
     }
 }
 
+pub trait AddCoreComponent {
+    fn add_point_light(&self, light: components::PointLight);
+}
+
+impl AddCoreComponent for Manager {
+    fn add_point_light(&self, light: components::PointLight) {
+        let entity = self.create_entity();
+        self.add_component_to_entity(entity, light);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,5 +192,22 @@ mod tests {
         let entity = manager.create_entity();
         let components = manager.get_all_components_of_type::<TestComponent>();
         assert!(components.is_empty());
+    }
+
+    #[test]
+    fn test_add_point_light() {
+        let manager = Manager::new();
+        let light = components::PointLight {
+            color: [1.0, 1.0, 1.0].into(),
+            position: [0.0, 0.0, 0.0].into(),
+        };
+        manager.add_point_light(light);
+
+        let components = manager.get_all_components_of_type::<components::PointLight>();
+        assert_eq!(components.len(), 1);
+        assert_eq!(
+            components[0].1.read().unwrap().color,
+            [1.0, 1.0, 1.0].into()
+        );
     }
 }
