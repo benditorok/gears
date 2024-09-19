@@ -82,7 +82,8 @@ impl Manager {
         let entities = self.entities.read().unwrap();
         for (entity, components) in entities.iter() {
             if let Some(component) = components.get(&TypeId::of::<T>()) {
-                let component = component.clone();
+                let component = Arc::clone(component);
+
                 unsafe {
                     // SAFETY: We ensure that the component is of type T
                     let component_ptr = Arc::into_raw(component) as *const RwLock<T>;
