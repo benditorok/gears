@@ -7,11 +7,16 @@ pub mod texture;
 
 use crate::ecs::{self, components};
 use cgmath::prelude::*;
+use cgmath::*;
+use instant::Duration;
 use log::info;
 use model::{DrawLight, Vertex};
+use std::f32::consts::FRAC_PI_2;
 use std::iter;
 use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
+use winit::dpi::PhysicalPosition;
+use winit::event::*;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -26,6 +31,8 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 0.5,
     0.0, 0.0, 0.0, 1.0,
 );
+
+const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 /// The main event loop of the application
 ///
