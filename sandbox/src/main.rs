@@ -1,8 +1,7 @@
-use ecs::Entity;
 use gears::prelude::*;
 use rand::Rng;
 use std::sync::Arc;
-use std::{any, thread};
+use std::thread;
 
 pub struct Health(i32);
 
@@ -11,6 +10,17 @@ pub struct Name(&'static str);
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let ecs = ecs::Manager::new();
+
+    // Add a camera
+    let entity = ecs.create_entity();
+    ecs.add_component_to_entity(entity, Name("FPS Camera"));
+    ecs.add_component_to_entity(
+        entity,
+        components::Camera::FPS {
+            pos: components::Pos3::new(5.0, 10.0, 0.0),
+            look_at: components::Pos3::new(0.0, 0.0, 0.0),
+        },
+    );
 
     // Cube 1
     let entity = ecs.create_entity();

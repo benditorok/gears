@@ -21,3 +21,8 @@ impl Pos3 {
 /// A component that stores the path source of a model.
 #[derive(Clone, Copy, Debug)]
 pub struct ModelSource<'a>(pub &'a str);
+
+pub enum Camera {
+    FPS { pos: Pos3, look_at: Pos3 },
+    Fixed { pos: Pos3, look_at: Pos3 },
+}
