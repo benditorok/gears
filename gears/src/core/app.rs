@@ -44,7 +44,7 @@ impl App for GearsApp {
             event_queue: EventQueue::new(),
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            world: Arc::new(Mutex::new(ecs::Manager::new())),
+            world: Arc::new(Mutex::new(ecs::Manager::default())),
         }
     }
 

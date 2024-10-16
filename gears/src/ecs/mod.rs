@@ -16,12 +16,20 @@ pub struct Manager {
     next_entity: AtomicU32,
 }
 
-impl Manager {
-    #[allow(clippy::new_without_default)]
-    /// Create a new EntityManager.
-    pub fn new() -> Self {
+impl Default for Manager {
+    fn default() -> Self {
         Manager {
             entities: RwLock::new(HashMap::new()),
+            next_entity: AtomicU32::new(0),
+        }
+    }
+}
+
+impl Manager {
+    /// Create a new EntityManager.
+    pub fn new(capacity: usize) -> Self {
+        Manager {
+            entities: RwLock::new(HashMap::with_capacity(capacity)),
             next_entity: AtomicU32::new(0),
         }
     }
@@ -93,6 +101,19 @@ impl Manager {
 
         result
     }
+
+    /// Get all entities that have a specific component.
+    pub fn get_entites_with_component<T: 'static + Send + Sync>(&self) -> Vec<Entity> {
+        let mut result: Vec<Entity> = Vec::new();
+        let entities = self.entities.read().unwrap();
+        for (entity, components) in entities.iter() {
+            if components.contains_key(&TypeId::of::<T>()) {
+                result.push(*entity);
+            }
+        }
+
+        result
+    }
 }
 
 #[cfg(test)]
@@ -104,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_create_entity() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         assert_eq!(entity, Entity(0));
         let entity2 = manager.create_entity();
@@ -113,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_add_and_get_component() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         let component = TestComponent(42);
         manager.add_component_to_entity(entity, component);
@@ -126,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_get_nonexistent_component() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         let retrieved_component = manager.get_component_from_entity::<TestComponent>(entity);
         assert!(retrieved_component.is_none());
@@ -134,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_iter_entities() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity1 = manager.create_entity();
         let entity2 = manager.create_entity();
         let entities: Vec<Entity> = manager.iter_entities().collect();
@@ -145,7 +166,7 @@ mod tests {
 
     #[test]
     fn test_get_all_components_of_type() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity1 = manager.create_entity();
         manager.add_component_to_entity(entity1, TestComponent(10));
         let entity2 = manager.create_entity();
@@ -163,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_add_multiple_components_to_entity() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         manager.add_component_to_entity(entity, TestComponent(42));
         manager.add_component_to_entity(entity, TestComponent(84));
@@ -175,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_get_all_components_of_type_with_no_components() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         let components = manager.get_all_components_of_type::<TestComponent>();
         assert!(components.is_empty());
