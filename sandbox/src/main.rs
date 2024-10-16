@@ -12,28 +12,28 @@ async fn main() -> anyhow::Result<()> {
     let ecs = ecs::Manager::default();
 
     // Add FPS camera
-    // let entity = ecs.create_entity();
-    // ecs.add_component_to_entity(entity, Name("FPS Camera"));
-    // ecs.add_component_to_entity(entity, components::Pos3::new(5.0, 10.0, 0.0));
-    // ecs.add_component_to_entity(
-    //     entity,
-    //     components::Camera::FPS {
-    //         look_at: components::Pos3::new(0.0, 0.0, 0.0),
-    //         speed: 10.0,
-    //         sensitivity: 0.5,
-    //     },
-    // );
-
-    // Add fixed camera
     let entity = ecs.create_entity();
-    ecs.add_component_to_entity(entity, Name("Fixed Camera"));
-    ecs.add_component_to_entity(entity, components::Pos3::new(20.0, 15.0, 20.0));
+    ecs.add_component_to_entity(entity, Name("FPS Camera"));
+    ecs.add_component_to_entity(entity, components::Pos3::new(5.0, 10.0, 0.0));
     ecs.add_component_to_entity(
         entity,
-        components::Camera::Fixed {
-            look_at: components::Pos3::new(0.0, 10.0, 0.0),
+        components::Camera::FPS {
+            look_at: components::Pos3::new(0.0, 0.0, 0.0),
+            speed: 10.0,
+            sensitivity: 0.5,
         },
     );
+
+    // // Add fixed camera
+    // let entity = ecs.create_entity();
+    // ecs.add_component_to_entity(entity, Name("Fixed Camera"));
+    // ecs.add_component_to_entity(entity, components::Pos3::new(20.0, 15.0, 20.0));
+    // ecs.add_component_to_entity(
+    //     entity,
+    //     components::Camera::Fixed {
+    //         look_at: components::Pos3::new(0.0, 10.0, 0.0),
+    //     },
+    // );
 
     // Cube 1
     let entity = ecs.create_entity();

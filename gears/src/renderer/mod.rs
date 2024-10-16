@@ -266,10 +266,8 @@ impl<'a> State<'a> {
         .unwrap();
 
         /* INITIALIZINS STATE COMPONENTS */
-        let mut state_camera: camera::Camera =
-            camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
-        let mut state_camera_controller: camera::CameraController =
-            camera::CameraController::new(0.5, 0.2);
+        // Camera
+        let (state_camera, state_camera_controller) = Self::init_camera(Arc::clone(&ecs));
         /* INITIALIZINS STATE COMPONENTS */
 
         // # START Load models and create instances #
@@ -277,49 +275,6 @@ impl<'a> State<'a> {
             log::warn!("Loading models and instances");
 
             let ecs_lock = ecs.lock().unwrap();
-
-            /* Separate entitites by components */
-
-            /* CAMERA COMPONENT */
-            {
-                let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
-                assert!(
-                    camera_entity.len() <= 1,
-                    "There should be only one camera entity"
-                );
-                let camera_entity = camera_entity.pop().unwrap();
-
-                let camera_pos = ecs_lock
-                    .get_component_from_entity::<components::Pos3>(camera_entity)
-                    .expect("No position provided for the camera!");
-                let camera = ecs_lock
-                    .get_component_from_entity::<components::Camera>(camera_entity)
-                    .expect("No camera component provided for the camera!");
-
-                let camera_pos = camera_pos.read().unwrap();
-                let camera = camera.read().unwrap();
-
-                match *camera {
-                    components::Camera::FPS {
-                        look_at,
-                        speed,
-                        sensitivity,
-                    } => {
-                        let camera_pos_converted: cgmath::Point3<f32> = (*camera_pos).into();
-                        let look_at_converted: cgmath::Point3<f32> = look_at.into();
-                        state_camera =
-                            camera::Camera::new_look_at(camera_pos_converted, look_at_converted);
-                        state_camera_controller = camera::CameraController::new(speed, sensitivity);
-                    }
-                    components::Camera::Fixed { look_at } => {
-                        let camera_pos_converted: cgmath::Point3<f32> = (*camera_pos).into();
-                        let look_at_converted: cgmath::Point3<f32> = look_at.into();
-                        state_camera =
-                            camera::Camera::new_look_at(camera_pos_converted, look_at_converted);
-                        state_camera_controller = camera::CameraController::new(0.0, 0.0);
-                    }
-                }
-            }
             /* CAMERA COMPONENT */
 
             /* All in one go */
@@ -567,6 +522,58 @@ impl<'a> State<'a> {
             multiview: None,
             cache: None,
         })
+    }
+
+    fn init_camera(ecs: Arc<Mutex<ecs::Manager>>) -> (camera::Camera, camera::CameraController) {
+        let ecs_lock = ecs.lock().unwrap();
+        let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
+        assert!(
+            camera_entity.len() <= 1,
+            "There should be only one camera entity"
+        );
+
+        // If there is no camera entity provide a default implementation
+        if camera_entity.is_empty() {
+            let camera =
+                camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+            let controller = camera::CameraController::new(0.5, 0.2);
+            return (camera, controller);
+        }
+
+        let camera_entity = camera_entity.pop().unwrap();
+
+        let camera_pos = ecs_lock
+            .get_component_from_entity::<components::Pos3>(camera_entity)
+            .expect("No position provided for the camera!");
+        let camera = ecs_lock
+            .get_component_from_entity::<components::Camera>(camera_entity)
+            .expect("No camera component provided for the camera!");
+
+        let camera_pos = camera_pos.read().unwrap();
+        let camera = camera.read().unwrap();
+
+        match *camera {
+            components::Camera::FPS {
+                look_at,
+                speed,
+                sensitivity,
+            } => {
+                let camera_pos_converted: cgmath::Point3<f32> = (*camera_pos).into();
+                let look_at_converted: cgmath::Point3<f32> = look_at.into();
+                let camera = camera::Camera::new_look_at(camera_pos_converted, look_at_converted);
+                let controller = camera::CameraController::new(speed, sensitivity);
+
+                (camera, controller)
+            }
+            components::Camera::Fixed { look_at } => {
+                let camera_pos_converted: cgmath::Point3<f32> = (*camera_pos).into();
+                let look_at_converted: cgmath::Point3<f32> = look_at.into();
+                let camera = camera::Camera::new_look_at(camera_pos_converted, look_at_converted);
+                let controller = camera::CameraController::new(0.0, 0.0);
+
+                (camera, controller)
+            }
+        }
     }
 
     pub fn window(&self) -> &Window {
