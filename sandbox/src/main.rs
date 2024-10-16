@@ -11,16 +11,27 @@ pub struct Name(&'static str);
 async fn main() -> anyhow::Result<()> {
     let ecs = ecs::Manager::default();
 
-    // Add a camera
+    // Add FPS camera
+    // let entity = ecs.create_entity();
+    // ecs.add_component_to_entity(entity, Name("FPS Camera"));
+    // ecs.add_component_to_entity(entity, components::Pos3::new(5.0, 10.0, 0.0));
+    // ecs.add_component_to_entity(
+    //     entity,
+    //     components::Camera::FPS {
+    //         look_at: components::Pos3::new(0.0, 0.0, 0.0),
+    //         speed: 10.0,
+    //         sensitivity: 0.5,
+    //     },
+    // );
+
+    // Add fixed camera
     let entity = ecs.create_entity();
-    ecs.add_component_to_entity(entity, Name("FPS Camera"));
-    ecs.add_component_to_entity(entity, components::Pos3::new(5.0, 10.0, 0.0));
+    ecs.add_component_to_entity(entity, Name("Fixed Camera"));
+    ecs.add_component_to_entity(entity, components::Pos3::new(20.0, 15.0, 20.0));
     ecs.add_component_to_entity(
         entity,
-        components::Camera::FPS {
-            look_at: components::Pos3::new(0.0, 0.0, 0.0),
-            speed: 10.0,
-            sensitivity: 0.5,
+        components::Camera::Fixed {
+            look_at: components::Pos3::new(0.0, 10.0, 0.0),
         },
     );
 
