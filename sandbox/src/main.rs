@@ -68,18 +68,33 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(0.0, 0.0, 0.0))
         .build();
 
-    // Add random spheres
-    for i in 0..=20 {
-        let name = format!("Sphere_rand{}", i);
+    // // Add random spheres
+    // for i in 0..=20 {
+    //     let name = format!("Sphere_rand{}", i);
+
+    //     EntityBuilder::new_entity(&mut ecs)
+    //         .add_component(Name(Box::leak(name.into_boxed_str())))
+    //         .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
+    //         .add_component(components::Pos3::new(
+    //             rand::random::<f32>() * 40.0 - 20.0,
+    //             rand::random::<f32>() * 40.0 - 20.0,
+    //             rand::random::<f32>() * 40.0 - 20.0,
+    //         ))
+    //         .build();
+    // }
+
+    // Add 5 spheres in a circle
+    for i in 0..5 {
+        let angle = i as f32 * std::f32::consts::PI * 2.0 / 5.0;
+        let x = angle.cos() * 10.0;
+        let z = angle.sin() * 10.0;
+
+        let name = format!("Sphere_circle{}", i);
 
         EntityBuilder::new_entity(&mut ecs)
             .add_component(Name(Box::leak(name.into_boxed_str())))
             .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
-            .add_component(components::Pos3::new(
-                rand::random::<f32>() * 40.0 - 20.0,
-                rand::random::<f32>() * 40.0 - 20.0,
-                rand::random::<f32>() * 40.0 - 20.0,
-            ))
+            .add_component(components::Pos3::new(x, 0.0, z))
             .build();
     }
 
@@ -87,30 +102,59 @@ async fn main() -> anyhow::Result<()> {
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
 
-    let ecs_sanbox_t2_access = Arc::clone(&ecs);
+    // TODO leak the last frame time trough channesl try_recv and update a components pos from outside with * dt
 
+    // let ecs_sanbox_t2_access = Arc::clone(&ecs);
+    // app.thread_pool.execute(move |stop_flag| {
+    //     let mut rng = rand::thread_rng();
+    //     while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
+    //         {
+    //             let ecs = ecs_sanbox_t2_access.lock().unwrap();
+    //             for entity in ecs.iter_entities() {
+    //                 if let Some(name) = ecs.get_component_from_entity::<Name>(entity) {
+    //                     if name.read().unwrap().0.contains("Sphere_rand") {
+    //                         if let Some(pos) =
+    //                             ecs.get_component_from_entity::<components::Pos3>(entity)
+    //                         {
+    //                             let mut pos = pos.write().unwrap();
+    //                             pos.x = rng.gen::<f32>() * 40.0 - 20.0;
+    //                             pos.y = rng.gen::<f32>() * 40.0 - 20.0;
+    //                             pos.z = rng.gen::<f32>() * 40.0 - 20.0;
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         thread::sleep(std::time::Duration::from_millis(250));
+    //     }
+    // });
+
+    let ecs_sanbox_t2_access = Arc::clone(&ecs);
     app.thread_pool.execute(move |stop_flag| {
-        let mut rng = rand::thread_rng();
+        let start_time = std::time::Instant::now();
         while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
             {
                 let ecs = ecs_sanbox_t2_access.lock().unwrap();
+                let elapsed = start_time.elapsed().as_secs_f32();
                 for entity in ecs.iter_entities() {
                     if let Some(name) = ecs.get_component_from_entity::<Name>(entity) {
-                        if name.read().unwrap().0.contains("Sphere_rand") {
+                        if name.read().unwrap().0.contains("Sphere_circle") {
                             if let Some(pos) =
                                 ecs.get_component_from_entity::<components::Pos3>(entity)
                             {
                                 let mut pos = pos.write().unwrap();
-                                pos.x = rng.gen::<f32>() * 40.0 - 20.0;
-                                pos.y = rng.gen::<f32>() * 40.0 - 20.0;
-                                pos.z = rng.gen::<f32>() * 40.0 - 20.0;
+                                let angle =
+                                    elapsed + (entity.0 as f32 * std::f32::consts::PI * 2.0 / 5.0);
+                                pos.x = angle.cos() * 10.0;
+                                pos.z = angle.sin() * 10.0;
                             }
                         }
                     }
                 }
             }
 
-            thread::sleep(std::time::Duration::from_millis(250));
+            thread::sleep(std::time::Duration::from_millis(16));
         }
     });
 
