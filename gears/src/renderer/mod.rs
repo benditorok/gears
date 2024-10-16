@@ -123,7 +123,7 @@ struct State<'a> {
     render_pipeline: wgpu::RenderPipeline,
     light_render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
-    projection: camera::Projection,
+    camera_projection: camera::Projection,
     camera_controller: camera::CameraController,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -219,44 +219,6 @@ impl<'a> State<'a> {
                 label: Some("texture_bind_group_layout"),
             });
 
-        let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
-        let projection =
-            camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
-        let camera_controller = camera::CameraController::new(4.0, 0.4);
-
-        let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update_view_proj(&camera, &projection);
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
-            });
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        });
-
         let light_uniform = light::LightUniform {
             position: [2.0, 2.0, 2.0],
             _padding: 0,
@@ -303,12 +265,64 @@ impl<'a> State<'a> {
         .await
         .unwrap();
 
+        /* INITIALIZINS STATE COMPONENTS */
+        let mut state_camera: camera::Camera =
+            camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let mut state_camera_controller: camera::CameraController =
+            camera::CameraController::new(0.5, 0.2);
+        /* INITIALIZINS STATE COMPONENTS */
+
         // # START Load models and create instances #
         {
             log::warn!("Loading models and instances");
 
             let ecs_lock = ecs.lock().unwrap();
 
+            /* Separate entitites by components */
+
+            /* CAMERA COMPONENT */
+            {
+                let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
+                assert!(
+                    camera_entity.len() <= 1,
+                    "There should be only one camera entity"
+                );
+                let camera_entity = camera_entity.pop().unwrap();
+
+                let camera_pos = ecs_lock
+                    .get_component_from_entity::<components::Pos3>(camera_entity)
+                    .expect("No position provided for the camera!");
+                let camera = ecs_lock
+                    .get_component_from_entity::<components::Camera>(camera_entity)
+                    .expect("No camera component provided for the camera!");
+
+                let camera_pos = camera_pos.read().unwrap();
+                let camera = camera.read().unwrap();
+
+                match *camera {
+                    components::Camera::FPS {
+                        look_at,
+                        speed,
+                        sensitivity,
+                    } => {
+                        let camera_pos_converted: cgmath::Point3<f32> = (*camera_pos).into();
+                        let look_at_converted: cgmath::Point3<f32> = look_at.into();
+                        state_camera =
+                            camera::Camera::new_look_at(camera_pos_converted, look_at_converted);
+                        state_camera_controller = camera::CameraController::new(speed, sensitivity);
+                    }
+                    components::Camera::Fixed { look_at } => {
+                        let camera_pos_converted: cgmath::Point3<f32> = (*camera_pos).into();
+                        let look_at_converted: cgmath::Point3<f32> = look_at.into();
+                        state_camera =
+                            camera::Camera::new_look_at(camera_pos_converted, look_at_converted);
+                        state_camera_controller = camera::CameraController::new(0.0, 0.0);
+                    }
+                }
+            }
+            /* CAMERA COMPONENT */
+
+            /* All in one go */
             for entity in ecs_lock.iter_entities() {
                 if let Some(model) =
                     ecs_lock.get_component_from_entity::<components::ModelSource>(entity)
@@ -367,6 +381,42 @@ impl<'a> State<'a> {
                 }
             }
         }
+
+        /* CAMERA */
+        let camera_projection =
+            camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
+        let camera_uniform = camera::CameraUniform::new();
+
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
+
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        });
+        /* CAMERA */
 
         // /* LIGHT */
         // let light_uniform = light::LightUniform {
@@ -440,9 +490,9 @@ impl<'a> State<'a> {
             size,
             render_pipeline,
             light_render_pipeline,
-            camera,
-            projection,
-            camera_controller,
+            camera: state_camera,
+            camera_projection,
+            camera_controller: state_camera_controller,
             camera_buffer,
             camera_bind_group,
             camera_uniform,
@@ -524,7 +574,8 @@ impl<'a> State<'a> {
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.projection.resize(new_size.width, new_size.height);
+        self.camera_projection
+            .resize(new_size.width, new_size.height);
 
         if new_size.width > 0 && new_size.height > 0 {
             self.config.width = new_size.width;
@@ -567,7 +618,7 @@ impl<'a> State<'a> {
         /* Camera updates */
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
-            .update_view_proj(&self.camera, &self.projection);
+            .update_view_proj(&self.camera, &self.camera_projection);
 
         self.queue.write_buffer(
             &self.camera_buffer,

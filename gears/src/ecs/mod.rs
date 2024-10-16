@@ -10,6 +10,8 @@ pub struct Entity(pub u32);
 
 type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>;
 
+// TODO add a world with scenes and scene switching
+
 /// Entity component system manager.
 pub struct Manager {
     entities: RwLock<EntityStore>,
@@ -26,7 +28,11 @@ impl Default for Manager {
 }
 
 impl Manager {
-    /// Create a new EntityManager.
+    /// Create a new EntityManager with a specific capacity preallocated.
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity` - The preallocated capacity of the EntityManager.
     pub fn new(capacity: usize) -> Self {
         Manager {
             entities: RwLock::new(HashMap::with_capacity(capacity)),

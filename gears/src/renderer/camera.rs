@@ -36,6 +36,20 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn new_look_at<V: Into<Point3<f32>>>(position: V, target: V) -> Self {
+        let position = position.into();
+        let target = target.into();
+        let direction = (target - position).normalize();
+        let pitch = direction.y.asin();
+        let yaw = direction.z.atan2(direction.x);
+
+        Self {
+            position,
+            yaw: Rad(yaw),
+            pitch: Rad(pitch),
+        }
+    }
+
     pub fn new<V: Into<Point3<f32>>, Y: Into<Rad<f32>>, P: Into<Rad<f32>>>(
         position: V,
         yaw: Y,

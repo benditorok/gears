@@ -1,4 +1,4 @@
-/// A component that stores the positiobn of a 3D object.
+/// A component that stores the position of a 3D object.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
     pub x: f32,
@@ -18,11 +18,23 @@ impl Pos3 {
     }
 }
 
+impl From<Pos3> for cgmath::Point3<f32> {
+    fn from(val: Pos3) -> Self {
+        cgmath::Point3::new(val.x, val.y, val.z)
+    }
+}
+
 /// A component that stores the path source of a model.
 #[derive(Clone, Copy, Debug)]
 pub struct ModelSource<'a>(pub &'a str);
 
 pub enum Camera {
-    FPS { pos: Pos3, look_at: Pos3 },
-    Fixed { pos: Pos3, look_at: Pos3 },
+    FPS {
+        look_at: Pos3,
+        speed: f32,
+        sensitivity: f32,
+    },
+    Fixed {
+        look_at: Pos3,
+    },
 }

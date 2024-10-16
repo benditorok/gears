@@ -9,16 +9,18 @@ pub struct Name(&'static str);
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let ecs = ecs::Manager::new();
+    let ecs = ecs::Manager::default();
 
     // Add a camera
     let entity = ecs.create_entity();
     ecs.add_component_to_entity(entity, Name("FPS Camera"));
+    ecs.add_component_to_entity(entity, components::Pos3::new(5.0, 10.0, 0.0));
     ecs.add_component_to_entity(
         entity,
         components::Camera::FPS {
-            pos: components::Pos3::new(5.0, 10.0, 0.0),
             look_at: components::Pos3::new(0.0, 0.0, 0.0),
+            speed: 10.0,
+            sensitivity: 0.5,
         },
     );
 
