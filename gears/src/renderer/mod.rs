@@ -128,6 +128,7 @@ struct State<'a> {
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+    // TODO add a buffer for the models
     light_model: model::Model,
     light_uniform: light::LightUniform,
     light_buffer: wgpu::Buffer,
@@ -375,6 +376,8 @@ impl<'a> State<'a> {
         //     _padding2: 0,
         // };
 
+        // TODO same models should be in the same buffer
+
         // // We'll want to update our lights position, so we use COPY_DST
         // let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         //     label: Some("Light VB"),
@@ -561,6 +564,7 @@ impl<'a> State<'a> {
     }
 
     async fn update(&mut self, dt: instant::Duration) {
+        /* Camera updates */
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
             .update_view_proj(&self.camera, &self.projection);
@@ -570,8 +574,9 @@ impl<'a> State<'a> {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
+        /* Camera updates */
 
-        // Update the light
+        /* Light updates */
         let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
         self.light_uniform.position = (cgmath::Quaternion::from_axis_angle(
             (0.0, 1.0, 0.0).into(),
@@ -583,7 +588,10 @@ impl<'a> State<'a> {
             0,
             bytemuck::cast_slice(&[self.light_uniform]),
         );
+        /* Light updates */
 
+        // TODO ezeket egybe lehetne szedni pl. light, buffer es uniform egy entity,
+        // elejen letrehozni, user elol elrejteni
         // Update positions and instace buffers
         {
             let ecs_lock = self.ecs.lock().unwrap();
