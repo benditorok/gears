@@ -16,7 +16,7 @@ async fn main() -> anyhow::Result<()> {
     // Add FPS camera
     EntityBuilder::new_entity(&mut ecs)
         .add_component(Name("FPS Camera"))
-        .add_component(components::Pos3::new(5.0, 10.0, 0.0))
+        .add_component(components::Pos3::new(20.0, 10.0, 20.0))
         .add_component(components::Camera::FPS {
             look_at: components::Pos3::new(0.0, 0.0, 0.0),
             speed: 10.0,
