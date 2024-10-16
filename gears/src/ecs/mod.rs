@@ -1,4 +1,5 @@
 pub mod components;
+pub mod utils;
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -49,6 +50,11 @@ impl Manager {
             .unwrap()
             .insert(entity, HashMap::new());
         entity
+    }
+
+    /// Get the number of entities currently in the EntityManager.
+    pub fn entity_count(&self) -> usize {
+        self.entities.read().unwrap().len()
     }
 
     /// Add a component of a specific type to a specific entity.
@@ -203,8 +209,41 @@ mod tests {
     #[test]
     fn test_get_all_components_of_type_with_no_components() {
         let manager = Manager::default();
-        let entity = manager.create_entity();
+        let _ = manager.create_entity();
         let components = manager.get_all_components_of_type::<TestComponent>();
         assert!(components.is_empty());
+    }
+
+    #[test]
+    fn test_get_entities_with_component() {
+        let manager = Manager::default();
+        let entity1 = manager.create_entity();
+        manager.add_component_to_entity(entity1, TestComponent(10));
+        let entity2 = manager.create_entity();
+        manager.add_component_to_entity(entity2, TestComponent(20));
+        let entity3 = manager.create_entity();
+
+        let entities_with_component = manager.get_entites_with_component::<TestComponent>();
+        assert_eq!(entities_with_component.len(), 2);
+        assert!(entities_with_component.contains(&entity1));
+        assert!(entities_with_component.contains(&entity2));
+        assert!(!entities_with_component.contains(&entity3));
+    }
+
+    #[test]
+    fn test_get_entities_with_component_no_entities() {
+        let manager = Manager::default();
+        let entities_with_component = manager.get_entites_with_component::<TestComponent>();
+        assert!(entities_with_component.is_empty());
+    }
+
+    #[test]
+    fn test_get_entities_with_component_no_matching_component() {
+        let manager = Manager::default();
+        let _entity1 = manager.create_entity();
+        let _entity2 = manager.create_entity();
+
+        let entities_with_component = manager.get_entites_with_component::<TestComponent>();
+        assert!(entities_with_component.is_empty());
     }
 }
