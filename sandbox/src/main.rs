@@ -1,3 +1,4 @@
+use components::ModelSource;
 use ecs::utils::EntityBuilder;
 use ecs::Entity;
 use gears::prelude::*;
@@ -7,15 +8,13 @@ use std::thread;
 
 pub struct Health(i32);
 
-pub struct Name(&'static str);
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut ecs = ecs::Manager::default();
 
     // Add FPS camera
     EntityBuilder::new_entity(&mut ecs)
-        .add_component(Name("FPS Camera"))
+        .add_component(components::Name("FPS Camera"))
         .add_component(components::Pos3::new(20.0, 10.0, 20.0))
         .add_component(components::Camera::FPS {
             look_at: components::Pos3::new(0.0, 0.0, 0.0),
@@ -33,37 +32,45 @@ async fn main() -> anyhow::Result<()> {
     //     })
     //     .build();
 
+    // Add ambient light
+    EntityBuilder::new_entity(&mut ecs)
+        .add_component(components::Name("Ambient Light"))
+        .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
+        .add_component(components::Light::AmbientColoured([0.1, 0.1, 0.1]))
+        .add_component(components::Pos3::new(0.0, 20.0, 0.0))
+        .build();
+
     // Cube 1
     EntityBuilder::new_entity(&mut ecs)
-        .add_component(Name("Cube1"))
+        .add_component(components::Name("Cube1"))
         .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Pos3::new(10.0, 0.0, 10.0))
         .build();
 
     // Cube 2
     EntityBuilder::new_entity(&mut ecs)
-        .add_component(Name("Cube2"))
+        .add_component(components::Name("Cube2"))
         .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Pos3::new(10.0, 0.0, -10.0))
         .build();
 
     // Cube 3
     EntityBuilder::new_entity(&mut ecs)
-        .add_component(Name("Cube3"))
+        .add_component(components::Name("Cube3"))
         .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Pos3::new(-10.0, 0.0, -10.0))
         .build();
 
     // Cube 4
     EntityBuilder::new_entity(&mut ecs)
-        .add_component(Name("Cube4"))
+        .add_component(components::Name("Cube4"))
         .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Pos3::new(-10.0, 0.0, 10.0))
         .build();
 
     // Center sphere
     EntityBuilder::new_entity(&mut ecs)
-        .add_component(Name("Sphere1"))
+        .add_component(components::Name("Sphere1"))
         .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
         .add_component(components::Pos3::new(0.0, 0.0, 0.0))
         .build();
@@ -92,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
         let name = format!("Sphere_circle{}", i);
 
         EntityBuilder::new_entity(&mut ecs)
-            .add_component(Name(Box::leak(name.into_boxed_str())))
+            .add_component(components::Name(Box::leak(name.into_boxed_str())))
             .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
             .add_component(components::Pos3::new(x, 0.0, z))
             .build();
@@ -138,7 +145,7 @@ async fn main() -> anyhow::Result<()> {
                 let ecs = ecs_sanbox_t2_access.lock().unwrap();
                 let elapsed = start_time.elapsed().as_secs_f32();
                 for entity in ecs.iter_entities() {
-                    if let Some(name) = ecs.get_component_from_entity::<Name>(entity) {
+                    if let Some(name) = ecs.get_component_from_entity::<components::Name>(entity) {
                         if name.read().unwrap().0.contains("Sphere_circle") {
                             if let Some(pos) =
                                 ecs.get_component_from_entity::<components::Pos3>(entity)

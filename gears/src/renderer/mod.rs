@@ -10,10 +10,10 @@ use cgmath::prelude::*;
 use cgmath::*;
 use instant::Duration;
 use log::info;
-use model::{DrawLight, Vertex};
+use model::{DrawLight, DrawModel, Vertex};
 use std::f32::consts::FRAC_PI_2;
-use std::iter;
 use std::sync::{Arc, Mutex};
+use std::{any, iter};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
@@ -44,6 +44,7 @@ pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
     let mut state = State::new(&window, world).await;
+    state.init_components().await?;
     let mut last_render_time = instant::Instant::now();
 
     event_loop
@@ -129,10 +130,10 @@ struct State<'a> {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     // TODO add a buffer for the models
-    light_model: model::Model,
-    light_uniform: light::LightUniform,
-    light_buffer: wgpu::Buffer,
-    light_bind_group: wgpu::BindGroup,
+    // ! LIGHT COMPONENTS
+    light_entities: Option<Vec<ecs::Entity>>,
+    //
+    texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     #[allow(dead_code)]
     depth_texture: texture::Texture,
@@ -151,9 +152,7 @@ impl<'a> State<'a> {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
-
         let surface = instance.create_surface(window).unwrap();
-
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -219,19 +218,6 @@ impl<'a> State<'a> {
                 label: Some("texture_bind_group_layout"),
             });
 
-        let light_uniform = light::LightUniform {
-            position: [2.0, 2.0, 2.0],
-            _padding: 0,
-            color: [1.0, 1.0, 1.0],
-            _padding2: 0,
-        };
-
-        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light VB"),
-            contents: bytemuck::cast_slice(&[light_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
         let light_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -244,44 +230,35 @@ impl<'a> State<'a> {
                     },
                     count: None,
                 }],
-                label: None,
+                label: Some("light_bind_group_layout"),
             });
 
-        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &light_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_buffer.as_entire_binding(),
-            }],
-            label: None,
-        });
-
-        let light_model = resources::load_model(
-            "res/models/sphere/sphere.obj",
-            &device,
-            &queue,
-            &texture_bind_group_layout,
-        )
-        .await
-        .unwrap();
-
-        /* INITIALIZINS STATE COMPONENTS */
-        // Camera
+        // * INITIALIZINS STATE COMPONENTS
+        // ! CAMERA COMPONENT
         let (state_camera, state_camera_controller) = Self::init_camera(Arc::clone(&ecs));
-        /* INITIALIZINS STATE COMPONENTS */
+
+        // ! LIGHT ENTITIES -> MOVED TO INIT_COMPONENTS
+        //let light_entities = Self::init_lights(Arc::clone(&ecs)).await;
+        // * INITIALIZINS STATE COMPONENTS
 
         // # START Load models and create instances #
         {
             log::warn!("Loading models and instances");
 
             let ecs_lock = ecs.lock().unwrap();
-            /* CAMERA COMPONENT */
 
             /* All in one go */
             for entity in ecs_lock.iter_entities() {
                 if let Some(model) =
                     ecs_lock.get_component_from_entity::<components::ModelSource>(entity)
                 {
+                    // ! HACK skip lights
+                    if let Some(light) =
+                        ecs_lock.get_component_from_entity::<components::Light>(entity)
+                    {
+                        continue;
+                    }
+
                     log::warn!("Loading model: {:?}", model.read().unwrap().0);
                     let obj_model = resources::load_model(
                         model.read().unwrap().0,
@@ -371,25 +348,9 @@ impl<'a> State<'a> {
             }],
             label: Some("camera_bind_group"),
         });
-        /* CAMERA */
-
-        // /* LIGHT */
-        // let light_uniform = light::LightUniform {
-        //     position: [2.0, 2.0, 2.0],
-        //     _padding: 0,
-        //     color: [1.0, 1.0, 1.0],
-        //     _padding2: 0,
-        // };
 
         // TODO same models should be in the same buffer
 
-        // // We'll want to update our lights position, so we use COPY_DST
-        // let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Light VB"),
-        //     contents: bytemuck::cast_slice(&[light_uniform]),
-        //     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        // });
-        // /* LIGHT */
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
@@ -447,14 +408,12 @@ impl<'a> State<'a> {
             light_render_pipeline,
             camera: state_camera,
             camera_projection,
+            texture_bind_group_layout,
             camera_controller: state_camera_controller,
             camera_buffer,
             camera_bind_group,
             camera_uniform,
-            light_model,
-            light_uniform,
-            light_buffer,
-            light_bind_group,
+            light_entities: None,
             light_bind_group_layout,
             depth_texture,
             window,
@@ -524,6 +483,12 @@ impl<'a> State<'a> {
         })
     }
 
+    async fn init_components(&mut self) -> anyhow::Result<()> {
+        self.init_lights().await;
+
+        Ok(())
+    }
+
     fn init_camera(ecs: Arc<Mutex<ecs::Manager>>) -> (camera::Camera, camera::CameraController) {
         let ecs_lock = ecs.lock().unwrap();
         let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
@@ -576,6 +541,85 @@ impl<'a> State<'a> {
         }
     }
 
+    async fn init_lights(&mut self) {
+        let ecs_lock = self.ecs.lock().unwrap();
+        let mut light_entities = ecs_lock.get_entites_with_component::<components::Light>();
+
+        for entity in light_entities.iter() {
+            let name = ecs_lock
+                .get_component_from_entity::<components::Name>(*entity)
+                .expect("No name provided for the light!");
+
+            let pos = ecs_lock
+                .get_component_from_entity::<components::Pos3>(*entity)
+                .expect("No position provided for the light!");
+
+            let light = ecs_lock
+                .get_component_from_entity::<components::Light>(*entity)
+                .unwrap();
+
+            let model_source = ecs_lock
+                .get_component_from_entity::<components::ModelSource>(*entity)
+                .unwrap();
+
+            let light_uniform = {
+                let rlock_pos = pos.read().unwrap();
+                let rlock_light = light.read().unwrap();
+
+                match *rlock_light {
+                    components::Light::Ambient => light::LightUniform {
+                        position: [rlock_pos.x, rlock_pos.y, rlock_pos.z],
+                        _padding: 0,
+                        color: [1.0, 1.0, 1.0],
+                        _padding2: 0,
+                    },
+                    components::Light::AmbientColoured(color) => light::LightUniform {
+                        position: [rlock_pos.x, rlock_pos.y, rlock_pos.z],
+                        _padding: 0,
+                        color,
+                        _padding2: 0,
+                    },
+                }
+            };
+            ecs_lock.add_component_to_entity(*entity, light_uniform);
+
+            let light_buffer = {
+                let rlock_name = name.read().unwrap();
+                self.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some(rlock_name.0),
+                        contents: bytemuck::cast_slice(&[light_uniform]),
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    })
+            };
+            let light_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.light_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: light_buffer.as_entire_binding(),
+                }],
+                label: None,
+            });
+            ecs_lock.add_component_to_entity(*entity, light_buffer);
+            ecs_lock.add_component_to_entity(*entity, light_bind_group);
+
+            let light_model = {
+                let rlock_model_source = model_source.read().unwrap();
+                resources::load_model(
+                    rlock_model_source.0,
+                    &self.device,
+                    &self.queue,
+                    &self.texture_bind_group_layout,
+                )
+                .await
+                .unwrap()
+            };
+            ecs_lock.add_component_to_entity(*entity, light_model);
+        }
+
+        self.light_entities = Some(light_entities);
+    }
+
     pub fn window(&self) -> &Window {
         self.window
     }
@@ -606,7 +650,7 @@ impl<'a> State<'a> {
                 ..
             } => self.camera_controller.process_keyboard(*key, *state),
             WindowEvent::MouseWheel { delta, .. } => {
-                self.camera_controller.process_scroll(&delta);
+                self.camera_controller.process_scroll(delta);
                 true
             }
             WindowEvent::MouseInput {
@@ -734,12 +778,32 @@ impl<'a> State<'a> {
             });
 
             // Draw light
-            render_pass.set_pipeline(&self.light_render_pipeline);
-            render_pass.draw_light_model(
-                &self.light_model,
-                &self.camera_bind_group,
-                &self.light_bind_group,
-            );
+
+            if let Some(light_entities) = self.light_entities {
+                render_pass.set_pipeline(&self.light_render_pipeline);
+
+                for light in light_entities.iter() {
+                    let ecs_lock = self.ecs.lock().unwrap();
+
+                    let light_model = ecs_lock
+                        .get_component_from_entity::<model::Model>(*light)
+                        .unwrap()
+                        .read()
+                        .unwrap();
+                    let light_bind_group = ecs_lock
+                        .get_component_from_entity::<wgpu::BindGroup>(*light)
+                        .unwrap()
+                        .read()
+                        .unwrap();
+
+                    render_pass.draw_light_model(
+                        &light_model,
+                        &self.camera_bind_group,
+                        &light_bind_group,
+                    );
+                }
+            }
+
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
@@ -756,6 +820,8 @@ impl<'a> State<'a> {
                     if let Some(model) = ecs_lock.get_component_from_entity::<model::Model>(entity)
                     {
                         let model = unsafe { &*(&*model.read().unwrap() as *const _) };
+
+                        render_pass.draw_model(model, base_vertex, instances);
 
                         model::DrawModel::draw_model_instanced(
                             &mut render_pass,

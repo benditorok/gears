@@ -38,3 +38,27 @@ pub enum Camera {
         look_at: Pos3,
     },
 }
+
+pub struct Name(pub &'static str);
+
+pub enum Light {
+    Ambient,
+    AmbientColoured([f32; 3]),
+    // Directional {
+    //     direction: Pos3,
+    //     color: [f32; 3],
+    //     intensity: f32,
+    // },
+    // Point {
+    //     position: Pos3,
+    //     color: [f32; 3],
+    //     intensity: f32,
+    // },
+    // Spot {
+    //     position: Pos3,
+    //     direction: Pos3,
+    //     color: [f32; 3],
+    //     intensity: f32,
+    //     angle: f32,
+    // },
+}

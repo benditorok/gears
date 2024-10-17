@@ -77,10 +77,12 @@ impl Manager {
                 unsafe {
                     // SAFETY: We ensure that the component is of type T
                     let component_ptr = Arc::into_raw(component) as *const RwLock<T>;
-                    Arc::from_raw(component_ptr)
+                    return Some(Arc::from_raw(component_ptr));
                 }
             })
-        })
+        });
+
+        None
     }
 
     /// Get an iterator over the entities currently in the EntityManager.
