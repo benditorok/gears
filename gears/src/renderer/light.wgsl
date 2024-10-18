@@ -7,9 +7,9 @@ struct Light {
     position: vec3<f32>,
     color: vec3<f32>,
 }
-
+// TODO max szamot is kintrol kapja be?
 struct LightData {
-    lights: array<Light, 100>,
+    lights: array<Light, 20>,
     num_lights: u32,
 }
 
@@ -20,9 +20,6 @@ var<uniform> camera: Camera;
 
 @group(1) @binding(0)
 var<uniform> light_data: LightData;
-
-@group(1) @binding(1)
-var<uniform> num_lights: u32;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,

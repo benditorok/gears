@@ -134,7 +134,6 @@ struct State<'a> {
     // ! LIGHT COMPONENTS
     light_entities: Option<Vec<ecs::Entity>>,
     light_buffer: wgpu::Buffer,
-    num_lights_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     //
     model_entities: Option<Vec<ecs::Entity>>,
@@ -229,28 +228,16 @@ impl<'a> State<'a> {
 
         let light_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                ],
+                    count: None,
+                }],
                 label: Some("light_bind_group_layout"),
             });
 
@@ -275,28 +262,16 @@ impl<'a> State<'a> {
 
         let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light Buffer"),
-            contents: bytemuck::cast_slice(&[std::mem::size_of::<light::LightData>() as u32]), // ! Initialize the buffer for the maximum number of lights
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let num_lights_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Num Lights Buffer"),
-            contents: bytemuck::cast_slice(&[1u32]), // * This should be enough because it only needs to store an u32 value
+            contents: &[0; std::mem::size_of::<light::LightData>()], // ! Initialize the buffer for the maximum number of lights
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &light_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: light_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: num_lights_buffer.as_entire_binding(),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: light_buffer.as_entire_binding(),
+            }],
             label: Some("light_bind_group"),
         });
         // ! MODELS -> init_models()
@@ -389,7 +364,6 @@ impl<'a> State<'a> {
             light_entities: None,
             light_buffer,
             light_bind_group,
-            num_lights_buffer,
             model_entities: None,
             light_bind_group_layout,
             depth_texture,
@@ -830,7 +804,6 @@ impl<'a> State<'a> {
                         unsafe { &*(&*light_model.read().unwrap() as *const _) };
 
                     // Draw light
-                    render_pass.set_pipeline(&self.light_render_pipeline);
                     render_pass.draw_light_model(
                         light_model,
                         &self.camera_bind_group,
