@@ -39,6 +39,8 @@ pub enum Camera {
     },
 }
 
+pub struct Model;
+
 pub struct Name(pub &'static str);
 
 pub enum Light {

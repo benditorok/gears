@@ -5,6 +5,7 @@ pub mod model;
 pub mod resources;
 pub mod texture;
 
+use crate::ecs::components::Name;
 use crate::ecs::{self, components};
 use cgmath::prelude::*;
 use cgmath::*;
@@ -133,6 +134,8 @@ struct State<'a> {
     // ! LIGHT COMPONENTS
     light_entities: Option<Vec<ecs::Entity>>,
     //
+    model_entities: Option<Vec<ecs::Entity>>,
+    //
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     #[allow(dead_code)]
@@ -233,86 +236,12 @@ impl<'a> State<'a> {
                 label: Some("light_bind_group_layout"),
             });
 
-        // * INITIALIZINS STATE COMPONENTS
+        // * INITIALIZING STATE COMPONENTS
         // ! CAMERA COMPONENT
         let (state_camera, state_camera_controller) = Self::init_camera(Arc::clone(&ecs));
-
-        // ! LIGHT ENTITIES -> MOVED TO INIT_COMPONENTS
-        //let light_entities = Self::init_lights(Arc::clone(&ecs)).await;
-        // * INITIALIZINS STATE COMPONENTS
-
-        // # START Load models and create instances #
-        {
-            log::warn!("Loading models and instances");
-
-            let ecs_lock = ecs.lock().unwrap();
-
-            /* All in one go */
-            for entity in ecs_lock.iter_entities() {
-                if let Some(model) =
-                    ecs_lock.get_component_from_entity::<components::ModelSource>(entity)
-                {
-                    // ! HACK skip lights
-                    if let Some(light) =
-                        ecs_lock.get_component_from_entity::<components::Light>(entity)
-                    {
-                        continue;
-                    }
-
-                    log::warn!("Loading model: {:?}", model.read().unwrap().0);
-                    let obj_model = resources::load_model(
-                        model.read().unwrap().0,
-                        &device,
-                        &queue,
-                        &texture_bind_group_layout,
-                    )
-                    .await
-                    .unwrap();
-
-                    ecs_lock.add_component_to_entity(entity, obj_model);
-
-                    if let Some(position) =
-                        ecs_lock.get_component_from_entity::<components::Pos3>(entity)
-                    {
-                        // log position, with the models name
-                        log::warn!(
-                            "Model {:?}, position: {:?}",
-                            model.read().unwrap().0,
-                            position
-                        );
-                        ecs_lock.add_component_to_entity(
-                            entity,
-                            instance::Instance {
-                                position: cgmath::Vector3::new(
-                                    position.read().unwrap().x,
-                                    position.read().unwrap().y,
-                                    position.read().unwrap().z,
-                                ),
-                                rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-                            },
-                        );
-
-                        if let Some(instance) =
-                            ecs_lock.get_component_from_entity::<instance::Instance>(entity)
-                        {
-                            // Convert instances to raw format
-                            let instance_data = instance.read().unwrap().to_raw();
-
-                            // Create a buffer for the instances
-                            let instance_buffer =
-                                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                    label: Some("Instance Buffer"),
-                                    contents: bytemuck::cast_slice(&[instance_data]),
-                                    usage: wgpu::BufferUsages::VERTEX
-                                        | wgpu::BufferUsages::COPY_DST,
-                                });
-
-                            ecs_lock.add_component_to_entity(entity, instance_buffer);
-                        }
-                    }
-                }
-            }
-        }
+        // ! LIGHTS -> init_lights()
+        // ! MODELS -> init_models()
+        // * INITIALIZING STATE COMPONENTS
 
         /* CAMERA */
         let camera_projection =
@@ -414,6 +343,7 @@ impl<'a> State<'a> {
             camera_bind_group,
             camera_uniform,
             light_entities: None,
+            model_entities: None,
             light_bind_group_layout,
             depth_texture,
             window,
@@ -485,6 +415,7 @@ impl<'a> State<'a> {
 
     async fn init_components(&mut self) -> anyhow::Result<()> {
         self.init_lights().await;
+        self.init_models().await;
 
         Ok(())
     }
@@ -502,6 +433,7 @@ impl<'a> State<'a> {
             let camera =
                 camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
             let controller = camera::CameraController::new(0.5, 0.2);
+
             return (camera, controller);
         }
 
@@ -543,7 +475,7 @@ impl<'a> State<'a> {
 
     async fn init_lights(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
-        let mut light_entities = ecs_lock.get_entites_with_component::<components::Light>();
+        let light_entities = ecs_lock.get_entites_with_component::<components::Light>();
 
         for entity in light_entities.iter() {
             let name = ecs_lock
@@ -561,6 +493,19 @@ impl<'a> State<'a> {
             let model_source = ecs_lock
                 .get_component_from_entity::<components::ModelSource>(*entity)
                 .unwrap();
+
+            let light_model = {
+                let rlock_model_source = model_source.read().unwrap();
+                resources::load_model(
+                    rlock_model_source.0,
+                    &self.device,
+                    &self.queue,
+                    &self.texture_bind_group_layout,
+                )
+                .await
+                .unwrap()
+            };
+            ecs_lock.add_component_to_entity(*entity, light_model);
 
             let light_uniform = {
                 let rlock_pos = pos.read().unwrap();
@@ -602,22 +547,62 @@ impl<'a> State<'a> {
             });
             ecs_lock.add_component_to_entity(*entity, light_buffer);
             ecs_lock.add_component_to_entity(*entity, light_bind_group);
-
-            let light_model = {
-                let rlock_model_source = model_source.read().unwrap();
-                resources::load_model(
-                    rlock_model_source.0,
-                    &self.device,
-                    &self.queue,
-                    &self.texture_bind_group_layout,
-                )
-                .await
-                .unwrap()
-            };
-            ecs_lock.add_component_to_entity(*entity, light_model);
         }
 
         self.light_entities = Some(light_entities);
+    }
+
+    async fn init_models(&mut self) {
+        let ecs_lock = self.ecs.lock().unwrap();
+        let model_entities = ecs_lock.get_entites_with_component::<components::Model>();
+
+        for entity in model_entities.iter() {
+            let ecs_lock = self.ecs.lock().unwrap();
+
+            let name = ecs_lock
+                .get_component_from_entity::<components::Name>(*entity)
+                .expect("No name provided for the Model!");
+
+            let pos = ecs_lock
+                .get_component_from_entity::<components::Pos3>(*entity)
+                .expect("No position provided for the Model!");
+
+            let model_source = ecs_lock
+                .get_component_from_entity::<components::ModelSource>(*entity)
+                .unwrap();
+
+            let obj_model = resources::load_model(
+                model_source.read().unwrap().0,
+                &self.device,
+                &self.queue,
+                &self.texture_bind_group_layout,
+            )
+            .await
+            .unwrap();
+            ecs_lock.add_component_to_entity(*entity, obj_model);
+
+            // TODO rename instance to model::ModelUniform
+            let instance = {
+                let rlock_pos = pos.read().unwrap();
+                instance::Instance {
+                    position: cgmath::Vector3::new(rlock_pos.x, rlock_pos.y, rlock_pos.z),
+                    rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+                }
+            };
+
+            let instance_raw = instance.to_raw();
+            let instance_buffer =
+                self.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some(format!("{} Instance Buffer", name.read().unwrap().0).as_str()),
+                        contents: bytemuck::cast_slice(&[instance_raw]),
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    });
+            ecs_lock.add_component_to_entity(*entity, instance);
+            ecs_lock.add_component_to_entity(*entity, instance_buffer);
+        }
+
+        self.model_entities = Some(model_entities);
     }
 
     pub fn window(&self) -> &Window {
@@ -676,63 +661,87 @@ impl<'a> State<'a> {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
+
+        self.init_lights();
+        self.update_models();
         /* Camera updates */
 
         /* Light updates */
-        let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
-        self.light_uniform.position = (cgmath::Quaternion::from_axis_angle(
-            (0.0, 1.0, 0.0).into(),
-            cgmath::Deg(60.0 * dt.as_secs_f32()),
-        ) * old_position)
-            .into();
-        self.queue.write_buffer(
-            &self.light_buffer,
-            0,
-            bytemuck::cast_slice(&[self.light_uniform]),
-        );
+        // let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
+        // self.light_uniform.position = (cgmath::Quaternion::from_axis_angle(
+        //     (0.0, 1.0, 0.0).into(),
+        //     cgmath::Deg(60.0 * dt.as_secs_f32()),
+        // ) * old_position)
+        //     .into();
+        // self.queue.write_buffer(
+        //     &self.light_buffer,
+        //     0,
+        //     bytemuck::cast_slice(&[self.light_uniform]),
+        // );
         /* Light updates */
 
         // TODO ezeket egybe lehetne szedni pl. light, buffer es uniform egy entity,
-        // elejen letrehozni, user elol elrejteni
-        // Update positions and instace buffers
-        {
-            let ecs_lock = self.ecs.lock().unwrap();
+    }
 
-            for entity in ecs_lock.iter_entities() {
-                if let Some(position) =
-                    ecs_lock.get_component_from_entity::<components::Pos3>(entity)
-                {
-                    ecs_lock.add_component_to_entity(
-                        entity,
-                        instance::Instance {
-                            position: cgmath::Vector3::new(
-                                position.read().unwrap().x,
-                                position.read().unwrap().y,
-                                position.read().unwrap().z,
-                            ),
-                            rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-                        },
-                    );
+    fn update_lights(&mut self) {
+        if let Some(light_entities) = &self.light_entities {
+            for entity in light_entities {
+                let ecs_lock = self.ecs.lock().unwrap();
 
-                    if let Some(instance) =
-                        ecs_lock.get_component_from_entity::<instance::Instance>(entity)
-                    {
-                        // Convert instances to raw format
-                        let instance_data = instance.read().unwrap().to_raw();
+                let pos = ecs_lock
+                    .get_component_from_entity::<components::Pos3>(*entity)
+                    .unwrap();
+                let light_uniform = ecs_lock
+                    .get_component_from_entity::<light::LightUniform>(*entity)
+                    .unwrap();
+                let buffer = ecs_lock
+                    .get_component_from_entity::<wgpu::Buffer>(*entity)
+                    .unwrap();
 
-                        // Create a buffer for the instances
-                        let instance_buffer =
-                            self.device
-                                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                    label: Some("Instance Buffer"),
-                                    contents: bytemuck::cast_slice(&[instance_data]),
-                                    usage: wgpu::BufferUsages::VERTEX
-                                        | wgpu::BufferUsages::COPY_DST,
-                                });
+                // TODO update the colors
+                light_uniform.write().unwrap().position = [
+                    pos.read().unwrap().x,
+                    pos.read().unwrap().y,
+                    pos.read().unwrap().z,
+                ];
 
-                        ecs_lock.add_component_to_entity(entity, instance_buffer);
-                    }
-                }
+                self.queue.write_buffer(
+                    &buffer.write().unwrap(),
+                    0,
+                    bytemuck::cast_slice(&[*light_uniform.read().unwrap()]),
+                );
+            }
+        }
+    }
+
+    fn update_models(&mut self) {
+        if let Some(model_entities) = &self.model_entities {
+            for entity in model_entities {
+                let ecs_lock = self.ecs.lock().unwrap();
+
+                let pos = ecs_lock
+                    .get_component_from_entity::<components::Pos3>(*entity)
+                    .unwrap();
+                let instance = ecs_lock
+                    .get_component_from_entity::<instance::Instance>(*entity)
+                    .unwrap();
+                let buffer = ecs_lock
+                    .get_component_from_entity::<wgpu::Buffer>(*entity)
+                    .unwrap();
+
+                // TODO rotation
+                instance.write().unwrap().position = cgmath::Vector3::new(
+                    pos.read().unwrap().x,
+                    pos.read().unwrap().y,
+                    pos.read().unwrap().z,
+                );
+
+                let instance_raw = instance.read().unwrap().to_raw();
+                self.queue.write_buffer(
+                    &buffer.write().unwrap(),
+                    0,
+                    bytemuck::cast_slice(&[instance_raw]),
+                );
             }
         }
     }
@@ -776,63 +785,6 @@ impl<'a> State<'a> {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
-
-            // Draw light
-
-            if let Some(light_entities) = self.light_entities {
-                render_pass.set_pipeline(&self.light_render_pipeline);
-
-                for light in light_entities.iter() {
-                    let ecs_lock = self.ecs.lock().unwrap();
-
-                    let light_model = ecs_lock
-                        .get_component_from_entity::<model::Model>(*light)
-                        .unwrap()
-                        .read()
-                        .unwrap();
-                    let light_bind_group = ecs_lock
-                        .get_component_from_entity::<wgpu::BindGroup>(*light)
-                        .unwrap()
-                        .read()
-                        .unwrap();
-
-                    render_pass.draw_light_model(
-                        &light_model,
-                        &self.camera_bind_group,
-                        &light_bind_group,
-                    );
-                }
-            }
-
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-
-            {
-                let ecs_lock = self.ecs.lock().unwrap();
-
-                for entity in ecs_lock.iter_entities() {
-                    if let Some(instance_buffer) =
-                        ecs_lock.get_component_from_entity::<wgpu::Buffer>(entity)
-                    {
-                        render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
-                    }
-
-                    if let Some(model) = ecs_lock.get_component_from_entity::<model::Model>(entity)
-                    {
-                        let model = unsafe { &*(&*model.read().unwrap() as *const _) };
-
-                        render_pass.draw_model(model, base_vertex, instances);
-
-                        model::DrawModel::draw_model_instanced(
-                            &mut render_pass,
-                            model,
-                            0..1,
-                            &self.camera_bind_group,
-                            &self.light_bind_group,
-                        );
-                    }
-                }
-            }
         }
 
         self.queue.submit(iter::once(encoder.finish()));
