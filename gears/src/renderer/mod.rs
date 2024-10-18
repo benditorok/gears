@@ -133,6 +133,9 @@ struct State<'a> {
     // TODO add a buffer for the models
     // ! LIGHT COMPONENTS
     light_entities: Option<Vec<ecs::Entity>>,
+    light_buffer: wgpu::Buffer,
+    num_lights_buffer: wgpu::Buffer,
+    light_bind_group: wgpu::BindGroup,
     //
     model_entities: Option<Vec<ecs::Entity>>,
     //
@@ -240,6 +243,35 @@ impl<'a> State<'a> {
         // ! CAMERA COMPONENT
         let (state_camera, state_camera_controller) = Self::init_camera(Arc::clone(&ecs));
         // ! LIGHTS -> init_lights()
+        let light_uniforms: Vec<light::LightUniform> = Vec::new();
+
+        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Buffer"),
+            contents: bytemuck::cast_slice(&light_uniforms),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let num_lights = light_uniforms.len();
+        let num_lights_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Num Lights Buffer"),
+            contents: bytemuck::cast_slice(&[num_lights as u32]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &light_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: light_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: num_lights_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("light_bind_group"),
+        });
         // ! MODELS -> init_models()
         // * INITIALIZING STATE COMPONENTS
 
@@ -343,6 +375,9 @@ impl<'a> State<'a> {
             camera_bind_group,
             camera_uniform,
             light_entities: None,
+            light_buffer,
+            light_bind_group,
+            num_lights_buffer,
             model_entities: None,
             light_bind_group_layout,
             depth_texture,
@@ -527,26 +562,6 @@ impl<'a> State<'a> {
                 }
             };
             ecs_lock.add_component_to_entity(*entity, light_uniform);
-
-            let light_buffer = {
-                let rlock_name = name.read().unwrap();
-                self.device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some(rlock_name.0),
-                        contents: bytemuck::cast_slice(&[light_uniform]),
-                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                    })
-            };
-            let light_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &self.light_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: light_buffer.as_entire_binding(),
-                }],
-                label: None,
-            });
-            ecs_lock.add_component_to_entity(*entity, light_buffer);
-            ecs_lock.add_component_to_entity(*entity, light_bind_group);
         }
 
         self.light_entities = Some(light_entities);
@@ -649,7 +664,7 @@ impl<'a> State<'a> {
     }
 
     async fn update(&mut self, dt: instant::Duration) {
-        /* Camera updates */
+        // Update camera
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
             .update_view_proj(&self.camera, &self.camera_projection);
@@ -662,27 +677,12 @@ impl<'a> State<'a> {
 
         self.update_lights();
         self.update_models();
-        /* Camera updates */
-
-        /* Light updates */
-        // let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
-        // self.light_uniform.position = (cgmath::Quaternion::from_axis_angle(
-        //     (0.0, 1.0, 0.0).into(),
-        //     cgmath::Deg(60.0 * dt.as_secs_f32()),
-        // ) * old_position)
-        //     .into();
-        // self.queue.write_buffer(
-        //     &self.light_buffer,
-        //     0,
-        //     bytemuck::cast_slice(&[self.light_uniform]),
-        // );
-        /* Light updates */
-
-        // TODO ezeket egybe lehetne szedni pl. light, buffer es uniform egy entity,
     }
 
     fn update_lights(&mut self) {
         if let Some(light_entities) = &self.light_entities {
+            let mut light_uniforms: Vec<light::LightUniform> = Vec::new();
+
             for entity in light_entities {
                 let ecs_lock = self.ecs.lock().unwrap();
 
@@ -692,9 +692,6 @@ impl<'a> State<'a> {
                 let light_uniform = ecs_lock
                     .get_component_from_entity::<light::LightUniform>(*entity)
                     .unwrap();
-                let buffer = ecs_lock
-                    .get_component_from_entity::<wgpu::Buffer>(*entity)
-                    .unwrap();
 
                 // TODO update the colors
                 light_uniform.write().unwrap().position = [
@@ -703,12 +700,20 @@ impl<'a> State<'a> {
                     pos.read().unwrap().z,
                 ];
 
-                self.queue.write_buffer(
-                    &buffer.write().unwrap(),
-                    0,
-                    bytemuck::cast_slice(&[*light_uniform.read().unwrap()]),
-                );
+                let rlock_light_uniform = light_uniform.read().unwrap();
+
+                light_uniforms.push(*rlock_light_uniform);
             }
+
+            self.queue
+                .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&light_uniforms));
+
+            let num_lights = light_uniforms.len() as u32;
+            self.queue.write_buffer(
+                &self.num_lights_buffer,
+                0,
+                bytemuck::cast_slice(&[num_lights]),
+            );
         }
     }
 

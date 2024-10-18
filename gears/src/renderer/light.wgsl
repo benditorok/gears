@@ -12,7 +12,10 @@ struct Light {
     color: vec3<f32>,
 }
 @group(1) @binding(0)
-var<uniform> light: Light;
+var<uniform> light: array<Light, 100>; // Assume a maximum of 100 lights
+
+@group(1) @binding(1)
+var<uniform> num_lights: u32;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -27,10 +30,18 @@ struct VertexOutput {
 fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
-    let scale = 0.25;
+    // let scale = 0.25;
     var out: VertexOutput;
     out.clip_position = camera.view_proj * vec4<f32>(model.position * scale + light.position, 1.0);
-    out.color = light.color;
+    out.color = vec3<f32>(0.0, 0.0, 0.0);
+    
+    for (var i = 0u; i < num_lights; i = i + 1u) {
+        let light = light[i];
+        let light_dir = normalize(light.position - model.position);
+        let diff = max(dot(light_dir, vec3<f32>(0.0, 0.0, 1.0)), 0.0);
+        out.color = out.color + light.color * diff;
+    }
+
     return out;
 }
 

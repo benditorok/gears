@@ -36,8 +36,17 @@ async fn main() -> anyhow::Result<()> {
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Ambient Light"))
         .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
-        .add_component(components::Light::AmbientColoured([0.1, 0.1, 0.1]))
-        .add_component(components::Pos3::new(0.0, 20.0, 0.0))
+        .add_component(components::Light::AmbientColoured([1.0, 0.8, 1.0]))
+        .add_component(components::Pos3::new(0.0, 5.0, 0.0))
+        .build();
+
+    // * Add moving red light
+    EntityBuilder::new_entity(&mut ecs)
+        .add_component(components::Name("Red Light"))
+        .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
+        .add_component(components::Light::AmbientColoured([1.0, 0.0, 0.0]))
+        .add_component(components::Pos3::new(15.0, 5.0, 0.0))
+        .add_component(Health(100))
         .build();
 
     // Cube 1
@@ -117,6 +126,7 @@ async fn main() -> anyhow::Result<()> {
 
     // TODO leak the last frame time trough channesl try_recv and update a components pos from outside with * dt
 
+    // // Randomly move spheres
     // let ecs_sanbox_t2_access = Arc::clone(&ecs);
     // app.thread_pool.execute(move |stop_flag| {
     //     let mut rng = rand::thread_rng();
@@ -143,6 +153,8 @@ async fn main() -> anyhow::Result<()> {
     //     }
     // });
 
+    // TODO if no workers are available then add more workers threads to the vec
+
     let ecs_sanbox_t2_access = Arc::clone(&ecs);
     app.thread_pool.execute(move |stop_flag| {
         let start_time = std::time::Instant::now();
@@ -159,6 +171,34 @@ async fn main() -> anyhow::Result<()> {
                                 let mut pos = pos.write().unwrap();
                                 let angle =
                                     elapsed + (entity.0 as f32 * std::f32::consts::PI * 2.0 / 5.0);
+                                pos.x = angle.cos() * 10.0;
+                                pos.z = angle.sin() * 10.0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            thread::sleep(std::time::Duration::from_millis(16));
+        }
+    });
+
+    let ecs_t3_access = Arc::clone(&ecs);
+    // Move the red sphere around in a circle
+    app.thread_pool.execute(move |stop_flag| {
+        let start_time = std::time::Instant::now();
+        while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
+            {
+                let ecs = ecs_t3_access.lock().unwrap();
+                let elapsed = start_time.elapsed().as_secs_f32();
+                for entity in ecs.iter_entities() {
+                    if let Some(name) = ecs.get_component_from_entity::<components::Name>(entity) {
+                        if name.read().unwrap().0.contains("Red Light") {
+                            if let Some(pos) =
+                                ecs.get_component_from_entity::<components::Pos3>(entity)
+                            {
+                                let mut pos = pos.write().unwrap();
+                                let angle = elapsed;
                                 pos.x = angle.cos() * 10.0;
                                 pos.z = angle.sin() * 10.0;
                             }
