@@ -13,6 +13,7 @@ use instant::Duration;
 use log::{info, warn};
 use model::{DrawLight, DrawModel, Vertex};
 use std::f32::consts::FRAC_PI_2;
+use std::num::NonZero;
 use std::sync::{Arc, Mutex};
 use std::{any, iter};
 use wgpu::util::DeviceExt;
@@ -34,7 +35,6 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 );
 
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
-
 /// The main event loop of the application
 ///
 /// # Returns
@@ -159,6 +159,7 @@ impl<'a> State<'a> {
             ..Default::default()
         });
         let surface = instance.create_surface(window).unwrap();
+
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -169,11 +170,13 @@ impl<'a> State<'a> {
             .unwrap();
 
         log::warn!("[State] Device and Queue");
+        let required_features = wgpu::Features::BUFFER_BINDING_ARRAY;
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    required_features: wgpu::Features::empty(),
+                    required_features,
                     required_limits: wgpu::Limits::default(),
                     memory_hints: Default::default(),
                 },
@@ -226,6 +229,33 @@ impl<'a> State<'a> {
 
         let light_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("light_bind_group_layout"),
+            });
+
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -236,25 +266,22 @@ impl<'a> State<'a> {
                     },
                     count: None,
                 }],
-                label: Some("light_bind_group_layout"),
+                label: Some("camera_bind_group_layout"),
             });
 
         // * INITIALIZING STATE COMPONENTS
         // ! CAMERA COMPONENT
         let (state_camera, state_camera_controller) = Self::init_camera(Arc::clone(&ecs));
-        // ! LIGHTS -> init_lights()
-        let light_uniforms: Vec<light::LightUniform> = Vec::new();
 
         let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light Buffer"),
-            contents: bytemuck::cast_slice(&light_uniforms),
+            contents: bytemuck::cast_slice(&[std::mem::size_of::<light::LightData>() as u32]), // ! Initialize the buffer for the maximum number of lights
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let num_lights = light_uniforms.len();
         let num_lights_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Num Lights Buffer"),
-            contents: bytemuck::cast_slice(&[num_lights as u32]),
+            contents: bytemuck::cast_slice(&[1u32]), // * This should be enough because it only needs to store an u32 value
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -285,21 +312,6 @@ impl<'a> State<'a> {
             contents: bytemuck::cast_slice(&[camera_uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
-            });
 
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
@@ -564,6 +576,10 @@ impl<'a> State<'a> {
             ecs_lock.add_component_to_entity(*entity, light_uniform);
         }
 
+        if light_entities.len() > light::NUM_MAX_LIGHTS as usize {
+            panic!("The number of lights exceeds the maximum number of lights supported by the renderer!");
+        }
+
         self.light_entities = Some(light_entities);
     }
 
@@ -705,15 +721,23 @@ impl<'a> State<'a> {
                 light_uniforms.push(*rlock_light_uniform);
             }
 
-            self.queue
-                .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&light_uniforms));
-
             let num_lights = light_uniforms.len() as u32;
-            self.queue.write_buffer(
-                &self.num_lights_buffer,
-                0,
-                bytemuck::cast_slice(&[num_lights]),
-            );
+
+            let light_data = light::LightData {
+                lights: {
+                    let mut array =
+                        [light::LightUniform::default(); light::NUM_MAX_LIGHTS as usize];
+                    for (i, light) in light_uniforms.iter().enumerate() {
+                        array[i] = *light;
+                    }
+                    array
+                },
+                num_lights,
+                _padding: [0; 3],
+            };
+
+            self.queue
+                .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
         }
     }
 
@@ -789,6 +813,10 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
+            render_pass.set_pipeline(&self.light_render_pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.light_bind_group, &[]);
+
             // Draw the lights and models
             if let Some(light_entities) = &self.light_entities {
                 for entity in light_entities {
@@ -797,51 +825,46 @@ impl<'a> State<'a> {
                     let light_model = ecs_lock
                         .get_component_from_entity::<model::Model>(*entity)
                         .unwrap();
-                    let light_bind_group = ecs_lock
-                        .get_component_from_entity::<wgpu::BindGroup>(*entity)
-                        .unwrap();
 
                     let light_model: &model::Model =
                         unsafe { &*(&*light_model.read().unwrap() as *const _) };
-                    let light_bind_group: &wgpu::BindGroup =
-                        unsafe { &*(&*light_bind_group.read().unwrap() as *const _) };
 
                     // Draw light
                     render_pass.set_pipeline(&self.light_render_pipeline);
                     render_pass.draw_light_model(
                         light_model,
                         &self.camera_bind_group,
-                        light_bind_group,
+                        &self.light_bind_group,
                     );
+                }
+            }
 
-                    if let Some(model_entities) = &self.model_entities {
-                        render_pass.set_pipeline(&self.render_pipeline);
-                        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
-                        for entity in model_entities {
-                            let model = ecs_lock
-                                .get_component_from_entity::<model::Model>(*entity)
-                                .unwrap();
-                            let instance_buffer = ecs_lock
-                                .get_component_from_entity::<wgpu::Buffer>(*entity)
-                                .unwrap();
+            if let Some(model_entities) = &self.model_entities {
+                for entity in model_entities {
+                    let ecs_lock = self.ecs.lock().unwrap();
 
-                            let model: &model::Model =
-                                unsafe { &*(&*model.read().unwrap() as *const _) };
+                    let model = ecs_lock
+                        .get_component_from_entity::<model::Model>(*entity)
+                        .unwrap();
+                    let instance_buffer = ecs_lock
+                        .get_component_from_entity::<wgpu::Buffer>(*entity)
+                        .unwrap();
 
-                            render_pass
-                                .set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
+                    let model: &model::Model = unsafe { &*(&*model.read().unwrap() as *const _) };
 
-                            // Draw model
-                            model::DrawModel::draw_model_instanced(
-                                &mut render_pass,
-                                model,
-                                0..1,
-                                &self.camera_bind_group,
-                                light_bind_group,
-                            );
-                        }
-                    }
+                    render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
+
+                    // Draw model
+                    model::DrawModel::draw_model_instanced(
+                        &mut render_pass,
+                        model,
+                        0..1,
+                        &self.camera_bind_group,
+                        &self.light_bind_group,
+                    );
                 }
             }
         }
