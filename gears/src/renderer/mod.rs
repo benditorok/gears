@@ -10,7 +10,7 @@ use crate::ecs::{self, components};
 use cgmath::prelude::*;
 use cgmath::*;
 use instant::Duration;
-use log::info;
+use log::{info, warn};
 use model::{DrawLight, DrawModel, Vertex};
 use std::f32::consts::FRAC_PI_2;
 use std::sync::{Arc, Mutex};
@@ -557,8 +557,6 @@ impl<'a> State<'a> {
         let model_entities = ecs_lock.get_entites_with_component::<components::Model>();
 
         for entity in model_entities.iter() {
-            let ecs_lock = self.ecs.lock().unwrap();
-
             let name = ecs_lock
                 .get_component_from_entity::<components::Name>(*entity)
                 .expect("No name provided for the Model!");
@@ -662,7 +660,7 @@ impl<'a> State<'a> {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
-        self.init_lights();
+        self.update_lights();
         self.update_models();
         /* Camera updates */
 
@@ -785,6 +783,62 @@ impl<'a> State<'a> {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
+
+            // Draw the lights and models
+            if let Some(light_entities) = &self.light_entities {
+                for entity in light_entities {
+                    let ecs_lock = self.ecs.lock().unwrap();
+
+                    let light_model = ecs_lock
+                        .get_component_from_entity::<model::Model>(*entity)
+                        .unwrap();
+                    let light_bind_group = ecs_lock
+                        .get_component_from_entity::<wgpu::BindGroup>(*entity)
+                        .unwrap();
+
+                    let light_model: &model::Model =
+                        unsafe { &*(&*light_model.read().unwrap() as *const _) };
+                    let light_bind_group: &wgpu::BindGroup =
+                        unsafe { &*(&*light_bind_group.read().unwrap() as *const _) };
+
+                    // Draw light
+                    render_pass.set_pipeline(&self.light_render_pipeline);
+                    render_pass.draw_light_model(
+                        light_model,
+                        &self.camera_bind_group,
+                        light_bind_group,
+                    );
+
+                    if let Some(model_entities) = &self.model_entities {
+                        render_pass.set_pipeline(&self.render_pipeline);
+                        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
+                        for entity in model_entities {
+                            let model = ecs_lock
+                                .get_component_from_entity::<model::Model>(*entity)
+                                .unwrap();
+                            let instance_buffer = ecs_lock
+                                .get_component_from_entity::<wgpu::Buffer>(*entity)
+                                .unwrap();
+
+                            let model: &model::Model =
+                                unsafe { &*(&*model.read().unwrap() as *const _) };
+
+                            render_pass
+                                .set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
+
+                            // Draw model
+                            model::DrawModel::draw_model_instanced(
+                                &mut render_pass,
+                                model,
+                                0..1,
+                                &self.camera_bind_group,
+                                light_bind_group,
+                            );
+                        }
+                    }
+                }
+            }
         }
 
         self.queue.submit(iter::once(encoder.finish()));
