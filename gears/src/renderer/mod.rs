@@ -5,7 +5,7 @@ pub mod model;
 pub mod resources;
 pub mod texture;
 
-use crate::ecs::components::Name;
+use crate::ecs::components::{Flip, Name, Scale};
 use crate::ecs::{self, components};
 use cgmath::prelude::*;
 use cgmath::*;
@@ -581,6 +581,10 @@ impl<'a> State<'a> {
                 .get_component_from_entity::<components::ModelSource>(*entity)
                 .unwrap();
 
+            let flip = ecs_lock.get_component_from_entity::<components::Flip>(*entity);
+
+            let scale = ecs_lock.get_component_from_entity::<components::Scale>(*entity);
+
             let obj_model = resources::load_model(
                 model_source.read().unwrap().0,
                 &self.device,
@@ -592,13 +596,47 @@ impl<'a> State<'a> {
             ecs_lock.add_component_to_entity(*entity, obj_model);
 
             // TODO rename instance to model::ModelUniform
-            let instance = {
+            let mut instance = {
                 let rlock_pos = pos.read().unwrap();
                 instance::Instance {
                     position: cgmath::Vector3::new(rlock_pos.x, rlock_pos.y, rlock_pos.z),
                     rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
                 }
             };
+
+            if let Some(flip) = flip {
+                let rlock_flip = flip.read().unwrap();
+
+                match *rlock_flip {
+                    Flip::Horizontal => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
+                    }
+                    Flip::Vertical => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    }
+                    Flip::Both => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    }
+                }
+            }
+
+            // if let Some(scale) = scale {
+            //     let rlock_scale = scale.read().unwrap();
+
+            //     match *rlock_scale {
+            //         Scale::Uniform(s) => {
+            //             instance.scale = cgmath::Vector3::new(s, s, s);
+            //         }
+            //         Scale::NonUniform { x, y, z } => {
+            //             instance.scale = cgmath::Vector3::new(x, y, z);
+            //         }
+            //     }
+            // }
 
             let instance_raw = instance.to_raw();
             let instance_buffer =

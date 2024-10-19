@@ -47,7 +47,6 @@ async fn main() -> anyhow::Result<()> {
             color: [0.8, 0.0, 0.0],
         })
         .add_component(components::Pos3::new(15.0, 5.0, 0.0))
-        .add_component(Health(100))
         .build();
 
     // * Add moving blue light
@@ -58,47 +57,61 @@ async fn main() -> anyhow::Result<()> {
             color: [0.0, 0.0, 0.8],
         })
         .add_component(components::Pos3::new(-15.0, 5.0, 0.0))
-        .add_component(Health(100))
+        .build();
+
+    // Road segment
+    EntityBuilder::new_entity(&mut ecs)
+        .add_component(components::Name("Road"))
+        .add_component(components::Model)
+        .add_component(components::ModelSource("res/models/road/road.obj"))
+        .add_component(components::Pos3::new(0.0, 0.0, 0.0))
+        .add_component(components::Scale::NonUniform {
+            x: 2.0,
+            y: 2.0,
+            z: 1.0,
+        })
+        .add_component(components::Flip::Horizontal)
         .build();
 
     // Cube 1
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube1"))
-        .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Model)
+        .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Pos3::new(10.0, 0.0, 10.0))
         .build();
 
     // Cube 2
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube2"))
-        .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Model)
+        .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Pos3::new(10.0, 0.0, -10.0))
         .build();
 
     // Cube 3
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube3"))
-        .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Model)
+        .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Pos3::new(-10.0, 0.0, -10.0))
         .build();
 
     // Cube 4
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube4"))
-        .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Model)
+        .add_component(components::ModelSource("res/models/cube/cube.obj"))
         .add_component(components::Pos3::new(-10.0, 0.0, 10.0))
         .build();
 
     // Center sphere
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Sphere1"))
-        .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
         .add_component(components::Model)
+        .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
         .add_component(components::Pos3::new(0.0, 0.0, 0.0))
+        .add_component(components::Flip::Vertical)
         .build();
 
     // // Add random spheres
@@ -126,8 +139,8 @@ async fn main() -> anyhow::Result<()> {
 
         EntityBuilder::new_entity(&mut ecs)
             .add_component(components::Name(Box::leak(name.into_boxed_str())))
-            .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
             .add_component(components::Model)
+            .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
             .add_component(components::Pos3::new(x, 0.0, z))
             .build();
     }

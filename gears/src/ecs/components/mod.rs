@@ -68,3 +68,14 @@ pub enum Light {
     //     angle: f32,
     // },
 }
+
+pub enum Scale {
+    Uniform(f32),
+    NonUniform { x: f32, y: f32, z: f32 },
+}
+
+pub enum Flip {
+    Horizontal,
+    Vertical,
+    Both,
+}
