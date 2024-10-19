@@ -17,6 +17,7 @@ gears = { path = "../gears" }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 rand = { workspace = true }
+cgmath = { workspace = true }
 
 [[bin]]
 name = "sandbox"

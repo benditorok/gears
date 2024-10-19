@@ -69,6 +69,20 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Flip::Horizontal)
         .build();
 
+    // Center sphere
+    EntityBuilder::new_entity(&mut ecs)
+        .add_component(components::Name("Sphere1"))
+        .add_component(components::Model::Dynamic {
+            obj_path: "res/models/sphere/sphere.obj",
+        })
+        .add_component(components::Pos3::new(0.0, 0.0, 0.0))
+        .add_component(components::Flip::Vertical)
+        // .add_component(components::Collider::new(
+        //     cgmath::Point3::new(-5.0, -5.0, -5.0),
+        //     cgmath::Point3::new(5.0, 5.0, 5.0),
+        // ))
+        .build();
+
     // Cube 1
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube1"))
@@ -103,16 +117,6 @@ async fn main() -> anyhow::Result<()> {
             obj_path: "res/models/cube/cube.obj",
         })
         .add_component(components::Pos3::new(-10.0, 0.0, 10.0))
-        .build();
-
-    // Center sphere
-    EntityBuilder::new_entity(&mut ecs)
-        .add_component(components::Name("Sphere1"))
-        .add_component(components::Model::Dynamic {
-            obj_path: "res/models/sphere/sphere.obj",
-        })
-        .add_component(components::Pos3::new(0.0, 0.0, 0.0))
-        .add_component(components::Flip::Vertical)
         .build();
 
     // // Add random spheres

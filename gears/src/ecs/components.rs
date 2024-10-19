@@ -1,9 +1,17 @@
+use crate::renderer;
+
 /// A component that stores the position of any object.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+}
+
+impl renderer::traits::Pos for Pos3 {
+    fn get_pos(&self) -> cgmath::Point3<f32> {
+        cgmath::Point3::new(self.x, self.y, self.z)
+    }
 }
 
 impl Default for Pos3 {
@@ -25,6 +33,7 @@ impl From<Pos3> for cgmath::Point3<f32> {
 }
 
 /// A component that stores the camera type.
+#[derive(Debug, Copy, Clone)]
 pub enum Camera {
     FPS {
         look_at: Pos3,
@@ -37,6 +46,7 @@ pub enum Camera {
 }
 
 /// A component that stores the model type.
+#[derive(Debug, Copy, Clone)]
 pub enum Model<'a> {
     Dynamic { obj_path: &'a str },
     // TODO Static: can't update the pos, etc
@@ -45,6 +55,7 @@ pub enum Model<'a> {
 pub struct Name(pub &'static str);
 
 /// A component that stores the light type.
+#[derive(Debug, Copy, Clone)]
 pub enum Light {
     Point { radius: f32 },
     PointColoured { radius: f32, color: [f32; 3] },
@@ -55,14 +66,57 @@ pub enum Light {
 }
 
 /// A component that stores the scale of an object.
+#[derive(Debug, Copy, Clone)]
 pub enum Scale {
     Uniform(f32),
     NonUniform { x: f32, y: f32, z: f32 },
 }
 
 /// A component that stores the rotation of an object.
+#[derive(Debug, Copy, Clone)]
 pub enum Flip {
     Horizontal,
     Vertical,
     Both,
+}
+
+/// Axis-aligned bounding box component.
+#[derive(Debug, Copy, Clone)]
+pub(crate) struct AABB {
+    pub min: cgmath::Point3<f32>,
+    pub max: cgmath::Point3<f32>,
+}
+
+impl AABB {
+    fn new(min: cgmath::Point3<f32>, max: cgmath::Point3<f32>) -> Self {
+        Self { min, max }
+    }
+}
+
+impl renderer::traits::Collider for AABB {
+    fn intersects(&self, other: &AABB) -> bool {
+        self.min.x <= other.max.x
+            && self.max.x >= other.min.x
+            && self.min.y <= other.max.y
+            && self.max.y >= other.min.y
+            && self.min.z <= other.max.z
+            && self.max.z >= other.min.z
+    }
+
+    fn move_to(&mut self, pos: impl renderer::traits::Pos) {
+        let pos = pos.get_pos();
+        let diff = pos - cgmath::Point3::new(self.min.x, self.min.y, self.min.z);
+        self.min += diff;
+        self.max += diff;
+    }
+}
+
+/// Collider component.
+#[derive(Debug, Copy, Clone)]
+pub struct Collider(AABB);
+
+impl Collider {
+    pub fn new(min: cgmath::Point3<f32>, max: cgmath::Point3<f32>) -> Self {
+        Self(AABB::new(min, max))
+    }
 }

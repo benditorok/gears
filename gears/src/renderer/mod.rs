@@ -4,6 +4,7 @@ pub mod light;
 pub mod model;
 pub mod resources;
 pub mod texture;
+pub mod traits;
 
 use crate::ecs::components::{Flip, Name, Scale};
 use crate::ecs::{self, components};
@@ -11,7 +12,7 @@ use cgmath::prelude::*;
 use cgmath::*;
 use instant::Duration;
 use log::{info, warn};
-use model::{DrawLight, DrawModel, Vertex};
+use model::{DrawModel, Vertex};
 use std::f32::consts::FRAC_PI_2;
 use std::num::NonZero;
 use std::sync::{Arc, Mutex};
@@ -145,6 +146,7 @@ struct State<'a> {
     window: &'a Window,
     ecs: Arc<Mutex<ecs::Manager>>,
     mouse_pressed: bool,
+    draw_colliders: bool,
 }
 
 impl<'a> State<'a> {
@@ -370,6 +372,7 @@ impl<'a> State<'a> {
             window,
             ecs,
             mouse_pressed: false,
+            draw_colliders: true,
         }
     }
 
@@ -718,6 +721,7 @@ impl<'a> State<'a> {
 
         self.update_lights();
         self.update_models();
+        //self.update_colliders();
     }
 
     fn update_lights(&mut self) {
@@ -797,6 +801,23 @@ impl<'a> State<'a> {
             }
         }
     }
+
+    // fn update_colliders(&mut self) {
+    //     let ecs_lock = self.ecs.lock().unwrap();
+    //     let collider_entities = ecs_lock.get_entites_with_component::<components::Collider>();
+
+    //     for entity in collider_entities.iter() {
+    //         let pos = ecs_lock
+    //             .get_component_from_entity::<components::Pos3>(*entity)
+    //             .unwrap();
+    //         let collider = ecs_lock
+    //             .get_component_from_entity::<components::Collider>(*entity)
+    //             .unwrap();
+
+    //         let pos = pos.read().unwrap();
+    //         let collider = collider.read().unwrap();
+    //     }
+    // }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
