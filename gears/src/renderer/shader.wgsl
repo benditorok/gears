@@ -81,10 +81,10 @@ fn vs_main(
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let object_color: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-
+    
     var result_color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
-    for (var i = 0u; i < light_data.num_lights; i = i + 1u) {
+  for (var i = 0u; i < light_data.num_lights; i = i + 1u) {
         let light = light_data.lights[i];
 
         let ambient_strength = 0.1;
@@ -92,7 +92,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
         if (light.light_type == 0u) { // Point light
             let distance = length(light.position - in.world_position);
-            let attenuation = clamp(1.0 - distance / light.radius, 0.0, 1.0);
+            let attenuation = clamp(1.0 - (distance / light.radius) * (distance / light.radius), 0.0, 1.0);
 
             if (attenuation > 0.0) {
                 let light_dir = normalize(light.position - in.world_position);
