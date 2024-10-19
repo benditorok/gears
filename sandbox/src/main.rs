@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Red Light"))
         .add_component(components::Light::PointColoured {
-            radius: 15.0,
+            radius: 10.0,
             color: [0.8, 0.0, 0.0],
         })
         .add_component(components::Pos3::new(15.0, 5.0, 0.0))
@@ -48,25 +48,25 @@ async fn main() -> anyhow::Result<()> {
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Blue Light"))
         .add_component(components::Light::PointColoured {
-            radius: 15.0,
+            radius: 10.0,
             color: [0.0, 0.0, 0.8],
         })
         .add_component(components::Pos3::new(-15.0, 5.0, 0.0))
         .build();
 
-    // Road segment
+    // Plane
     EntityBuilder::new_entity(&mut ecs)
-        .add_component(components::Name("Road"))
+        .add_component(components::Name("Plane"))
         .add_component(components::Model::Dynamic {
-            obj_path: "res/models/road/road.obj",
+            obj_path: "res/models/plane/plane.obj",
         })
-        .add_component(components::Pos3::new(0.0, 0.0, 0.0))
-        .add_component(components::Scale::NonUniform {
-            x: 2.0,
-            y: 2.0,
-            z: 1.0,
-        })
-        .add_component(components::Flip::Horizontal)
+        .add_component(components::Pos3::new(0.0, -3.0, 0.0))
+        // .add_component(components::Scale::NonUniform {
+        //     x: 2.0,
+        //     y: 2.0,
+        //     z: 1.0,
+        // })
+        // .add_component(components::Flip::Horizontal)
         .build();
 
     // Center sphere
