@@ -32,18 +32,34 @@ async fn main() -> anyhow::Result<()> {
     //     })
     //     .build();
 
-    // Add ambient light
-    EntityBuilder::new_entity(&mut ecs)
-        .add_component(components::Name("Ambient Light"))
-        .add_component(components::Light::AmbientColoured([1.0, 0.8, 1.0]))
-        .add_component(components::Pos3::new(0.0, 5.0, 0.0))
-        .build();
+    // // Add ambient light
+    // EntityBuilder::new_entity(&mut ecs)
+    //     .add_component(components::Name("Ambient Light"))
+    //     .add_component(components::Light::AmbientColoured {
+    //         color: [0.2, 0.2, 0.2],
+    //     })
+    //     .add_component(components::Pos3::new(0.0, 5.0, 0.0))
+    //     .build();
 
     // * Add moving red light
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Red Light"))
-        .add_component(components::Light::AmbientColoured([1.0, 0.0, 0.0]))
+        .add_component(components::Light::PointColoured {
+            radius: 15.0,
+            color: [0.8, 0.0, 0.0],
+        })
         .add_component(components::Pos3::new(15.0, 5.0, 0.0))
+        .add_component(Health(100))
+        .build();
+
+    // * Add moving blue light
+    EntityBuilder::new_entity(&mut ecs)
+        .add_component(components::Name("Blue Light"))
+        .add_component(components::Light::PointColoured {
+            radius: 15.0,
+            color: [0.0, 0.0, 0.8],
+        })
+        .add_component(components::Pos3::new(-15.0, 5.0, 0.0))
         .add_component(Health(100))
         .build();
 
@@ -152,7 +168,7 @@ async fn main() -> anyhow::Result<()> {
     // });
 
     // TODO if no workers are available then add more workers threads to the vec
-
+    // * app thread pool should be reserved. create a way to move closures into the update call of the renderer and provide the deltat time for moving the objects correctly
     let ecs_sanbox_t2_access = Arc::clone(&ecs);
     app.thread_pool.execute(move |stop_flag| {
         let start_time = std::time::Instant::now();
@@ -191,12 +207,18 @@ async fn main() -> anyhow::Result<()> {
                 let elapsed = start_time.elapsed().as_secs_f32();
                 for entity in ecs.iter_entities() {
                     if let Some(name) = ecs.get_component_from_entity::<components::Name>(entity) {
-                        if name.read().unwrap().0.contains("Red Light") {
+                        let name = name.read().unwrap();
+                        if name.0 == "Red Light" || name.0 == "Blue Light" {
                             if let Some(pos) =
                                 ecs.get_component_from_entity::<components::Pos3>(entity)
                             {
                                 let mut pos = pos.write().unwrap();
-                                let angle = elapsed;
+                                let angle = elapsed
+                                    + if name.0 == "Red Light" {
+                                        0.0
+                                    } else {
+                                        std::f32::consts::PI
+                                    };
                                 pos.x = angle.cos() * 10.0;
                                 pos.z = angle.sin() * 10.0;
                             }

@@ -5,7 +5,9 @@ struct Camera {
 
 struct Light {
     position: vec3<f32>,
+    light_type: u32,
     color: vec3<f32>,
+    radius: f32,
 }
 
 struct LightData {
@@ -98,7 +100,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
         let specular_color = specular_strength * light.color;
 
-        result_color = result_color + (ambient_color + diffuse_color + specular_color) * object_color.xyz;
+          if (light.light_type == 0u) { // Point light
+            let distance = length(light.position - in.world_position);
+            let attenuation = clamp(1.0 - distance / light.radius, 0.0, 1.0);
+            let attenuated_diffuse_color = diffuse_color * attenuation;
+            let attenuated_specular_color = specular_color * attenuation;
+            result_color = result_color + (ambient_color + attenuated_diffuse_color + attenuated_specular_color) * object_color.xyz;
+        } else if (light.light_type == 1u) { // Ambient light
+            result_color = result_color + ambient_color * object_color.xyz;
+        } else if (light.light_type == 2u) { // Directional light
+            result_color = result_color + (ambient_color + diffuse_color + specular_color) * object_color.xyz;
+        }
     }
 
     return vec4<f32>(result_color, object_color.a);

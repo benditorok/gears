@@ -44,8 +44,12 @@ pub struct Model; // TODO enum static, dynamic
 pub struct Name(pub &'static str);
 
 pub enum Light {
+    Point { radius: f32 },
+    PointColoured { radius: f32, color: [f32; 3] },
     Ambient,
-    AmbientColoured([f32; 3]),
+    AmbientColoured { color: [f32; 3] },
+    Directional,
+    DirectionalColoured { color: [f32; 3] },
     // Directional {
     //     direction: Pos3,
     //     color: [f32; 3],
