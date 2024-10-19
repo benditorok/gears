@@ -84,11 +84,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     
     var result_color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
-  for (var i = 0u; i < light_data.num_lights; i = i + 1u) {
+    for (var i = 0u; i < light_data.num_lights; i = i + 1u) {
         let light = light_data.lights[i];
-
-        let ambient_strength = 0.1;
-        let ambient_color = light.color * ambient_strength;
 
         if (light.light_type == 0u) { // Point light
             let distance = length(light.position - in.world_position);
@@ -105,9 +102,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
                 let specular_color = specular_strength * light.color * attenuation;
 
-                result_color = result_color + (ambient_color + diffuse_color + specular_color) * object_color.xyz;
+                result_color = result_color + (diffuse_color + specular_color) * object_color.xyz;
             }
         } else if (light.light_type == 1u) { // Ambient light
+            let ambient_strength = 0.1;
+            let ambient_color = light.color * ambient_strength;
+
             result_color = result_color + ambient_color * object_color.xyz;
         } else if (light.light_type == 2u) { // Directional light
             let light_dir = normalize(light.position - in.world_position);
@@ -120,7 +120,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
             let specular_color = specular_strength * light.color;
 
-            result_color = result_color + (ambient_color + diffuse_color + specular_color) * object_color.xyz;
+            result_color = result_color + (diffuse_color + specular_color) * object_color.xyz;
         }
     }
 
