@@ -123,7 +123,7 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    light_render_pipeline: wgpu::RenderPipeline,
+    //light_render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
     camera_projection: camera::Projection,
     camera_controller: camera::CameraController,
@@ -326,25 +326,25 @@ impl<'a> State<'a> {
             )
         };
 
-        let light_render_pipeline = {
-            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Light Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-            let shader = wgpu::ShaderModuleDescriptor {
-                label: Some("Light Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("light.wgsl").into()),
-            };
-            Self::create_render_pipeline(
-                &device,
-                &layout,
-                config.format,
-                Some(texture::Texture::DEPTH_FORMAT),
-                &[model::ModelVertex::desc()],
-                shader,
-            )
-        };
+        // let light_render_pipeline = {
+        //     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //         label: Some("Light Pipeline Layout"),
+        //         bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
+        //         push_constant_ranges: &[],
+        //     });
+        //     let shader = wgpu::ShaderModuleDescriptor {
+        //         label: Some("Light Shader"),
+        //         source: wgpu::ShaderSource::Wgsl(include_str!("light.wgsl").into()),
+        //     };
+        //     Self::create_render_pipeline(
+        //         &device,
+        //         &layout,
+        //         config.format,
+        //         Some(texture::Texture::DEPTH_FORMAT),
+        //         &[model::ModelVertex::desc()],
+        //         shader,
+        //     )
+        // };
 
         Self {
             surface,
@@ -353,7 +353,7 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            light_render_pipeline,
+            //light_render_pipeline,
             camera: state_camera,
             camera_projection,
             texture_bind_group_layout,
@@ -499,9 +499,9 @@ impl<'a> State<'a> {
         let light_entities = ecs_lock.get_entites_with_component::<components::Light>();
 
         for entity in light_entities.iter() {
-            let name = ecs_lock
-                .get_component_from_entity::<components::Name>(*entity)
-                .expect("No name provided for the light!");
+            // let name = ecs_lock
+            //     .get_component_from_entity::<components::Name>(*entity)
+            //     .expect("No name provided for the light!");
 
             let pos = ecs_lock
                 .get_component_from_entity::<components::Pos3>(*entity)
@@ -510,23 +510,6 @@ impl<'a> State<'a> {
             let light = ecs_lock
                 .get_component_from_entity::<components::Light>(*entity)
                 .unwrap();
-
-            let model_source = ecs_lock
-                .get_component_from_entity::<components::ModelSource>(*entity)
-                .unwrap();
-
-            let light_model = {
-                let rlock_model_source = model_source.read().unwrap();
-                resources::load_model(
-                    rlock_model_source.0,
-                    &self.device,
-                    &self.queue,
-                    &self.texture_bind_group_layout,
-                )
-                .await
-                .unwrap()
-            };
-            ecs_lock.add_component_to_entity(*entity, light_model);
 
             let light_uniform = {
                 let rlock_pos = pos.read().unwrap();
@@ -787,41 +770,41 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&self.light_render_pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.light_bind_group, &[]);
+            // render_pass.set_pipeline(&self.light_render_pipeline);
+            // render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            // render_pass.set_bind_group(1, &self.light_bind_group, &[]);
 
-            // Draw the lights and models
-            if let Some(light_entities) = &self.light_entities {
-                for entity in light_entities {
-                    let ecs_lock = self.ecs.lock().unwrap();
+            // // Draw the lights and models
+            // if let Some(light_entities) = &self.light_entities {
+            //     for entity in light_entities {
+            //         let ecs_lock = self.ecs.lock().unwrap();
 
-                    let light_model = ecs_lock
-                        .get_component_from_entity::<model::Model>(*entity)
-                        .unwrap();
+            //         let light_model = ecs_lock
+            //             .get_component_from_entity::<model::Model>(*entity)
+            //             .unwrap();
 
-                    let light_model: &model::Model =
-                        unsafe { &*(&*light_model.read().unwrap() as *const _) };
+            //         let light_model: &model::Model =
+            //             unsafe { &*(&*light_model.read().unwrap() as *const _) };
 
-                    // Draw light
-                    render_pass.draw_light_model(
-                        light_model,
-                        &self.camera_bind_group,
-                        &self.light_bind_group,
-                    );
-                    // model::DrawModel::draw_model_instanced(
-                    //     &mut render_pass,
-                    //     light_model,
-                    //     0..1,
-                    //     &self.camera_bind_group,
-                    //     &self.light_bind_group,
-                    // );
-                }
-            }
+            //         // Draw light
+            //         render_pass.draw_light_model(
+            //             light_model,
+            //             &self.camera_bind_group,
+            //             &self.light_bind_group,
+            //         );
+            //         // model::DrawModel::draw_model_instanced(
+            //         //     &mut render_pass,
+            //         //     light_model,
+            //         //     0..1,
+            //         //     &self.camera_bind_group,
+            //         //     &self.light_bind_group,
+            //         // );
+            //     }
+            // }
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            //render_pass.set_bind_group(2, &self.light_bind_group, &[]);
+            render_pass.set_bind_group(2, &self.light_bind_group, &[]);
 
             if let Some(model_entities) = &self.model_entities {
                 for entity in model_entities {

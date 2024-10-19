@@ -67,40 +67,40 @@ impl ToLightUniform for Light {
     }
 }
 
-impl Light {
-    pub fn new(
-        device: &wgpu::Device,
-        position: Point3<f32>,
-        color: Vector3<f32>,
-        bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
-        let light_uniform = LightUniform {
-            position: [position.x, position.y, position.z],
-            _padding: 0,
-            color: [color.x, color.y, color.z],
-            _padding2: 0,
-        };
+// impl Light {
+//     pub fn new(
+//         device: &wgpu::Device,
+//         position: Point3<f32>,
+//         color: Vector3<f32>,
+//         bind_group_layout: &wgpu::BindGroupLayout,
+//     ) -> Self {
+//         let light_uniform = LightUniform {
+//             position: [position.x, position.y, position.z],
+//             _padding: 0,
+//             color: [color.x, color.y, color.z],
+//             _padding2: 0,
+//         };
 
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light Buffer"),
-            contents: bytemuck::cast_slice(&[light_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+//         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+//             label: Some("Light Buffer"),
+//             contents: bytemuck::cast_slice(&[light_uniform]),
+//             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+//         });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-            label: Some("Light Bind Group"),
-        });
+//         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+//             layout: bind_group_layout,
+//             entries: &[wgpu::BindGroupEntry {
+//                 binding: 0,
+//                 resource: buffer.as_entire_binding(),
+//             }],
+//             label: Some("Light Bind Group"),
+//         });
 
-        Self {
-            position,
-            color,
-            buffer,
-            bind_group,
-        }
-    }
-}
+//         Self {
+//             position,
+//             color,
+//             buffer,
+//             bind_group,
+//         }
+//     }
+// }

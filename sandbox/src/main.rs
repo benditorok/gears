@@ -35,7 +35,6 @@ async fn main() -> anyhow::Result<()> {
     // Add ambient light
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Ambient Light"))
-        .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
         .add_component(components::Light::AmbientColoured([1.0, 0.8, 1.0]))
         .add_component(components::Pos3::new(0.0, 5.0, 0.0))
         .build();
@@ -43,7 +42,6 @@ async fn main() -> anyhow::Result<()> {
     // * Add moving red light
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Red Light"))
-        .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
         .add_component(components::Light::AmbientColoured([1.0, 0.0, 0.0]))
         .add_component(components::Pos3::new(15.0, 5.0, 0.0))
         .add_component(Health(100))

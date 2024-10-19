@@ -39,7 +39,7 @@ pub enum Camera {
     },
 }
 
-pub struct Model;
+pub struct Model; // TODO enum static, dynamic
 
 pub struct Name(pub &'static str);
 
