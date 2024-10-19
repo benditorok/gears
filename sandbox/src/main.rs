@@ -1,11 +1,7 @@
 use ecs::utils::EntityBuilder;
-use ecs::Entity;
 use gears::prelude::*;
-use rand::Rng;
 use std::sync::Arc;
 use std::thread;
-
-pub struct Health(i32);
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
