@@ -1,16 +1,18 @@
 use super::config::{self, Config, LogConfig, LogLevel};
+use super::Dt;
 use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::{ecs, renderer};
 use log::info;
 use std::env;
 use std::sync::{Arc, Mutex};
+use tokio::sync::broadcast;
 
 pub trait App {
     fn new(config: Config) -> Self;
     fn map_ecs(&mut self, ecs: ecs::Manager) -> Arc<Mutex<ecs::Manager>>;
     #[allow(async_fn_in_trait)]
     async fn run(&mut self) -> anyhow::Result<()>;
-
+    fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>>;
     // TODO add a create job fn to access the thread pool
 }
 
@@ -20,6 +22,8 @@ pub struct GearsApp {
     world: Arc<Mutex<ecs::Manager>>,
     pub thread_pool: ThreadPool,
     event_queue: EventQueue,
+    tx_dt: Option<broadcast::Sender<Dt>>,
+    rx_dt: Option<broadcast::Receiver<Dt>>,
 }
 
 impl Default for GearsApp {
@@ -40,11 +44,15 @@ impl App for GearsApp {
     fn new(config: config::Config) -> Self {
         assert!(config.threadpool_size > 1);
 
+        let (tx_dt, rx_dt) = broadcast::channel(64);
+
         Self {
             event_queue: EventQueue::new(),
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
             world: Arc::new(Mutex::new(ecs::Manager::default())),
+            tx_dt: Some(tx_dt),
+            rx_dt: Some(rx_dt),
         }
     }
 
@@ -72,7 +80,19 @@ impl App for GearsApp {
 
         info!("Starting Gears...");
 
+        let tx = self.tx_dt.take().unwrap();
+
         // Run the event loop
-        renderer::run(Arc::clone(&self.world)).await
+        renderer::run(Arc::clone(&self.world), tx).await
+    }
+
+    /// Get the delta time channel.
+    /// This is used to communicate the delta time between the main thread and the renderer thread.
+    fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>> {
+        if let Some(tx) = &self.tx_dt {
+            Some(tx.subscribe())
+        } else {
+            None
+        }
     }
 }

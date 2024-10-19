@@ -168,71 +168,63 @@ async fn main() -> anyhow::Result<()> {
     let mut app = app::GearsApp::default();
     let ecs = app.map_ecs(ecs);
 
-    // TODO leak the last frame time trough channesl try_recv and update a components pos from outside with * dt
+    // Update loop
+    if let Some(mut rx_dt) = app.get_dt_channel() {
+        let ecs_update = Arc::clone(&ecs);
 
-    // TODO if no workers are available then add more workers threads to the vec
-    // * app thread pool should be reserved. create a way to move closures into the update call of the renderer and provide the deltat time for moving the objects correctly
-    let ecs_sanbox_t2_access = Arc::clone(&ecs);
-    app.thread_pool.execute(move |stop_flag| {
-        let start_time = std::time::Instant::now();
-        while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
-            {
-                let ecs = ecs_sanbox_t2_access.lock().unwrap();
-                let elapsed = start_time.elapsed().as_secs_f32();
-                for entity in ecs.iter_entities() {
-                    if let Some(name) = ecs.get_component_from_entity::<components::Name>(entity) {
-                        if name.read().unwrap().0.contains("Sphere_circle") {
-                            if let Some(pos) =
-                                ecs.get_component_from_entity::<components::Pos3>(entity)
-                            {
-                                let mut pos = pos.write().unwrap();
-                                let angle =
-                                    elapsed + (entity.0 as f32 * std::f32::consts::PI * 2.0 / 5.0);
-                                pos.x = angle.cos() * 10.0;
-                                pos.z = angle.sin() * 10.0;
+        app.thread_pool.execute(move |stop_flag| {
+            while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                let dt = futures::executor::block_on(rx_dt.recv());
+
+                if let Ok(dt) = dt {
+                    let ecs = ecs_update.lock().unwrap();
+
+                    // Move the spheres in a circle
+                    for entity in ecs.iter_entities() {
+                        if let Some(name) =
+                            ecs.get_component_from_entity::<components::Name>(entity)
+                        {
+                            if name.read().unwrap().0.contains("Sphere_circle") {
+                                if let Some(pos) =
+                                    ecs.get_component_from_entity::<components::Pos3>(entity)
+                                {
+                                    let mut pos = pos.write().unwrap();
+                                    let angle = dt.as_secs_f32()
+                                        + (entity.0 as f32 * std::f32::consts::PI * 2.0 / 5.0);
+                                    pos.x = angle.cos() * 10.0;
+                                    pos.z = angle.sin() * 10.0;
+                                }
+                            }
+                        }
+                    }
+
+                    // Move the red and blue lights in a circle
+                    for entity in ecs.iter_entities() {
+                        if let Some(name) =
+                            ecs.get_component_from_entity::<components::Name>(entity)
+                        {
+                            let name = name.read().unwrap();
+                            if name.0 == "Red Light" || name.0 == "Blue Light" {
+                                if let Some(pos) =
+                                    ecs.get_component_from_entity::<components::Pos3>(entity)
+                                {
+                                    let mut pos = pos.write().unwrap();
+                                    let angle = dt.as_secs_f32()
+                                        + if name.0 == "Red Light" {
+                                            0.0
+                                        } else {
+                                            std::f32::consts::PI
+                                        };
+                                    pos.x = angle.cos() * 10.0;
+                                    pos.z = angle.sin() * 10.0;
+                                }
                             }
                         }
                     }
                 }
             }
-
-            thread::sleep(std::time::Duration::from_millis(16));
-        }
-    });
-
-    let ecs_t3_access = Arc::clone(&ecs);
-    // Move the red sphere around in a circle
-    app.thread_pool.execute(move |stop_flag| {
-        let start_time = std::time::Instant::now();
-        while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
-            {
-                let ecs = ecs_t3_access.lock().unwrap();
-                let elapsed = start_time.elapsed().as_secs_f32();
-                for entity in ecs.iter_entities() {
-                    if let Some(name) = ecs.get_component_from_entity::<components::Name>(entity) {
-                        let name = name.read().unwrap();
-                        if name.0 == "Red Light" || name.0 == "Blue Light" {
-                            if let Some(pos) =
-                                ecs.get_component_from_entity::<components::Pos3>(entity)
-                            {
-                                let mut pos = pos.write().unwrap();
-                                let angle = elapsed
-                                    + if name.0 == "Red Light" {
-                                        0.0
-                                    } else {
-                                        std::f32::consts::PI
-                                    };
-                                pos.x = angle.cos() * 10.0;
-                                pos.z = angle.sin() * 10.0;
-                            }
-                        }
-                    }
-                }
-            }
-
-            thread::sleep(std::time::Duration::from_millis(16));
-        }
-    });
+        });
+    }
 
     app.run().await
 }

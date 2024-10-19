@@ -6,6 +6,7 @@ pub mod resources;
 pub mod texture;
 pub mod traits;
 
+use crate::core::Dt;
 use crate::ecs::components::{Flip, Name, Scale};
 use crate::ecs::{self, components};
 use cgmath::prelude::*;
@@ -17,6 +18,7 @@ use std::f32::consts::FRAC_PI_2;
 use std::num::NonZero;
 use std::sync::{Arc, Mutex};
 use std::{any, iter};
+use tokio::sync::{broadcast, Mutex as TokioMutex};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
@@ -41,7 +43,10 @@ const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 /// # Returns
 ///
 /// A future which can be awaited.
-pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
+pub async fn run(
+    world: Arc<Mutex<ecs::Manager>>,
+    tx_dt: broadcast::Sender<Dt>,
+) -> anyhow::Result<()> {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
@@ -89,6 +94,11 @@ pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
                             &dt.as_millis()
                         );
 
+                        // Send the delta time using the broadcast channel
+                        if let Err(e) = tx_dt.send(dt) {
+                            log::warn!("Failed to send delta time: {:?}", e);
+                        }
+                        
                         futures::executor::block_on(state.update(dt));
 
                         match state.render() {
