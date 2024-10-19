@@ -105,10 +105,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 let specular_color = specular_strength * light.color * attenuation;
 
                 // Blending object color and light color for more balance
-                result_color = result_color + (diffuse_color + specular_color) * mix(object_color.xyz, light.color, 0.5);
+                result_color = result_color + (diffuse_color + specular_color) * mix(object_color.xyz, light.color, 0.3);
             }
         } else if (light.light_type == 1u) { // Ambient light
-            let ambient_strength = 0.3; // Increased ambient strength for better visibility
+            let ambient_strength = 0.15; // Increased ambient strength for better visibility
             let ambient_color = light.color * ambient_strength;
 
             result_color = result_color + ambient_color * object_color.xyz;
