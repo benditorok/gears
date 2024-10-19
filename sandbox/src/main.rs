@@ -32,14 +32,12 @@ async fn main() -> anyhow::Result<()> {
     //     })
     //     .build();
 
-    // // Add ambient light
-    // EntityBuilder::new_entity(&mut ecs)
-    //     .add_component(components::Name("Ambient Light"))
-    //     .add_component(components::Light::AmbientColoured {
-    //         color: [0.2, 0.2, 0.2],
-    //     })
-    //     .add_component(components::Pos3::new(0.0, 5.0, 0.0))
-    //     .build();
+    // Add ambient light
+    EntityBuilder::new_entity(&mut ecs)
+        .add_component(components::Name("Ambient Light"))
+        .add_component(components::Light::Ambient)
+        .add_component(components::Pos3::new(0.0, 5.0, 0.0))
+        .build();
 
     // * Add moving red light
     EntityBuilder::new_entity(&mut ecs)

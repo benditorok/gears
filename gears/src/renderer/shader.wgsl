@@ -80,8 +80,8 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-     let object_color: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    
+    let object_color: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+
     var result_color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
     for (var i = 0u; i < light_data.num_lights; i = i + 1u) {
@@ -90,25 +90,36 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let ambient_strength = 0.1;
         let ambient_color = light.color * ambient_strength;
 
-        let light_dir = normalize(light.position - in.world_position);
-        let view_dir = normalize(camera.view_pos.xyz - in.world_position);
-        let half_dir = normalize(view_dir + light_dir);
-
-        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-        let diffuse_color = light.color * diffuse_strength;
-
-        let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
-        let specular_color = specular_strength * light.color;
-
-          if (light.light_type == 0u) { // Point light
+        if (light.light_type == 0u) { // Point light
             let distance = length(light.position - in.world_position);
             let attenuation = clamp(1.0 - distance / light.radius, 0.0, 1.0);
-            let attenuated_diffuse_color = diffuse_color * attenuation;
-            let attenuated_specular_color = specular_color * attenuation;
-            result_color = result_color + (ambient_color + attenuated_diffuse_color + attenuated_specular_color) * object_color.xyz;
+
+            if (attenuation > 0.0) {
+                let light_dir = normalize(light.position - in.world_position);
+                let view_dir = normalize(camera.view_pos.xyz - in.world_position);
+                let half_dir = normalize(view_dir + light_dir);
+
+                let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+                let diffuse_color = light.color * diffuse_strength * attenuation;
+
+                let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
+                let specular_color = specular_strength * light.color * attenuation;
+
+                result_color = result_color + (ambient_color + diffuse_color + specular_color) * object_color.xyz;
+            }
         } else if (light.light_type == 1u) { // Ambient light
             result_color = result_color + ambient_color * object_color.xyz;
         } else if (light.light_type == 2u) { // Directional light
+            let light_dir = normalize(light.position - in.world_position);
+            let view_dir = normalize(camera.view_pos.xyz - in.world_position);
+            let half_dir = normalize(view_dir + light_dir);
+
+            let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+            let diffuse_color = light.color * diffuse_strength;
+
+            let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
+            let specular_color = specular_strength * light.color;
+
             result_color = result_color + (ambient_color + diffuse_color + specular_color) * object_color.xyz;
         }
     }
