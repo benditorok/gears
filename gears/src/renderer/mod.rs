@@ -809,11 +809,19 @@ impl<'a> State<'a> {
                         &self.camera_bind_group,
                         &self.light_bind_group,
                     );
+                    // model::DrawModel::draw_model_instanced(
+                    //     &mut render_pass,
+                    //     light_model,
+                    //     0..1,
+                    //     &self.camera_bind_group,
+                    //     &self.light_bind_group,
+                    // );
                 }
             }
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            //render_pass.set_bind_group(2, &self.light_bind_group, &[]);
 
             if let Some(model_entities) = &self.model_entities {
                 for entity in model_entities {
