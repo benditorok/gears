@@ -147,21 +147,6 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(-10.0, 0.0, 10.0))
         .build();
 
-    // // Add random spheres
-    // for i in 0..=20 {
-    //     let name = format!("Sphere_rand{}", i);
-
-    //     EntityBuilder::new_entity(&mut ecs)
-    //         .add_component(Name(Box::leak(name.into_boxed_str())))
-    //         .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
-    //         .add_component(components::Pos3::new(
-    //             rand::random::<f32>() * 40.0 - 20.0,
-    //             rand::random::<f32>() * 40.0 - 20.0,
-    //             rand::random::<f32>() * 40.0 - 20.0,
-    //         ))
-    //         .build();
-    // }
-
     // Add 5 spheres in a circle
     for i in 0..5 {
         let angle = i as f32 * std::f32::consts::PI * 2.0 / 5.0;
@@ -184,33 +169,6 @@ async fn main() -> anyhow::Result<()> {
     let ecs = app.map_ecs(ecs);
 
     // TODO leak the last frame time trough channesl try_recv and update a components pos from outside with * dt
-
-    // // Randomly move spheres
-    // let ecs_sanbox_t2_access = Arc::clone(&ecs);
-    // app.thread_pool.execute(move |stop_flag| {
-    //     let mut rng = rand::thread_rng();
-    //     while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
-    //         {
-    //             let ecs = ecs_sanbox_t2_access.lock().unwrap();
-    //             for entity in ecs.iter_entities() {
-    //                 if let Some(name) = ecs.get_component_from_entity::<Name>(entity) {
-    //                     if name.read().unwrap().0.contains("Sphere_rand") {
-    //                         if let Some(pos) =
-    //                             ecs.get_component_from_entity::<components::Pos3>(entity)
-    //                         {
-    //                             let mut pos = pos.write().unwrap();
-    //                             pos.x = rng.gen::<f32>() * 40.0 - 20.0;
-    //                             pos.y = rng.gen::<f32>() * 40.0 - 20.0;
-    //                             pos.z = rng.gen::<f32>() * 40.0 - 20.0;
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-
-    //         thread::sleep(std::time::Duration::from_millis(250));
-    //     }
-    // });
 
     // TODO if no workers are available then add more workers threads to the vec
     // * app thread pool should be reserved. create a way to move closures into the update call of the renderer and provide the deltat time for moving the objects correctly

@@ -96,16 +96,19 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 let view_dir = normalize(camera.view_pos.xyz - in.world_position);
                 let half_dir = normalize(view_dir + light_dir);
 
+                // Diffuse component
                 let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
                 let diffuse_color = light.color * diffuse_strength * attenuation;
 
+                // Specular component
                 let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
                 let specular_color = specular_strength * light.color * attenuation;
 
-                result_color = result_color + (diffuse_color + specular_color) * object_color.xyz;
+                // Blending object color and light color for more balance
+                result_color = result_color + (diffuse_color + specular_color) * mix(object_color.xyz, light.color, 0.5);
             }
         } else if (light.light_type == 1u) { // Ambient light
-            let ambient_strength = 0.1;
+            let ambient_strength = 0.3; // Increased ambient strength for better visibility
             let ambient_color = light.color * ambient_strength;
 
             result_color = result_color + ambient_color * object_color.xyz;
@@ -114,13 +117,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let view_dir = normalize(camera.view_pos.xyz - in.world_position);
             let half_dir = normalize(view_dir + light_dir);
 
+            // Diffuse component
             let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
             let diffuse_color = light.color * diffuse_strength;
 
+            // Specular component
             let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
             let specular_color = specular_strength * light.color;
 
-            result_color = result_color + (diffuse_color + specular_color) * object_color.xyz;
+            // Blending object color and light color for more balance
+            result_color = result_color + (diffuse_color + specular_color) * mix(object_color.xyz, light.color, 0.5);
         }
     }
 
