@@ -577,22 +577,28 @@ impl<'a> State<'a> {
                 .get_component_from_entity::<components::Pos3>(*entity)
                 .expect("No position provided for the Model!");
 
-            let model_source = ecs_lock
-                .get_component_from_entity::<components::ModelSource>(*entity)
+            let model = ecs_lock
+                .get_component_from_entity::<components::Model>(*entity)
                 .unwrap();
 
             let flip = ecs_lock.get_component_from_entity::<components::Flip>(*entity);
 
             let scale = ecs_lock.get_component_from_entity::<components::Scale>(*entity);
 
-            let obj_model = resources::load_model(
-                model_source.read().unwrap().0,
-                &self.device,
-                &self.queue,
-                &self.texture_bind_group_layout,
-            )
-            .await
-            .unwrap();
+            let obj_model = {
+                let model = model.read().unwrap();
+
+                match *model {
+                    components::Model::Dynamic { obj_path } => resources::load_model(
+                        obj_path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                }
+            };
             ecs_lock.add_component_to_entity(*entity, obj_model);
 
             // TODO rename instance to model::ModelUniform

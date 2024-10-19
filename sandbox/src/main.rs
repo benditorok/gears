@@ -1,4 +1,3 @@
-use components::ModelSource;
 use ecs::utils::EntityBuilder;
 use ecs::Entity;
 use gears::prelude::*;
@@ -62,8 +61,9 @@ async fn main() -> anyhow::Result<()> {
     // Road segment
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Road"))
-        .add_component(components::Model)
-        .add_component(components::ModelSource("res/models/road/road.obj"))
+        .add_component(components::Model::Dynamic {
+            obj_path: "res/models/road/road.obj",
+        })
         .add_component(components::Pos3::new(0.0, 0.0, 0.0))
         .add_component(components::Scale::NonUniform {
             x: 2.0,
@@ -76,40 +76,45 @@ async fn main() -> anyhow::Result<()> {
     // Cube 1
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube1"))
-        .add_component(components::Model)
-        .add_component(components::ModelSource("res/models/cube/cube.obj"))
+        .add_component(components::Model::Dynamic {
+            obj_path: "res/models/cube/cube.obj",
+        })
         .add_component(components::Pos3::new(10.0, 0.0, 10.0))
         .build();
 
     // Cube 2
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube2"))
-        .add_component(components::Model)
-        .add_component(components::ModelSource("res/models/cube/cube.obj"))
+        .add_component(components::Model::Dynamic {
+            obj_path: "res/models/cube/cube.obj",
+        })
         .add_component(components::Pos3::new(10.0, 0.0, -10.0))
         .build();
 
     // Cube 3
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube3"))
-        .add_component(components::Model)
-        .add_component(components::ModelSource("res/models/cube/cube.obj"))
+        .add_component(components::Model::Dynamic {
+            obj_path: "res/models/cube/cube.obj",
+        })
         .add_component(components::Pos3::new(-10.0, 0.0, -10.0))
         .build();
 
     // Cube 4
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Cube4"))
-        .add_component(components::Model)
-        .add_component(components::ModelSource("res/models/cube/cube.obj"))
+        .add_component(components::Model::Dynamic {
+            obj_path: "res/models/cube/cube.obj",
+        })
         .add_component(components::Pos3::new(-10.0, 0.0, 10.0))
         .build();
 
     // Center sphere
     EntityBuilder::new_entity(&mut ecs)
         .add_component(components::Name("Sphere1"))
-        .add_component(components::Model)
-        .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
+        .add_component(components::Model::Dynamic {
+            obj_path: "res/models/sphere/sphere.obj",
+        })
         .add_component(components::Pos3::new(0.0, 0.0, 0.0))
         .add_component(components::Flip::Vertical)
         .build();
@@ -139,8 +144,9 @@ async fn main() -> anyhow::Result<()> {
 
         EntityBuilder::new_entity(&mut ecs)
             .add_component(components::Name(Box::leak(name.into_boxed_str())))
-            .add_component(components::Model)
-            .add_component(components::ModelSource("res/models/sphere/sphere.obj"))
+            .add_component(components::Model::Dynamic {
+                obj_path: "res/models/sphere/sphere.obj",
+            })
             .add_component(components::Pos3::new(x, 0.0, z))
             .build();
     }

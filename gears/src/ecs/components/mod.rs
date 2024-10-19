@@ -1,4 +1,4 @@
-/// A component that stores the position of a 3D object.
+/// A component that stores the position of any object.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
     pub x: f32,
@@ -24,10 +24,7 @@ impl From<Pos3> for cgmath::Point3<f32> {
     }
 }
 
-/// A component that stores the path source of a model.
-#[derive(Clone, Copy, Debug)]
-pub struct ModelSource<'a>(pub &'a str);
-
+/// A component that stores the camera type.
 pub enum Camera {
     FPS {
         look_at: Pos3,
@@ -39,10 +36,15 @@ pub enum Camera {
     },
 }
 
-pub struct Model; // TODO enum static, dynamic
+/// A component that stores the model type.
+pub enum Model<'a> {
+    Dynamic { obj_path: &'a str },
+    // TODO Static: can't update the pos, etc
+}
 
 pub struct Name(pub &'static str);
 
+/// A component that stores the light type.
 pub enum Light {
     Point { radius: f32 },
     PointColoured { radius: f32, color: [f32; 3] },
@@ -50,30 +52,15 @@ pub enum Light {
     AmbientColoured { color: [f32; 3] },
     Directional,
     DirectionalColoured { color: [f32; 3] },
-    // Directional {
-    //     direction: Pos3,
-    //     color: [f32; 3],
-    //     intensity: f32,
-    // },
-    // Point {
-    //     position: Pos3,
-    //     color: [f32; 3],
-    //     intensity: f32,
-    // },
-    // Spot {
-    //     position: Pos3,
-    //     direction: Pos3,
-    //     color: [f32; 3],
-    //     intensity: f32,
-    //     angle: f32,
-    // },
 }
 
+/// A component that stores the scale of an object.
 pub enum Scale {
     Uniform(f32),
     NonUniform { x: f32, y: f32, z: f32 },
 }
 
+/// A component that stores the rotation of an object.
 pub enum Flip {
     Horizontal,
     Vertical,
