@@ -1577,8 +1577,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cgmath",
+ "env_logger",
  "futures",
  "gears",
+ "log",
  "rand",
  "tokio",
 ]

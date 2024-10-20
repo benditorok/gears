@@ -89,10 +89,6 @@ impl App for GearsApp {
     /// Get the delta time channel.
     /// This is used to communicate the delta time between the main thread and the renderer thread.
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>> {
-        if let Some(tx) = &self.tx_dt {
-            Some(tx.subscribe())
-        } else {
-            None
-        }
+        self.tx_dt.as_ref().map(|tx| tx.subscribe())
     }
 }
