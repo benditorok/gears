@@ -56,6 +56,7 @@ pub async fn run(
 
     event_loop
         .run(move |event, ewlt| match event {
+            // todo HANDLE this on a separate thread
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion{ delta, },
                 .. // We're not using device_id currently

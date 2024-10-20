@@ -175,7 +175,6 @@ async fn main() -> anyhow::Result<()> {
     // Update loop
     if let Some(mut rx_dt) = app.get_dt_channel() {
         let ecs_update = Arc::clone(&ecs);
-        let start_time = std::time::Instant::now();
 
         app.thread_pool.execute(move |stop_flag| {
             let mut accumulated_time: f32 = 0.0;
