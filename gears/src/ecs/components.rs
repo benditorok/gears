@@ -3,34 +3,49 @@ use crate::renderer;
 /// A component that stores the position of any object.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub pos: cgmath::Vector3<f32>,
+    pub rot: Option<cgmath::Quaternion<f32>>,
 }
 
 impl renderer::traits::Pos for Pos3 {
-    fn get_pos(&self) -> cgmath::Point3<f32> {
-        cgmath::Point3::new(self.x, self.y, self.z)
+    fn get_pos(&self) -> cgmath::Vector3<f32> {
+        self.pos
     }
 }
 
 impl Default for Pos3 {
     fn default() -> Self {
-        Self::new(0.0, 0.0, 0.0)
+        Self {
+            pos: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            rot: None,
+        }
     }
 }
 
 impl Pos3 {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { x, y, z }
+    pub fn new(pos: cgmath::Vector3<f32>) -> Self {
+        Self { pos, rot: None }
+    }
+
+    pub fn with_rot(pos: cgmath::Vector3<f32>, rot: cgmath::Quaternion<f32>) -> Self {
+        Self {
+            pos,
+            rot: Some(rot),
+        }
     }
 }
 
-impl From<Pos3> for cgmath::Point3<f32> {
-    fn from(val: Pos3) -> Self {
-        cgmath::Point3::new(val.x, val.y, val.z)
-    }
-}
+// impl From<&[f32; 3]> for cgmath::Vector3<f32> {
+//     fn from(val: &[f32; 3]) -> Self {
+//         cgmath::Vector3::new(val[0], val[1], val[2])
+//     }
+// }
+
+// impl From<Pos3> for cgmath::Point3<f32> {
+//     fn from(val: Pos3) -> Self {
+//         cgmath::Point3::new(val.x, val.y, val.z)
+//     }
+// }
 
 /// A component that stores the camera type.
 #[derive(Debug, Copy, Clone)]
@@ -83,12 +98,12 @@ pub enum Flip {
 /// Axis-aligned bounding box component.
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct AABB {
-    pub min: cgmath::Point3<f32>,
-    pub max: cgmath::Point3<f32>,
+    pub min: cgmath::Vector3<f32>,
+    pub max: cgmath::Vector3<f32>,
 }
 
 impl AABB {
-    fn new(min: cgmath::Point3<f32>, max: cgmath::Point3<f32>) -> Self {
+    fn new(min: cgmath::Vector3<f32>, max: cgmath::Vector3<f32>) -> Self {
         Self { min, max }
     }
 }
@@ -105,7 +120,7 @@ impl renderer::traits::Collider for AABB {
 
     fn move_to(&mut self, pos: impl renderer::traits::Pos) {
         let pos = pos.get_pos();
-        let diff = pos - cgmath::Point3::new(self.min.x, self.min.y, self.min.z);
+        let diff = pos - cgmath::Vector3::new(self.min.x, self.min.y, self.min.z);
         self.min += diff;
         self.max += diff;
     }
@@ -116,7 +131,7 @@ impl renderer::traits::Collider for AABB {
 pub struct Collider(AABB);
 
 impl Collider {
-    pub fn new(min: cgmath::Point3<f32>, max: cgmath::Point3<f32>) -> Self {
+    pub fn new(min: cgmath::Vector3<f32>, max: cgmath::Vector3<f32>) -> Self {
         Self(AABB::new(min, max))
     }
 }

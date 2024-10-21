@@ -1,5 +1,5 @@
 pub(crate) trait Pos {
-    fn get_pos(&self) -> cgmath::Point3<f32>;
+    fn get_pos(&self) -> cgmath::Vector3<f32>;
 }
 
 pub(crate) trait Collider {

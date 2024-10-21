@@ -490,17 +490,17 @@ impl<'a> State<'a> {
                 speed,
                 sensitivity,
             } => {
-                let camera_pos_converted: cgmath::Point3<f32> = (*camera_pos).into();
-                let look_at_converted: cgmath::Point3<f32> = look_at.into();
-                let camera = camera::Camera::new_look_at(camera_pos_converted, look_at_converted);
+                let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
+                let look_at_point = cgmath::Point3::from_vec(look_at.pos);
+                let camera = camera::Camera::new_look_at(pos_point, look_at_point);
                 let controller = camera::CameraController::new(speed, sensitivity);
 
                 (camera, controller)
             }
             components::Camera::Fixed { look_at } => {
-                let camera_pos_converted: cgmath::Point3<f32> = (*camera_pos).into();
-                let look_at_converted: cgmath::Point3<f32> = look_at.into();
-                let camera = camera::Camera::new_look_at(camera_pos_converted, look_at_converted);
+                let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
+                let look_at_point = cgmath::Point3::from_vec(look_at.pos);
+                let camera = camera::Camera::new_look_at(pos_point, look_at_point);
                 let controller = camera::CameraController::new(0.0, 0.0);
 
                 (camera, controller)
@@ -531,37 +531,37 @@ impl<'a> State<'a> {
 
                 match *rlock_light {
                     components::Light::Point { radius } => light::LightUniform {
-                        position: [rlock_pos.x, rlock_pos.y, rlock_pos.z],
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Point as u32,
                         color: [1.0, 1.0, 1.0],
                         radius,
                     },
                     components::Light::PointColoured { radius, color } => light::LightUniform {
-                        position: [rlock_pos.x, rlock_pos.y, rlock_pos.z],
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Point as u32,
                         color,
                         radius,
                     },
                     components::Light::Ambient => light::LightUniform {
-                        position: [rlock_pos.x, rlock_pos.y, rlock_pos.z],
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Ambient as u32,
                         color: [1.0, 1.0, 1.0],
                         radius: 0.0,
                     },
                     components::Light::AmbientColoured { color } => light::LightUniform {
-                        position: [rlock_pos.x, rlock_pos.y, rlock_pos.z],
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Ambient as u32,
                         color,
                         radius: 0.0,
                     },
                     components::Light::Directional => light::LightUniform {
-                        position: [rlock_pos.x, rlock_pos.y, rlock_pos.z],
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Directional as u32,
                         color: [1.0, 1.0, 1.0],
                         radius: 0.0,
                     },
                     components::Light::DirectionalColoured { color } => light::LightUniform {
-                        position: [rlock_pos.x, rlock_pos.y, rlock_pos.z],
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Directional as u32,
                         color,
                         radius: 0.0,
@@ -619,8 +619,8 @@ impl<'a> State<'a> {
             let mut instance = {
                 let rlock_pos = pos.read().unwrap();
                 instance::Instance {
-                    position: cgmath::Vector3::new(rlock_pos.x, rlock_pos.y, rlock_pos.z),
-                    rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
+                    position: rlock_pos.pos.into(),
+                    rotation: rlock_pos.rot.unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0))),
                 }
             };
 
@@ -751,9 +751,9 @@ impl<'a> State<'a> {
 
                 // TODO update the colors
                 light_uniform.write().unwrap().position = [
-                    pos.read().unwrap().x,
-                    pos.read().unwrap().y,
-                    pos.read().unwrap().z,
+                    pos.read().unwrap().pos.x,
+                    pos.read().unwrap().pos.y,
+                    pos.read().unwrap().pos.z,
                 ];
 
                 let rlock_light_uniform = light_uniform.read().unwrap();
@@ -797,12 +797,14 @@ impl<'a> State<'a> {
                     .unwrap();
 
                 // TODO rotation
-                instance.write().unwrap().position = cgmath::Vector3::new(
-                    pos.read().unwrap().x,
-                    pos.read().unwrap().y,
-                    pos.read().unwrap().z,
-                );
+                {
+                    let mut wlock_instance = instance.write().unwrap();
+                    let rlock_pos3 = pos.read().unwrap();
 
+                    wlock_instance.position = rlock_pos3.pos;
+                    wlock_instance.rotation = rlock_pos3.rot.unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0)));
+                }
+                    
                 let instance_raw = instance.read().unwrap().to_raw();
                 self.queue.write_buffer(
                     &buffer.write().unwrap(),
