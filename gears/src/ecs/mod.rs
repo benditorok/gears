@@ -1,4 +1,5 @@
 pub mod components;
+pub mod utils;
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -10,18 +11,32 @@ pub struct Entity(pub u32);
 
 type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>;
 
+// TODO add a world with scenes and scene switching
+
 /// Entity component system manager.
 pub struct Manager {
     entities: RwLock<EntityStore>,
     next_entity: AtomicU32,
 }
 
-impl Manager {
-    #[allow(clippy::new_without_default)]
-    /// Create a new EntityManager.
-    pub fn new() -> Self {
+impl Default for Manager {
+    fn default() -> Self {
         Manager {
             entities: RwLock::new(HashMap::new()),
+            next_entity: AtomicU32::new(0),
+        }
+    }
+}
+
+impl Manager {
+    /// Create a new EntityManager with a specific capacity preallocated.
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity` - The preallocated capacity of the EntityManager.
+    pub fn new(capacity: usize) -> Self {
+        Manager {
+            entities: RwLock::new(HashMap::with_capacity(capacity)),
             next_entity: AtomicU32::new(0),
         }
     }
@@ -35,6 +50,11 @@ impl Manager {
             .unwrap()
             .insert(entity, HashMap::new());
         entity
+    }
+
+    /// Get the number of entities currently in the EntityManager.
+    pub fn entity_count(&self) -> usize {
+        self.entities.read().unwrap().len()
     }
 
     /// Add a component of a specific type to a specific entity.
@@ -93,6 +113,19 @@ impl Manager {
 
         result
     }
+
+    /// Get all entities that have a specific component.
+    pub fn get_entites_with_component<T: 'static + Send + Sync>(&self) -> Vec<Entity> {
+        let mut result: Vec<Entity> = Vec::new();
+        let entities = self.entities.read().unwrap();
+        for (entity, components) in entities.iter() {
+            if components.contains_key(&TypeId::of::<T>()) {
+                result.push(*entity);
+            }
+        }
+
+        result
+    }
 }
 
 #[cfg(test)]
@@ -104,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_create_entity() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         assert_eq!(entity, Entity(0));
         let entity2 = manager.create_entity();
@@ -113,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_add_and_get_component() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         let component = TestComponent(42);
         manager.add_component_to_entity(entity, component);
@@ -126,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_get_nonexistent_component() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         let retrieved_component = manager.get_component_from_entity::<TestComponent>(entity);
         assert!(retrieved_component.is_none());
@@ -134,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_iter_entities() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity1 = manager.create_entity();
         let entity2 = manager.create_entity();
         let entities: Vec<Entity> = manager.iter_entities().collect();
@@ -145,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_get_all_components_of_type() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity1 = manager.create_entity();
         manager.add_component_to_entity(entity1, TestComponent(10));
         let entity2 = manager.create_entity();
@@ -163,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_add_multiple_components_to_entity() {
-        let manager = Manager::new();
+        let manager = Manager::default();
         let entity = manager.create_entity();
         manager.add_component_to_entity(entity, TestComponent(42));
         manager.add_component_to_entity(entity, TestComponent(84));
@@ -175,9 +208,42 @@ mod tests {
 
     #[test]
     fn test_get_all_components_of_type_with_no_components() {
-        let manager = Manager::new();
-        let entity = manager.create_entity();
+        let manager = Manager::default();
+        let _ = manager.create_entity();
         let components = manager.get_all_components_of_type::<TestComponent>();
         assert!(components.is_empty());
+    }
+
+    #[test]
+    fn test_get_entities_with_component() {
+        let manager = Manager::default();
+        let entity1 = manager.create_entity();
+        manager.add_component_to_entity(entity1, TestComponent(10));
+        let entity2 = manager.create_entity();
+        manager.add_component_to_entity(entity2, TestComponent(20));
+        let entity3 = manager.create_entity();
+
+        let entities_with_component = manager.get_entites_with_component::<TestComponent>();
+        assert_eq!(entities_with_component.len(), 2);
+        assert!(entities_with_component.contains(&entity1));
+        assert!(entities_with_component.contains(&entity2));
+        assert!(!entities_with_component.contains(&entity3));
+    }
+
+    #[test]
+    fn test_get_entities_with_component_no_entities() {
+        let manager = Manager::default();
+        let entities_with_component = manager.get_entites_with_component::<TestComponent>();
+        assert!(entities_with_component.is_empty());
+    }
+
+    #[test]
+    fn test_get_entities_with_component_no_matching_component() {
+        let manager = Manager::default();
+        let _entity1 = manager.create_entity();
+        let _entity2 = manager.create_entity();
+
+        let entities_with_component = manager.get_entites_with_component::<TestComponent>();
+        assert!(entities_with_component.is_empty());
     }
 }

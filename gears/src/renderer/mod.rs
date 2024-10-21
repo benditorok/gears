@@ -4,16 +4,21 @@ pub mod light;
 pub mod model;
 pub mod resources;
 pub mod texture;
+pub mod traits;
 
+use crate::core::Dt;
+use crate::ecs::components::{Flip, Name, Scale};
 use crate::ecs::{self, components};
 use cgmath::prelude::*;
 use cgmath::*;
 use instant::Duration;
-use log::info;
-use model::{DrawLight, Vertex};
+use log::{info, warn};
+use model::{DrawModel, Vertex};
 use std::f32::consts::FRAC_PI_2;
-use std::iter;
+use std::num::NonZero;
 use std::sync::{Arc, Mutex};
+use std::{any, iter};
+use tokio::sync::{broadcast, Mutex as TokioMutex};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
@@ -33,21 +38,25 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 );
 
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
-
 /// The main event loop of the application
 ///
 /// # Returns
 ///
 /// A future which can be awaited.
-pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
+pub async fn run(
+    world: Arc<Mutex<ecs::Manager>>,
+    tx_dt: broadcast::Sender<Dt>,
+) -> anyhow::Result<()> {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
     let mut state = State::new(&window, world).await;
+    state.init_components().await?;
     let mut last_render_time = instant::Instant::now();
 
     event_loop
         .run(move |event, ewlt| match event {
+            // todo HANDLE this on a separate thread
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion{ delta, },
                 .. // We're not using device_id currently
@@ -86,6 +95,11 @@ pub async fn run(world: Arc<Mutex<ecs::Manager>>) -> anyhow::Result<()> {
                             &dt.as_millis()
                         );
 
+                        // Send the delta time using the broadcast channel
+                        if let Err(e) = tx_dt.send(dt) {
+                            log::warn!("Failed to send delta time: {:?}", e);
+                        }
+                        
                         futures::executor::block_on(state.update(dt));
 
                         match state.render() {
@@ -121,24 +135,29 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    light_render_pipeline: wgpu::RenderPipeline,
+    //light_render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
-    projection: camera::Projection,
+    camera_projection: camera::Projection,
     camera_controller: camera::CameraController,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     // TODO add a buffer for the models
-    light_model: model::Model,
-    light_uniform: light::LightUniform,
+    // ! LIGHT COMPONENTS
+    light_entities: Option<Vec<ecs::Entity>>,
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
+    //
+    model_entities: Option<Vec<ecs::Entity>>,
+    //
+    texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     #[allow(dead_code)]
     depth_texture: texture::Texture,
     window: &'a Window,
     ecs: Arc<Mutex<ecs::Manager>>,
     mouse_pressed: bool,
+    draw_colliders: bool,
 }
 
 impl<'a> State<'a> {
@@ -151,7 +170,6 @@ impl<'a> State<'a> {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
-
         let surface = instance.create_surface(window).unwrap();
 
         let adapter = instance
@@ -164,11 +182,13 @@ impl<'a> State<'a> {
             .unwrap();
 
         log::warn!("[State] Device and Queue");
+        let required_features = wgpu::Features::BUFFER_BINDING_ARRAY;
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    required_features: wgpu::Features::empty(),
+                    required_features,
                     required_limits: wgpu::Limits::default(),
                     memory_hints: Default::default(),
                 },
@@ -219,19 +239,20 @@ impl<'a> State<'a> {
                 label: Some("texture_bind_group_layout"),
             });
 
-        let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
-        let projection =
-            camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
-        let camera_controller = camera::CameraController::new(4.0, 0.4);
-
-        let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update_view_proj(&camera, &projection);
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+        let light_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("light_bind_group_layout"),
+            });
 
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -248,6 +269,38 @@ impl<'a> State<'a> {
                 label: Some("camera_bind_group_layout"),
             });
 
+        // * INITIALIZING STATE COMPONENTS
+        // ! CAMERA COMPONENT
+        let (state_camera, state_camera_controller) = Self::init_camera(Arc::clone(&ecs));
+
+        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Buffer"),
+            contents: &[0; std::mem::size_of::<light::LightData>()], // ! Initialize the buffer for the maximum number of lights
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &light_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: light_buffer.as_entire_binding(),
+            }],
+            label: Some("light_bind_group"),
+        });
+        // ! MODELS -> init_models()
+        // * INITIALIZING STATE COMPONENTS
+
+        /* CAMERA */
+        let camera_projection =
+            camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
+        let camera_uniform = camera::CameraUniform::new();
+
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -257,134 +310,8 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
-        let light_uniform = light::LightUniform {
-            position: [2.0, 2.0, 2.0],
-            _padding: 0,
-            color: [1.0, 1.0, 1.0],
-            _padding2: 0,
-        };
-
-        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light VB"),
-            contents: bytemuck::cast_slice(&[light_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let light_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: None,
-            });
-
-        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &light_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_buffer.as_entire_binding(),
-            }],
-            label: None,
-        });
-
-        let light_model = resources::load_model(
-            "res/models/sphere/sphere.obj",
-            &device,
-            &queue,
-            &texture_bind_group_layout,
-        )
-        .await
-        .unwrap();
-
-        // # START Load models and create instances #
-        {
-            log::warn!("Loading models and instances");
-
-            let ecs_lock = ecs.lock().unwrap();
-
-            for entity in ecs_lock.iter_entities() {
-                if let Some(model) =
-                    ecs_lock.get_component_from_entity::<components::ModelSource>(entity)
-                {
-                    log::warn!("Loading model: {:?}", model.read().unwrap().0);
-                    let obj_model = resources::load_model(
-                        model.read().unwrap().0,
-                        &device,
-                        &queue,
-                        &texture_bind_group_layout,
-                    )
-                    .await
-                    .unwrap();
-
-                    ecs_lock.add_component_to_entity(entity, obj_model);
-
-                    if let Some(position) =
-                        ecs_lock.get_component_from_entity::<components::Pos3>(entity)
-                    {
-                        // log position, with the models name
-                        log::warn!(
-                            "Model {:?}, position: {:?}",
-                            model.read().unwrap().0,
-                            position
-                        );
-                        ecs_lock.add_component_to_entity(
-                            entity,
-                            instance::Instance {
-                                position: cgmath::Vector3::new(
-                                    position.read().unwrap().x,
-                                    position.read().unwrap().y,
-                                    position.read().unwrap().z,
-                                ),
-                                rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-                            },
-                        );
-
-                        if let Some(instance) =
-                            ecs_lock.get_component_from_entity::<instance::Instance>(entity)
-                        {
-                            // Convert instances to raw format
-                            let instance_data = instance.read().unwrap().to_raw();
-
-                            // Create a buffer for the instances
-                            let instance_buffer =
-                                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                    label: Some("Instance Buffer"),
-                                    contents: bytemuck::cast_slice(&[instance_data]),
-                                    usage: wgpu::BufferUsages::VERTEX
-                                        | wgpu::BufferUsages::COPY_DST,
-                                });
-
-                            ecs_lock.add_component_to_entity(entity, instance_buffer);
-                        }
-                    }
-                }
-            }
-        }
-
-        // /* LIGHT */
-        // let light_uniform = light::LightUniform {
-        //     position: [2.0, 2.0, 2.0],
-        //     _padding: 0,
-        //     color: [1.0, 1.0, 1.0],
-        //     _padding2: 0,
-        // };
-
         // TODO same models should be in the same buffer
 
-        // // We'll want to update our lights position, so we use COPY_DST
-        // let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Light VB"),
-        //     contents: bytemuck::cast_slice(&[light_uniform]),
-        //     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        // });
-        // /* LIGHT */
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
@@ -412,25 +339,25 @@ impl<'a> State<'a> {
             )
         };
 
-        let light_render_pipeline = {
-            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Light Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-            let shader = wgpu::ShaderModuleDescriptor {
-                label: Some("Light Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("light.wgsl").into()),
-            };
-            Self::create_render_pipeline(
-                &device,
-                &layout,
-                config.format,
-                Some(texture::Texture::DEPTH_FORMAT),
-                &[model::ModelVertex::desc()],
-                shader,
-            )
-        };
+        // let light_render_pipeline = {
+        //     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //         label: Some("Light Pipeline Layout"),
+        //         bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
+        //         push_constant_ranges: &[],
+        //     });
+        //     let shader = wgpu::ShaderModuleDescriptor {
+        //         label: Some("Light Shader"),
+        //         source: wgpu::ShaderSource::Wgsl(include_str!("light.wgsl").into()),
+        //     };
+        //     Self::create_render_pipeline(
+        //         &device,
+        //         &layout,
+        //         config.format,
+        //         Some(texture::Texture::DEPTH_FORMAT),
+        //         &[model::ModelVertex::desc()],
+        //         shader,
+        //     )
+        // };
 
         Self {
             surface,
@@ -439,22 +366,24 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            light_render_pipeline,
-            camera,
-            projection,
-            camera_controller,
+            //light_render_pipeline,
+            camera: state_camera,
+            camera_projection,
+            texture_bind_group_layout,
+            camera_controller: state_camera_controller,
             camera_buffer,
             camera_bind_group,
             camera_uniform,
-            light_model,
-            light_uniform,
+            light_entities: None,
             light_buffer,
             light_bind_group,
+            model_entities: None,
             light_bind_group_layout,
             depth_texture,
             window,
             ecs,
             mouse_pressed: false,
+            draw_colliders: true,
         }
     }
 
@@ -519,12 +448,238 @@ impl<'a> State<'a> {
         })
     }
 
+    async fn init_components(&mut self) -> anyhow::Result<()> {
+        self.init_lights().await;
+        self.init_models().await;
+
+        Ok(())
+    }
+
+    fn init_camera(ecs: Arc<Mutex<ecs::Manager>>) -> (camera::Camera, camera::CameraController) {
+        let ecs_lock = ecs.lock().unwrap();
+        let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
+        assert!(
+            camera_entity.len() <= 1,
+            "There should be only one camera entity"
+        );
+
+        // If there is no camera entity provide a default implementation
+        if camera_entity.is_empty() {
+            let camera =
+                camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+            let controller = camera::CameraController::new(0.5, 0.2);
+
+            return (camera, controller);
+        }
+
+        let camera_entity = camera_entity.pop().unwrap();
+
+        let camera_pos = ecs_lock
+            .get_component_from_entity::<components::Pos3>(camera_entity)
+            .expect("No position provided for the camera!");
+        let camera = ecs_lock
+            .get_component_from_entity::<components::Camera>(camera_entity)
+            .expect("No camera component provided for the camera!");
+
+        let camera_pos = camera_pos.read().unwrap();
+        let camera = camera.read().unwrap();
+
+        match *camera {
+            components::Camera::FPS {
+                look_at,
+                speed,
+                sensitivity,
+            } => {
+                let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
+                let look_at_point = cgmath::Point3::from_vec(look_at.pos);
+                let camera = camera::Camera::new_look_at(pos_point, look_at_point);
+                let controller = camera::CameraController::new(speed, sensitivity);
+
+                (camera, controller)
+            }
+            components::Camera::Fixed { look_at } => {
+                let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
+                let look_at_point = cgmath::Point3::from_vec(look_at.pos);
+                let camera = camera::Camera::new_look_at(pos_point, look_at_point);
+                let controller = camera::CameraController::new(0.0, 0.0);
+
+                (camera, controller)
+            }
+        }
+    }
+
+    async fn init_lights(&mut self) {
+        let ecs_lock = self.ecs.lock().unwrap();
+        let light_entities = ecs_lock.get_entites_with_component::<components::Light>();
+
+        for entity in light_entities.iter() {
+            // let name = ecs_lock
+            //     .get_component_from_entity::<components::Name>(*entity)
+            //     .expect("No name provided for the light!");
+
+            let pos = ecs_lock
+                .get_component_from_entity::<components::Pos3>(*entity)
+                .expect("No position provided for the light!");
+
+            let light = ecs_lock
+                .get_component_from_entity::<components::Light>(*entity)
+                .unwrap();
+
+            let light_uniform = {
+                let rlock_pos = pos.read().unwrap();
+                let rlock_light = light.read().unwrap();
+
+                match *rlock_light {
+                    components::Light::Point { radius } => light::LightUniform {
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
+                        light_type: light::LightType::Point as u32,
+                        color: [1.0, 1.0, 1.0],
+                        radius,
+                    },
+                    components::Light::PointColoured { radius, color } => light::LightUniform {
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
+                        light_type: light::LightType::Point as u32,
+                        color,
+                        radius,
+                    },
+                    components::Light::Ambient => light::LightUniform {
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
+                        light_type: light::LightType::Ambient as u32,
+                        color: [1.0, 1.0, 1.0],
+                        radius: 0.0,
+                    },
+                    components::Light::AmbientColoured { color } => light::LightUniform {
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
+                        light_type: light::LightType::Ambient as u32,
+                        color,
+                        radius: 0.0,
+                    },
+                    components::Light::Directional => light::LightUniform {
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
+                        light_type: light::LightType::Directional as u32,
+                        color: [1.0, 1.0, 1.0],
+                        radius: 0.0,
+                    },
+                    components::Light::DirectionalColoured { color } => light::LightUniform {
+                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
+                        light_type: light::LightType::Directional as u32,
+                        color,
+                        radius: 0.0,
+                    },
+                }
+            };
+            ecs_lock.add_component_to_entity(*entity, light_uniform);
+        }
+
+        if light_entities.len() > light::NUM_MAX_LIGHTS as usize {
+            panic!("The number of lights exceeds the maximum number of lights supported by the renderer!");
+        }
+
+        self.light_entities = Some(light_entities);
+    }
+
+    async fn init_models(&mut self) {
+        let ecs_lock = self.ecs.lock().unwrap();
+        let model_entities = ecs_lock.get_entites_with_component::<components::Model>();
+
+        for entity in model_entities.iter() {
+            let name = ecs_lock
+                .get_component_from_entity::<components::Name>(*entity)
+                .expect("No name provided for the Model!");
+
+            let pos = ecs_lock
+                .get_component_from_entity::<components::Pos3>(*entity)
+                .expect("No position provided for the Model!");
+
+            let model = ecs_lock
+                .get_component_from_entity::<components::Model>(*entity)
+                .unwrap();
+
+            let flip = ecs_lock.get_component_from_entity::<components::Flip>(*entity);
+
+            let scale = ecs_lock.get_component_from_entity::<components::Scale>(*entity);
+
+            let obj_model = {
+                let model = model.read().unwrap();
+
+                match *model {
+                    components::Model::Dynamic { obj_path } => resources::load_model(
+                        obj_path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                }
+            };
+            ecs_lock.add_component_to_entity(*entity, obj_model);
+
+            // TODO rename instance to model::ModelUniform
+            let mut instance = {
+                let rlock_pos = pos.read().unwrap();
+                instance::Instance {
+                    position: rlock_pos.pos.into(),
+                    rotation: rlock_pos.rot.unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0))),
+                }
+            };
+
+            if let Some(flip) = flip {
+                let rlock_flip = flip.read().unwrap();
+
+                match *rlock_flip {
+                    Flip::Horizontal => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
+                    }
+                    Flip::Vertical => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    }
+                    Flip::Both => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    }
+                }
+            }
+
+            // if let Some(scale) = scale {
+            //     let rlock_scale = scale.read().unwrap();
+
+            //     match *rlock_scale {
+            //         Scale::Uniform(s) => {
+            //             instance.scale = cgmath::Vector3::new(s, s, s);
+            //         }
+            //         Scale::NonUniform { x, y, z } => {
+            //             instance.scale = cgmath::Vector3::new(x, y, z);
+            //         }
+            //     }
+            // }
+
+            let instance_raw = instance.to_raw();
+            let instance_buffer =
+                self.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some(format!("{} Instance Buffer", name.read().unwrap().0).as_str()),
+                        contents: bytemuck::cast_slice(&[instance_raw]),
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    });
+            ecs_lock.add_component_to_entity(*entity, instance);
+            ecs_lock.add_component_to_entity(*entity, instance_buffer);
+        }
+
+        self.model_entities = Some(model_entities);
+    }
+
     pub fn window(&self) -> &Window {
         self.window
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.projection.resize(new_size.width, new_size.height);
+        self.camera_projection
+            .resize(new_size.width, new_size.height);
 
         if new_size.width > 0 && new_size.height > 0 {
             self.config.width = new_size.width;
@@ -548,7 +703,7 @@ impl<'a> State<'a> {
                 ..
             } => self.camera_controller.process_keyboard(*key, *state),
             WindowEvent::MouseWheel { delta, .. } => {
-                self.camera_controller.process_scroll(&delta);
+                self.camera_controller.process_scroll(delta);
                 true
             }
             WindowEvent::MouseInput {
@@ -564,76 +719,118 @@ impl<'a> State<'a> {
     }
 
     async fn update(&mut self, dt: instant::Duration) {
-        /* Camera updates */
+        // Update camera
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
-            .update_view_proj(&self.camera, &self.projection);
+            .update_view_proj(&self.camera, &self.camera_projection);
 
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
-        /* Camera updates */
 
-        /* Light updates */
-        let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
-        self.light_uniform.position = (cgmath::Quaternion::from_axis_angle(
-            (0.0, 1.0, 0.0).into(),
-            cgmath::Deg(60.0 * dt.as_secs_f32()),
-        ) * old_position)
-            .into();
-        self.queue.write_buffer(
-            &self.light_buffer,
-            0,
-            bytemuck::cast_slice(&[self.light_uniform]),
-        );
-        /* Light updates */
+        self.update_lights();
+        self.update_models();
+        //self.update_colliders();
+    }
 
-        // TODO ezeket egybe lehetne szedni pl. light, buffer es uniform egy entity,
-        // elejen letrehozni, user elol elrejteni
-        // Update positions and instace buffers
-        {
-            let ecs_lock = self.ecs.lock().unwrap();
+    fn update_lights(&mut self) {
+        if let Some(light_entities) = &self.light_entities {
+            let mut light_uniforms: Vec<light::LightUniform> = Vec::new();
 
-            for entity in ecs_lock.iter_entities() {
-                if let Some(position) =
-                    ecs_lock.get_component_from_entity::<components::Pos3>(entity)
-                {
-                    ecs_lock.add_component_to_entity(
-                        entity,
-                        instance::Instance {
-                            position: cgmath::Vector3::new(
-                                position.read().unwrap().x,
-                                position.read().unwrap().y,
-                                position.read().unwrap().z,
-                            ),
-                            rotation: cgmath::Quaternion::from_angle_z(cgmath::Rad(0.0)),
-                        },
-                    );
+            for entity in light_entities {
+                let ecs_lock = self.ecs.lock().unwrap();
 
-                    if let Some(instance) =
-                        ecs_lock.get_component_from_entity::<instance::Instance>(entity)
-                    {
-                        // Convert instances to raw format
-                        let instance_data = instance.read().unwrap().to_raw();
+                let pos = ecs_lock
+                    .get_component_from_entity::<components::Pos3>(*entity)
+                    .unwrap();
+                let light_uniform = ecs_lock
+                    .get_component_from_entity::<light::LightUniform>(*entity)
+                    .unwrap();
 
-                        // Create a buffer for the instances
-                        let instance_buffer =
-                            self.device
-                                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                    label: Some("Instance Buffer"),
-                                    contents: bytemuck::cast_slice(&[instance_data]),
-                                    usage: wgpu::BufferUsages::VERTEX
-                                        | wgpu::BufferUsages::COPY_DST,
-                                });
+                // TODO update the colors
+                light_uniform.write().unwrap().position = [
+                    pos.read().unwrap().pos.x,
+                    pos.read().unwrap().pos.y,
+                    pos.read().unwrap().pos.z,
+                ];
 
-                        ecs_lock.add_component_to_entity(entity, instance_buffer);
+                let rlock_light_uniform = light_uniform.read().unwrap();
+
+                light_uniforms.push(*rlock_light_uniform);
+            }
+
+            let num_lights = light_uniforms.len() as u32;
+
+            let light_data = light::LightData {
+                lights: {
+                    let mut array =
+                        [light::LightUniform::default(); light::NUM_MAX_LIGHTS as usize];
+                    for (i, light) in light_uniforms.iter().enumerate() {
+                        array[i] = *light;
                     }
+                    array
+                },
+                num_lights,
+                _padding: [0; 3],
+            };
+
+            self.queue
+                .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
+        }
+    }
+
+    fn update_models(&mut self) {
+        if let Some(model_entities) = &self.model_entities {
+            for entity in model_entities {
+                let ecs_lock = self.ecs.lock().unwrap();
+
+                let pos = ecs_lock
+                    .get_component_from_entity::<components::Pos3>(*entity)
+                    .unwrap();
+                let instance = ecs_lock
+                    .get_component_from_entity::<instance::Instance>(*entity)
+                    .unwrap();
+                let buffer = ecs_lock
+                    .get_component_from_entity::<wgpu::Buffer>(*entity)
+                    .unwrap();
+
+                // TODO rotation
+                {
+                    let mut wlock_instance = instance.write().unwrap();
+                    let rlock_pos3 = pos.read().unwrap();
+
+                    wlock_instance.position = rlock_pos3.pos;
+                    wlock_instance.rotation = rlock_pos3.rot.unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0)));
                 }
+                    
+                let instance_raw = instance.read().unwrap().to_raw();
+                self.queue.write_buffer(
+                    &buffer.write().unwrap(),
+                    0,
+                    bytemuck::cast_slice(&[instance_raw]),
+                );
             }
         }
     }
+
+    // fn update_colliders(&mut self) {
+    //     let ecs_lock = self.ecs.lock().unwrap();
+    //     let collider_entities = ecs_lock.get_entites_with_component::<components::Collider>();
+
+    //     for entity in collider_entities.iter() {
+    //         let pos = ecs_lock
+    //             .get_component_from_entity::<components::Pos3>(*entity)
+    //             .unwrap();
+    //         let collider = ecs_lock
+    //             .get_component_from_entity::<components::Collider>(*entity)
+    //             .unwrap();
+
+    //         let pos = pos.read().unwrap();
+    //         let collider = collider.read().unwrap();
+    //     }
+    // }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -675,38 +872,65 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            // Draw light
-            render_pass.set_pipeline(&self.light_render_pipeline);
-            render_pass.draw_light_model(
-                &self.light_model,
-                &self.camera_bind_group,
-                &self.light_bind_group,
-            );
+            // render_pass.set_pipeline(&self.light_render_pipeline);
+            // render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            // render_pass.set_bind_group(1, &self.light_bind_group, &[]);
+
+            // // Draw the lights and models
+            // if let Some(light_entities) = &self.light_entities {
+            //     for entity in light_entities {
+            //         let ecs_lock = self.ecs.lock().unwrap();
+
+            //         let light_model = ecs_lock
+            //             .get_component_from_entity::<model::Model>(*entity)
+            //             .unwrap();
+
+            //         let light_model: &model::Model =
+            //             unsafe { &*(&*light_model.read().unwrap() as *const _) };
+
+            //         // Draw light
+            //         render_pass.draw_light_model(
+            //             light_model,
+            //             &self.camera_bind_group,
+            //             &self.light_bind_group,
+            //         );
+            //         // model::DrawModel::draw_model_instanced(
+            //         //     &mut render_pass,
+            //         //     light_model,
+            //         //     0..1,
+            //         //     &self.camera_bind_group,
+            //         //     &self.light_bind_group,
+            //         // );
+            //     }
+            // }
+
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(2, &self.light_bind_group, &[]);
 
-            {
-                let ecs_lock = self.ecs.lock().unwrap();
+            if let Some(model_entities) = &self.model_entities {
+                for entity in model_entities {
+                    let ecs_lock = self.ecs.lock().unwrap();
 
-                for entity in ecs_lock.iter_entities() {
-                    if let Some(instance_buffer) =
-                        ecs_lock.get_component_from_entity::<wgpu::Buffer>(entity)
-                    {
-                        render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
-                    }
+                    let model = ecs_lock
+                        .get_component_from_entity::<model::Model>(*entity)
+                        .unwrap();
+                    let instance_buffer = ecs_lock
+                        .get_component_from_entity::<wgpu::Buffer>(*entity)
+                        .unwrap();
 
-                    if let Some(model) = ecs_lock.get_component_from_entity::<model::Model>(entity)
-                    {
-                        let model = unsafe { &*(&*model.read().unwrap() as *const _) };
+                    let model: &model::Model = unsafe { &*(&*model.read().unwrap() as *const _) };
 
-                        model::DrawModel::draw_model_instanced(
-                            &mut render_pass,
-                            model,
-                            0..1,
-                            &self.camera_bind_group,
-                            &self.light_bind_group,
-                        );
-                    }
+                    render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
+
+                    // Draw model
+                    model::DrawModel::draw_model_instanced(
+                        &mut render_pass,
+                        model,
+                        0..1,
+                        &self.camera_bind_group,
+                        &self.light_bind_group,
+                    );
                 }
             }
         }
