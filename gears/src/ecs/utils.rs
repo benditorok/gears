@@ -20,6 +20,7 @@ impl<'a> EntityBuilder<'a> {
         self.entity
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

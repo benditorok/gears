@@ -186,6 +186,7 @@ async fn main() -> anyhow::Result<()> {
     if let Some(mut rx_dt) = app.get_dt_channel() {
         let ecs_update = Arc::clone(&ecs);
         let circle_speed = 8.0f32;
+        let light_speed_multiplier = 3.0f32;
 
         app.thread_pool.execute(move |stop_flag| {
             while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
@@ -214,7 +215,9 @@ async fn main() -> anyhow::Result<()> {
 
                         pos3.pos = cgmath::Quaternion::from_axis_angle(
                             (0.0, 1.0, 0.0).into(),
-                            cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * 2.0),
+                            cgmath::Deg(
+                                PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier,
+                            ),
                         ) * pos3.pos;
                     }
 
@@ -224,7 +227,9 @@ async fn main() -> anyhow::Result<()> {
 
                         pos3.pos = cgmath::Quaternion::from_axis_angle(
                             (0.0, 1.0, 0.0).into(),
-                            cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * 2.0),
+                            cgmath::Deg(
+                                PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier,
+                            ),
                         ) * pos3.pos;
                     }
                 }

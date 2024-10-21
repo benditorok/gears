@@ -513,10 +513,6 @@ impl<'a> State<'a> {
         let light_entities = ecs_lock.get_entites_with_component::<components::Light>();
 
         for entity in light_entities.iter() {
-            // let name = ecs_lock
-            //     .get_component_from_entity::<components::Name>(*entity)
-            //     .expect("No name provided for the light!");
-
             let pos = ecs_lock
                 .get_component_from_entity::<components::Pos3>(*entity)
                 .expect("No position provided for the light!");
@@ -619,7 +615,7 @@ impl<'a> State<'a> {
             let mut instance = {
                 let rlock_pos = pos.read().unwrap();
                 instance::Instance {
-                    position: rlock_pos.pos.into(),
+                    position: rlock_pos.pos,
                     rotation: rlock_pos.rot.unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0))),
                 }
             };
@@ -749,12 +745,16 @@ impl<'a> State<'a> {
                     .get_component_from_entity::<light::LightUniform>(*entity)
                     .unwrap();
 
-                // TODO update the colors
-                light_uniform.write().unwrap().position = [
-                    pos.read().unwrap().pos.x,
-                    pos.read().unwrap().pos.y,
-                    pos.read().unwrap().pos.z,
-                ];
+                {
+                    // TODO update the colors
+                    let rlock_pos = pos.read().unwrap();
+
+                    light_uniform.write().unwrap().position = [
+                        rlock_pos.pos.x,
+                        rlock_pos.pos.y,
+                        rlock_pos.pos.z,
+                    ];
+                }
 
                 let rlock_light_uniform = light_uniform.read().unwrap();
 
@@ -872,38 +872,6 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            // render_pass.set_pipeline(&self.light_render_pipeline);
-            // render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            // render_pass.set_bind_group(1, &self.light_bind_group, &[]);
-
-            // // Draw the lights and models
-            // if let Some(light_entities) = &self.light_entities {
-            //     for entity in light_entities {
-            //         let ecs_lock = self.ecs.lock().unwrap();
-
-            //         let light_model = ecs_lock
-            //             .get_component_from_entity::<model::Model>(*entity)
-            //             .unwrap();
-
-            //         let light_model: &model::Model =
-            //             unsafe { &*(&*light_model.read().unwrap() as *const _) };
-
-            //         // Draw light
-            //         render_pass.draw_light_model(
-            //             light_model,
-            //             &self.camera_bind_group,
-            //             &self.light_bind_group,
-            //         );
-            //         // model::DrawModel::draw_model_instanced(
-            //         //     &mut render_pass,
-            //         //     light_model,
-            //         //     0..1,
-            //         //     &self.camera_bind_group,
-            //         //     &self.light_bind_group,
-            //         // );
-            //     }
-            // }
-
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_bind_group(2, &self.light_bind_group, &[]);
@@ -924,13 +892,7 @@ impl<'a> State<'a> {
                     render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
 
                     // Draw model
-                    model::DrawModel::draw_model_instanced(
-                        &mut render_pass,
-                        model,
-                        0..1,
-                        &self.camera_bind_group,
-                        &self.light_bind_group,
-                    );
+                    render_pass.draw_model(model, &self.camera_bind_group, &self.light_bind_group);
                 }
             }
         }
