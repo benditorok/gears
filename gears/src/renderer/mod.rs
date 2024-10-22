@@ -619,6 +619,14 @@ impl<'a> State<'a> {
                     )
                     .await
                     .unwrap(),
+                    components::Model::Static { obj_path } => resources::load_model(
+                        obj_path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap()
                 }
             };
             ecs_lock.add_component_to_entity(*entity, obj_model);
@@ -797,6 +805,15 @@ impl<'a> State<'a> {
         if let Some(model_entities) = &self.model_entities {
             for entity in model_entities {
                 let ecs_lock = self.ecs.lock().unwrap();
+
+                let model_type = ecs_lock.get_component_from_entity::<components::Model>(*entity);
+                
+                if let Some(model_type) = model_type {
+                    let model_type = model_type.read().unwrap();
+                    if let components::Model::Static { .. } = *model_type {
+                        continue;
+                    }
+                }
 
                 let pos = ecs_lock
                     .get_component_from_entity::<components::Pos3>(*entity)

@@ -64,7 +64,7 @@ pub enum Camera {
 #[derive(Debug, Copy, Clone)]
 pub enum Model<'a> {
     Dynamic { obj_path: &'a str },
-    // TODO Static: can't update the pos, etc
+    Static { obj_path: &'a str },
 }
 
 pub struct Name(pub &'static str);
