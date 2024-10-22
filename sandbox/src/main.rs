@@ -1,4 +1,6 @@
+use app::GearsApp;
 use cgmath::Rotation3;
+use ecs::traits::EntityBuilder;
 use gears::prelude::*;
 use log::{self, info};
 use std::f32::consts::PI;
@@ -7,10 +9,10 @@ use std::{env, thread};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut ecs = ecs::Manager::default();
+    let mut app = GearsApp::default();
 
     // Add FPS camera
-    EntityBuilder::new_entity(&mut ecs)
+    app.new_entity()
         .add_component(components::Name("FPS Camera"))
         .add_component(components::Pos3::new(cgmath::Vector3::new(
             20.0, 10.0, 20.0,
@@ -23,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     // // Add fixed camera
-    // EntityBuilder::new_entity(&mut ecs)
+    // app.new_entity()
     //     .add_component(components::Name("Fixed Camera"))
     //     .add_component(components::Pos3::new(20.0, 15.0, 20.0))
     //     .add_component(components::Camera::Fixed {
@@ -32,14 +34,15 @@ async fn main() -> anyhow::Result<()> {
     //     .build();
 
     // Add ambient light
-    EntityBuilder::new_entity(&mut ecs)
+    app.new_entity()
         .add_component(components::Name("Ambient Light"))
         .add_component(components::Light::Ambient)
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
         .build();
 
     // * Add moving red light
-    let blue_light = EntityBuilder::new_entity(&mut ecs)
+    let blue_light = app
+        .new_entity()
         .add_component(components::Name("Red Light"))
         .add_component(components::Light::PointColoured {
             radius: 10.0,
@@ -49,7 +52,8 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     // * Add moving blue light
-    let red_light = EntityBuilder::new_entity(&mut ecs)
+    let red_light = app
+        .new_entity()
         .add_component(components::Name("Blue Light"))
         .add_component(components::Light::PointColoured {
             radius: 10.0,
@@ -59,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     // RGB lights
-    EntityBuilder::new_entity(&mut ecs)
+    app.new_entity()
         .add_component(components::Name("R"))
         .add_component(components::Light::PointColoured {
             radius: 10.0,
@@ -68,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -20.0)))
         .build();
 
-    EntityBuilder::new_entity(&mut ecs)
+    app.new_entity()
         .add_component(components::Name("G"))
         .add_component(components::Light::PointColoured {
             radius: 10.0,
@@ -77,7 +81,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -30.0)))
         .build();
 
-    EntityBuilder::new_entity(&mut ecs)
+    app.new_entity()
         .add_component(components::Name("B"))
         .add_component(components::Light::PointColoured {
             radius: 10.0,
@@ -87,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     // Plane
-    EntityBuilder::new_entity(&mut ecs)
+    app.new_entity()
         .add_component(components::Name("Plane"))
         .add_component(components::Model::Dynamic {
             obj_path: "res/models/plane/plane.obj",
@@ -102,7 +106,7 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     // Center sphere
-    EntityBuilder::new_entity(&mut ecs)
+    app.new_entity()
         .add_component(components::Name("Sphere1"))
         .add_component(components::Model::Dynamic {
             obj_path: "res/models/sphere/sphere.obj",
@@ -115,17 +119,14 @@ async fn main() -> anyhow::Result<()> {
         // ))
         .build();
 
-    // Cube 1
-    EntityBuilder::new_entity(&mut ecs)
+    // * If you do not need the IDs of the entities you can chain them together
+    app.new_entity() // Cube 1
         .add_component(components::Name("Cube1"))
         .add_component(components::Model::Dynamic {
             obj_path: "res/models/cube/cube.obj",
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(10.0, 0.0, 10.0)))
-        .build();
-
-    // Cube 2
-    EntityBuilder::new_entity(&mut ecs)
+        .new_entity() // Cube 2
         .add_component(components::Name("Cube2"))
         .add_component(components::Model::Dynamic {
             obj_path: "res/models/cube/cube.obj",
@@ -133,10 +134,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(cgmath::Vector3::new(
             10.0, 0.0, -10.0,
         )))
-        .build();
-
-    // Cube 3
-    EntityBuilder::new_entity(&mut ecs)
+        .new_entity() // Cube 3
         .add_component(components::Name("Cube3"))
         .add_component(components::Model::Dynamic {
             obj_path: "res/models/cube/cube.obj",
@@ -144,10 +142,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(cgmath::Vector3::new(
             -10.0, 0.0, -10.0,
         )))
-        .build();
-
-    // Cube 4
-    EntityBuilder::new_entity(&mut ecs)
+        .new_entity() // Cube 4
         .add_component(components::Name("Cube4"))
         .add_component(components::Model::Dynamic {
             obj_path: "res/models/cube/cube.obj",
@@ -166,7 +161,8 @@ async fn main() -> anyhow::Result<()> {
 
         let name = format!("Sphere_circle{}", i);
 
-        let sphere = EntityBuilder::new_entity(&mut ecs)
+        let sphere = app
+            .new_entity()
             .add_component(components::Name(Box::leak(name.into_boxed_str())))
             .add_component(components::Model::Dynamic {
                 obj_path: "res/models/sphere/sphere.obj",
@@ -177,13 +173,9 @@ async fn main() -> anyhow::Result<()> {
         moving_spheres[i] = sphere;
     }
 
-    // Create the app
-    let mut app = app::GearsApp::default();
-    let _ = app.map_ecs(ecs);
-
     // Update loop
     app.update_loop(move |ecs, dt| {
-        // ! Here we are inside a loop
+        // ! Here we are inside a loop, so this has to lock on all iterations.
         let ecs = ecs.lock().unwrap();
         let circle_speed = 8.0f32;
         let light_speed_multiplier = 3.0f32;
@@ -220,5 +212,6 @@ async fn main() -> anyhow::Result<()> {
     })
     .await?;
 
+    // Run the application
     app.run().await
 }
