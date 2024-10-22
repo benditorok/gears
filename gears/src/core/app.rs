@@ -1,6 +1,7 @@
 use super::config::{self, Config, LogConfig, LogLevel};
 use super::Dt;
 use super::{event::EventQueue, threadpool::ThreadPool};
+use crate::ecs::Entity;
 use crate::{ecs, renderer};
 use log::info;
 use std::env;
@@ -158,5 +159,26 @@ impl Drop for GearsApp {
     fn drop(&mut self) {
         self.is_running
             .store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+impl ecs::traits::EntityBuilder for GearsApp {
+    fn new_entity(&mut self) -> &mut Self {
+        self.ecs.lock().unwrap().create_entity();
+
+        self
+    }
+
+    fn add_component<T: 'static + Send + Sync>(&mut self, component: T) -> &mut Self {
+        {
+            let ecs = self.ecs.lock().unwrap();
+            ecs.add_component_to_entity(ecs.get_last(), component);
+        }
+
+        self
+    }
+
+    fn build(&mut self) -> ecs::Entity {
+        self.ecs.lock().unwrap().get_last()
     }
 }

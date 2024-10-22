@@ -1,28 +1,40 @@
 use super::{Entity, Manager};
 
-pub struct EntityBuilder<'a> {
+pub struct EcsBuilder<'a> {
     ecs: &'a mut Manager,
     entity: Entity,
 }
 
-impl<'a> EntityBuilder<'a> {
-    pub fn new_entity(ecs: &'a mut Manager) -> Self {
+impl<'a> EcsBuilder<'a> {
+    pub fn new(ecs: &'a mut Manager) -> Self {
         let entity = ecs.create_entity();
+
         Self { ecs, entity }
     }
+}
 
-    pub fn add_component<T: 'static + Send + Sync>(self, component: T) -> Self {
-        self.ecs.add_component_to_entity(self.entity, component);
+impl super::traits::EntityBuilder for EcsBuilder<'_> {
+    fn new_entity(&mut self) -> &mut Self {
+        self.entity = self.ecs.create_entity();
+
         self
     }
 
-    pub fn build(self) -> Entity {
+    fn add_component<T: 'static + Send + Sync>(&mut self, component: T) -> &mut Self {
+        self.ecs.add_component_to_entity(self.entity, component);
+
+        self
+    }
+
+    fn build(&mut self) -> Entity {
         self.entity
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::ecs::{self, traits::EntityBuilder};
+
     use super::*;
 
     #[derive(Debug, PartialEq)]
@@ -33,14 +45,15 @@ mod tests {
     #[test]
     fn test_create_entity() {
         let mut manager = Manager::default();
-        EntityBuilder::new_entity(&mut manager).build();
+        EcsBuilder::new(&mut manager).new_entity().build();
         assert!(manager.entity_count() == 1);
     }
 
     #[test]
     fn test_add_component() {
         let mut manager = Manager::default();
-        let entity = EntityBuilder::new_entity(&mut manager)
+        let entity = EcsBuilder::new(&mut manager)
+            .new_entity()
             .add_component(TestComponent { value: 42 })
             .build();
         let binding = manager
@@ -53,11 +66,12 @@ mod tests {
     #[test]
     fn test_chain_add_components() {
         let mut manager = Manager::default();
-        let builder = EntityBuilder::new_entity(&mut manager);
-        let entity = builder
+        let entity = EcsBuilder::new(&mut manager)
+            .new_entity()
             .add_component(TestComponent { value: 42 })
             .add_component(TestComponent { value: 100 })
             .build();
+
         let component = manager
             .get_component_from_entity::<TestComponent>(entity)
             .unwrap();

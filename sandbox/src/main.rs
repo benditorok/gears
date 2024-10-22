@@ -1,5 +1,4 @@
 use cgmath::Rotation3;
-use ecs::utils::EntityBuilder;
 use gears::prelude::*;
 use log::{self, info};
 use std::f32::consts::PI;

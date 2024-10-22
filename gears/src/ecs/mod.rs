@@ -1,4 +1,5 @@
 pub mod components;
+pub mod traits;
 pub mod utils;
 
 use std::any::{Any, TypeId};
@@ -56,6 +57,11 @@ impl Manager {
             .unwrap()
             .insert(entity, HashMap::new());
         entity
+    }
+
+    /// Get the last entity created.
+    pub fn get_last(&self) -> Entity {
+        Entity(self.next_entity.load(Ordering::SeqCst) - 1)
     }
 
     /// Get the number of entities currently in the EntityManager.
@@ -251,5 +257,14 @@ mod tests {
 
         let entities_with_component = manager.get_entites_with_component::<TestComponent>();
         assert!(entities_with_component.is_empty());
+    }
+
+    #[test]
+    fn test_get_last() {
+        let manager = Manager::default();
+        let entity1 = manager.create_entity();
+        let entity2 = manager.create_entity();
+        assert_eq!(manager.get_last(), entity2);
+        assert_ne!(manager.get_last(), entity1);
     }
 }
