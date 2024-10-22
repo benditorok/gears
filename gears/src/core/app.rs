@@ -172,13 +172,26 @@ impl ecs::traits::EntityBuilder for GearsApp {
     fn add_component<T: 'static + Send + Sync>(&mut self, component: T) -> &mut Self {
         {
             let ecs = self.ecs.lock().unwrap();
-            ecs.add_component_to_entity(ecs.get_last(), component);
+
+            let entity = if let Some(e) = ecs.get_last() {
+                e
+            } else {
+                ecs.create_entity()
+            };
+
+            ecs.add_component_to_entity(entity, component);
         }
 
         self
     }
 
     fn build(&mut self) -> ecs::Entity {
-        self.ecs.lock().unwrap().get_last()
+        let ecs = self.ecs.lock().unwrap();
+
+        if let Some(e) = ecs.get_last() {
+            e
+        } else {
+            ecs.create_entity()
+        }
     }
 }

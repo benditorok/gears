@@ -1,38 +1,54 @@
+use std::f64::consts::E;
+
+use log::warn;
+
 use super::{Entity, Manager};
 
 pub struct EcsBuilder<'a> {
     ecs: &'a mut Manager,
-    entity: Entity,
 }
 
 impl<'a> EcsBuilder<'a> {
     pub fn new(ecs: &'a mut Manager) -> Self {
-        let entity = ecs.create_entity();
-
-        Self { ecs, entity }
+        Self { ecs }
     }
 }
 
 impl super::traits::EntityBuilder for EcsBuilder<'_> {
     fn new_entity(&mut self) -> &mut Self {
-        self.entity = self.ecs.create_entity();
+        self.ecs.create_entity();
 
         self
     }
 
     fn add_component<T: 'static + Send + Sync>(&mut self, component: T) -> &mut Self {
-        self.ecs.add_component_to_entity(self.entity, component);
+        if let Some(entity) = self.ecs.get_last() {
+            self.ecs.add_component_to_entity(entity, component);
+        } else {
+            warn!("No entity found, creating a new one...");
+
+            let entity = self.ecs.create_entity();
+            self.ecs.add_component_to_entity(entity, component);
+        }
 
         self
     }
 
     fn build(&mut self) -> Entity {
-        self.entity
+        if let Some(entity) = self.ecs.get_last() {
+            entity
+        } else {
+            warn!("No entity found, creating a new one...");
+
+            self.ecs.create_entity()
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use log::warn;
+
     use crate::ecs::{self, traits::EntityBuilder};
 
     use super::*;
@@ -45,8 +61,10 @@ mod tests {
     #[test]
     fn test_create_entity() {
         let mut manager = Manager::default();
-        EcsBuilder::new(&mut manager).new_entity().build();
-        assert!(manager.entity_count() == 1);
+        let entity = EcsBuilder::new(&mut manager).new_entity().build();
+
+        assert_eq!(Entity(0), entity);
+        assert_eq!(manager.entity_count(), 1);
     }
 
     #[test]

@@ -59,9 +59,26 @@ impl Manager {
         entity
     }
 
-    /// Get the last entity created.
-    pub fn get_last(&self) -> Entity {
-        Entity(self.next_entity.load(Ordering::SeqCst) - 1)
+    // /// Get the last entity created.
+    // pub fn get_last(&self) -> Entity {
+    //     let current_idx = self.next_entity.load(Ordering::SeqCst);
+
+    //     if current_idx == 0 {
+    //         panic!("No entities have been created yet");
+    //     }
+
+    //     Entity(current_idx - 1)
+    // }
+
+    /// Get the last entity created, or `None` if no entities have been created yet.
+    pub fn get_last(&self) -> Option<Entity> {
+        let current_idx = self.next_entity.load(Ordering::SeqCst);
+
+        if current_idx == 0 {
+            None
+        } else {
+            Some(Entity(current_idx - 1))
+        }
     }
 
     /// Get the number of entities currently in the EntityManager.
@@ -264,7 +281,7 @@ mod tests {
         let manager = Manager::default();
         let entity1 = manager.create_entity();
         let entity2 = manager.create_entity();
-        assert_eq!(manager.get_last(), entity2);
-        assert_ne!(manager.get_last(), entity1);
+        assert_eq!(manager.get_last().unwrap(), entity2);
+        assert_ne!(manager.get_last().unwrap(), entity1);
     }
 }
