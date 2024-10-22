@@ -59,17 +59,6 @@ impl Manager {
         entity
     }
 
-    // /// Get the last entity created.
-    // pub fn get_last(&self) -> Entity {
-    //     let current_idx = self.next_entity.load(Ordering::SeqCst);
-
-    //     if current_idx == 0 {
-    //         panic!("No entities have been created yet");
-    //     }
-
-    //     Entity(current_idx - 1)
-    // }
-
     /// Get the last entity created, or `None` if no entities have been created yet.
     pub fn get_last(&self) -> Option<Entity> {
         let current_idx = self.next_entity.load(Ordering::SeqCst);
@@ -283,5 +272,29 @@ mod tests {
         let entity2 = manager.create_entity();
         assert_eq!(manager.get_last().unwrap(), entity2);
         assert_ne!(manager.get_last().unwrap(), entity1);
+    }
+
+    #[test]
+    fn test_get_last_no_entities() {
+        let manager = Manager::default();
+        assert!(manager.get_last().is_none());
+    }
+
+    #[test]
+    fn test_get_last_single_entity() {
+        let manager = Manager::default();
+        let entity = manager.create_entity();
+        assert_eq!(manager.get_last().unwrap(), entity);
+    }
+
+    #[test]
+    fn test_get_last_multiple_entities() {
+        let manager = Manager::default();
+        let entity1 = manager.create_entity();
+        let entity2 = manager.create_entity();
+        let entity3 = manager.create_entity();
+        assert_eq!(manager.get_last().unwrap(), entity3);
+        assert_ne!(manager.get_last().unwrap(), entity1);
+        assert_ne!(manager.get_last().unwrap(), entity2);
     }
 }
