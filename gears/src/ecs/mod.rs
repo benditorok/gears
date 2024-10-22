@@ -9,6 +9,12 @@ use std::sync::{Arc, RwLock};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(pub u32);
 
+impl Entity {
+    pub fn id(&self) -> u32 {
+        self.0
+    }
+}
+
 type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>;
 
 // TODO add a world with scenes and scene switching

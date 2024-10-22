@@ -159,7 +159,7 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     // Add 5 spheres in a circle
-    let mut moving_spheres = vec![];
+    let mut moving_spheres: [ecs::Entity; 5] = [ecs::Entity { 0: 0 }; 5];
     for i in 0..5 {
         let angle = i as f32 * std::f32::consts::PI * 2.0 / 5.0;
         let x = angle.cos() * 10.0;
@@ -175,67 +175,51 @@ async fn main() -> anyhow::Result<()> {
             .add_component(components::Pos3::new(cgmath::Vector3::new(x, 0.0, z)))
             .build();
 
-        moving_spheres.push(sphere);
+        moving_spheres[i] = sphere;
     }
 
     // Create the app
     let mut app = app::GearsApp::default();
-    let ecs = app.map_ecs(ecs);
+    let _ = app.map_ecs(ecs);
 
     // Update loop
-    if let Some(mut rx_dt) = app.get_dt_channel() {
-        let ecs_update = Arc::clone(&ecs);
+    app.update_loop(move |ecs, dt| {
+        // ! Here we are inside a loop
+        let ecs = ecs.lock().unwrap();
         let circle_speed = 8.0f32;
         let light_speed_multiplier = 3.0f32;
 
-        app.thread_pool.execute(move |stop_flag| {
-            while !stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
-                let dt = futures::executor::block_on(rx_dt.recv());
+        // Move the spheres in a circle considering accumulated time
+        for sphere in moving_spheres.iter() {
+            if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(*sphere) {
+                let mut pos3 = pos.write().unwrap();
 
-                if let Ok(dt) = dt {
-                    let ecs = ecs_update.lock().unwrap();
-
-                    // Move the spheres in a circle considering accumulated time
-                    for sphere in moving_spheres.iter() {
-                        if let Some(pos) =
-                            ecs.get_component_from_entity::<components::Pos3>(*sphere)
-                        {
-                            let mut pos3 = pos.write().unwrap();
-
-                            pos3.pos = cgmath::Quaternion::from_axis_angle(
-                                (0.0, 1.0, 0.0).into(),
-                                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
-                            ) * pos3.pos;
-                        }
-                    }
-                    // // Move the red and blue lights in a circle considering accumulated time
-                    if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(red_light)
-                    {
-                        let mut pos3 = pos.write().unwrap();
-
-                        pos3.pos = cgmath::Quaternion::from_axis_angle(
-                            (0.0, 1.0, 0.0).into(),
-                            cgmath::Deg(
-                                PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier,
-                            ),
-                        ) * pos3.pos;
-                    }
-
-                    if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(blue_light)
-                    {
-                        let mut pos3 = pos.write().unwrap();
-
-                        pos3.pos = cgmath::Quaternion::from_axis_angle(
-                            (0.0, 1.0, 0.0).into(),
-                            cgmath::Deg(
-                                PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier,
-                            ),
-                        ) * pos3.pos;
-                    }
-                }
+                pos3.pos = cgmath::Quaternion::from_axis_angle(
+                    (0.0, 1.0, 0.0).into(),
+                    cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
+                ) * pos3.pos;
             }
-        });
-    }
+        }
+        // Move the red and blue lights in a circle considering accumulated time
+        if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(red_light) {
+            let mut pos3 = pos.write().unwrap();
+
+            pos3.pos = cgmath::Quaternion::from_axis_angle(
+                (0.0, 1.0, 0.0).into(),
+                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+            ) * pos3.pos;
+        }
+
+        if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(blue_light) {
+            let mut pos3 = pos.write().unwrap();
+
+            pos3.pos = cgmath::Quaternion::from_axis_angle(
+                (0.0, 1.0, 0.0).into(),
+                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+            ) * pos3.pos;
+        }
+    })
+    .await?;
 
     app.run().await
 }

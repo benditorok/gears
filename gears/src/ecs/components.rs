@@ -16,7 +16,7 @@ impl renderer::traits::Pos for Pos3 {
 impl Default for Pos3 {
     fn default() -> Self {
         Self {
-            pos: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            pos: cgmath::Vector3::new(0.0, 0.0, 0.0),   
             rot: None,
         }
     }

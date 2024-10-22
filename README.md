@@ -11,6 +11,6 @@ Goals
 ## Current progress
 
 - [x] Load 3D objects
-- [ ] Generic lights
+- [x] Generic lights
 
-![Demo](/doc/imgs/demo.png)
+![Demo](/doc/imgs/demo2.png)

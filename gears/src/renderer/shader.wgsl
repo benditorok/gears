@@ -40,7 +40,7 @@ struct VertexOutput {
 @group(0) @binding(0)
 var t_diffuse: texture_2d<f32>;
 
-@group(0)@binding(1)
+@group(0) @binding(1)
 var s_diffuse: sampler;
 
 @group(1) @binding(0)
@@ -67,12 +67,15 @@ fn vs_main(
         instance.normal_matrix_1,
         instance.normal_matrix_2,
     );
+
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
     out.world_normal = normal_matrix * model.normal;
+
     var world_position: vec4<f32> = model_matrix * vec4<f32>(model.position, 1.0);
     out.world_position = world_position.xyz;
     out.clip_position = camera.view_proj * world_position;
+    
     return out;
 }
 

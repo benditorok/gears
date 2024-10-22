@@ -14,3 +14,14 @@ pub struct Config {
     pub log: LogConfig,
     pub threadpool_size: usize,
 }
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            log: LogConfig {
+                level: LogLevel::Info,
+            },
+            threadpool_size: 8,
+        }
+    }
+}
