@@ -21,15 +21,6 @@ async fn main() -> anyhow::Result<()> {
         })
         .build();
 
-    // // Add fixed camera
-    // app.new_entity()
-    //     .add_component(components::Name("Fixed Camera"))
-    //     .add_component(components::Pos3::new(20.0, 15.0, 20.0))
-    //     .add_component(components::Camera::Fixed {
-    //         look_at: components::Pos3::new(0.0, 10.0, 0.0),
-    //     })
-    //     .build();
-
     app.new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))
         .add_component(components::Light::Ambient { intensity: 0.05 })
@@ -107,38 +98,28 @@ async fn main() -> anyhow::Result<()> {
             obj_path: "res/models/plane/plane.obj",
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, -3.0, 0.0)))
-        // .add_component(components::Scale::NonUniform {
-        //     x: 2.0,
-        //     y: 2.0,
-        //     z: 1.0,
-        // })
-        // .add_component(components::Flip::Horizontal)
         .build();
 
     // Center sphere
     app.new_entity()
         .add_component(components::Name("Sphere1"))
-        .add_component(components::Model::Dynamic {
+        .add_component(components::Model::Static {
             obj_path: "res/models/sphere/sphere.obj",
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)))
         .add_component(components::Flip::Vertical)
-        // .add_component(components::Collider::new(
-        //     cgmath::Point3::new(-5.0, -5.0, -5.0),
-        //     cgmath::Point3::new(5.0, 5.0, 5.0),
-        // ))
         .build();
 
     // * If you do not need the IDs of the entities you can chain them together
     app.new_entity() // Cube 1
         .add_component(components::Name("Cube1"))
-        .add_component(components::Model::Dynamic {
+        .add_component(components::Model::Static {
             obj_path: "res/models/cube/cube.obj",
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(10.0, 0.0, 10.0)))
         .new_entity() // Cube 2
         .add_component(components::Name("Cube2"))
-        .add_component(components::Model::Dynamic {
+        .add_component(components::Model::Static {
             obj_path: "res/models/cube/cube.obj",
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(
@@ -146,7 +127,7 @@ async fn main() -> anyhow::Result<()> {
         )))
         .new_entity() // Cube 3
         .add_component(components::Name("Cube3"))
-        .add_component(components::Model::Dynamic {
+        .add_component(components::Model::Static {
             obj_path: "res/models/cube/cube.obj",
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(
@@ -154,7 +135,7 @@ async fn main() -> anyhow::Result<()> {
         )))
         .new_entity() // Cube 4
         .add_component(components::Name("Cube4"))
-        .add_component(components::Model::Dynamic {
+        .add_component(components::Model::Static {
             obj_path: "res/models/cube/cube.obj",
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(
@@ -163,15 +144,15 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     // Add 5 spheres in a circle
-    let mut moving_spheres: [ecs::Entity; 5] = [ecs::Entity { 0: 0 }; 5];
-    for i in 0..5 {
+    let mut moving_spheres: [ecs::Entity; 5] = [ecs::Entity(0); 5];
+    for (i, sphere) in moving_spheres.iter_mut().enumerate() {
         let angle = i as f32 * std::f32::consts::PI * 2.0 / 5.0;
         let x = angle.cos() * 10.0;
         let z = angle.sin() * 10.0;
 
         let name = format!("Sphere_circle{}", i);
 
-        let sphere = app
+        let sphere_entity = app
             .new_entity()
             .add_component(components::Name(Box::leak(name.into_boxed_str())))
             .add_component(components::Model::Dynamic {
@@ -180,7 +161,7 @@ async fn main() -> anyhow::Result<()> {
             .add_component(components::Pos3::new(cgmath::Vector3::new(x, 0.0, z)))
             .build();
 
-        moving_spheres[i] = sphere;
+        *sphere = sphere_entity;
     }
 
     // Update loop
