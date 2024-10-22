@@ -526,41 +526,53 @@ impl<'a> State<'a> {
                 let rlock_light = light.read().unwrap();
 
                 match *rlock_light {
-                    components::Light::Point { radius } => light::LightUniform {
+                    components::Light::Point { radius, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Point as u32,
                         color: [1.0, 1.0, 1.0],
                         radius,
+                        direction: [0.0; 3],
+                        intensity,
                     },
-                    components::Light::PointColoured { radius, color } => light::LightUniform {
+                    components::Light::PointColoured { radius, color, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Point as u32,
                         color,
                         radius,
+                        direction: [0.0; 3],
+                        intensity,
                     },
-                    components::Light::Ambient => light::LightUniform {
+                    components::Light::Ambient {intensity} => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Ambient as u32,
                         color: [1.0, 1.0, 1.0],
                         radius: 0.0,
+                        direction: [0.0; 3],
+                        intensity,
                     },
-                    components::Light::AmbientColoured { color } => light::LightUniform {
+                    components::Light::AmbientColoured { color, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Ambient as u32,
                         color,
                         radius: 0.0,
+                        direction: [0.0; 3],
+                        intensity,
                     },
-                    components::Light::Directional => light::LightUniform {
+                    components::Light::Directional {direction, intensity} => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Directional as u32,
                         color: [1.0, 1.0, 1.0],
                         radius: 0.0,
+                        direction,
+                        intensity,
                     },
-                    components::Light::DirectionalColoured { color } => light::LightUniform {
+                    components::Light::DirectionalColoured { direction, color, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Directional as u32,
                         color,
                         radius: 0.0,
+                        direction,
+                        intensity,
                     },
                 }
             };

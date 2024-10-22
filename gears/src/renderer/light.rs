@@ -19,6 +19,8 @@ pub(crate) struct LightUniform {
     pub light_type: u32,
     pub color: [f32; 3],
     pub radius: f32,
+    pub direction: [f32; 3],
+    pub intensity: f32,
 }
 
 impl Default for LightUniform {
@@ -26,8 +28,10 @@ impl Default for LightUniform {
         Self {
             position: [0.0; 3],
             light_type: LightType::Ambient as u32,
-            color: [0.0; 3],
+            color: [1.0; 3],
             radius: 0.0,
+            direction: [0.0; 3],
+            intensity: 0.1,
         }
     }
 }

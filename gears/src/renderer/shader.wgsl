@@ -8,6 +8,8 @@ struct Light {
     light_type: u32,
     color: vec3<f32>,
     radius: f32,
+    direction: vec3<f32>,
+    intensity: f32,
 }
 
 struct LightData {
@@ -101,35 +103,34 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
                 // Diffuse component
                 let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-                let diffuse_color = light.color * diffuse_strength * attenuation;
+                let diffuse_color = light.color * light.intensity * diffuse_strength * attenuation;
 
                 // Specular component
                 let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
-                let specular_color = specular_strength * light.color * attenuation;
+                let specular_color = light.color * light.intensity * specular_strength * attenuation;
 
                 // Blending object color and light color for more balance
                 result_color = result_color + (diffuse_color + specular_color) * mix(object_color.xyz, light.color, 0.3);
             }
         } else if (light.light_type == 1u) { // Ambient light
-            let ambient_strength = 0.15; // Increased ambient strength for better visibility
-            let ambient_color = light.color * ambient_strength;
+            let ambient_color = light.color * light.intensity;
 
             result_color = result_color + ambient_color * object_color.xyz;
         } else if (light.light_type == 2u) { // Directional light
-            let light_dir = normalize(light.position - in.world_position);
+            let light_dir = normalize(light.position + light.direction); // Calculate the direction from the light's position
             let view_dir = normalize(camera.view_pos.xyz - in.world_position);
             let half_dir = normalize(view_dir + light_dir);
 
             // Diffuse component
             let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-            let diffuse_color = light.color * diffuse_strength;
+            let diffuse_color = light.color * light.intensity * diffuse_strength;
 
             // Specular component
             let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
-            let specular_color = specular_strength * light.color;
+            let specular_color = light.color * light.intensity * specular_strength;
 
             // Blending object color and light color for more balance
-            result_color = result_color + (diffuse_color + specular_color) * mix(object_color.xyz, light.color, 0.5);
+            result_color = result_color + (diffuse_color + specular_color) * object_color.xyz;
         }
     }
 

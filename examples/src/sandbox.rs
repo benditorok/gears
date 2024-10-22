@@ -30,11 +30,19 @@ async fn main() -> anyhow::Result<()> {
     //     })
     //     .build();
 
-    // Add ambient light
-    app.new_entity()
+    app.new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))
-        .add_component(components::Light::Ambient)
+        .add_component(components::Light::Ambient { intensity: 0.05 })
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
+        .new_entity() // Add directional light
+        .add_component(components::Name("Directional Light"))
+        .add_component(components::Light::Directional {
+            direction: [-0.5, -0.5, 0.0],
+            intensity: 0.3,
+        })
+        .add_component(components::Pos3::new(cgmath::Vector3::new(
+            30.0, 30.0, 30.0,
+        )))
         .build();
 
     // * Add moving red light
@@ -44,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Light::PointColoured {
             radius: 10.0,
             color: [0.8, 0.0, 0.0],
+            intensity: 1.0,
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0)))
         .build();
@@ -55,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.0, 0.8],
+            intensity: 1.0,
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(-15.0, 5.0, 0.0)))
         .build();
@@ -65,6 +75,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Light::PointColoured {
             radius: 10.0,
             color: [1.0, 0.0, 0.0],
+            intensity: 1.0,
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -20.0)))
         .build();
@@ -74,6 +85,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 1.0, 0.0],
+            intensity: 1.0,
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -30.0)))
         .build();
@@ -83,6 +95,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.0, 1.0],
+            intensity: 1.0,
         })
         .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -40.0)))
         .build();
