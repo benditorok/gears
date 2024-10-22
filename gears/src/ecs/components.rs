@@ -16,7 +16,7 @@ impl renderer::traits::Pos for Pos3 {
 impl Default for Pos3 {
     fn default() -> Self {
         Self {
-            pos: cgmath::Vector3::new(0.0, 0.0, 0.0),   
+            pos: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rot: None,
         }
     }
@@ -51,12 +51,12 @@ impl Pos3 {
 #[derive(Debug, Copy, Clone)]
 pub enum Camera {
     FPS {
-        look_at: Pos3,
+        look_at: cgmath::Point3<f32>,
         speed: f32,
         sensitivity: f32,
     },
     Fixed {
-        look_at: Pos3,
+        look_at: cgmath::Point3<f32>,
     },
 }
 

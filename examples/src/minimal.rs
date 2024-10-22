@@ -7,10 +7,10 @@ async fn main() -> anyhow::Result<()> {
     app.new_entity() // Add fixed camera
         .add_component(components::Name("Fixed Camera"))
         .add_component(components::Pos3::new(cgmath::Vector3::new(
-            20.0, 15.0, 20.0,
+            10.0, 10.0, 10.0,
         )))
         .add_component(components::Camera::Fixed {
-            look_at: components::Pos3::new(cgmath::Vector3::new(0.0, 10.0, 0.0)),
+            look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
         })
         .new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))

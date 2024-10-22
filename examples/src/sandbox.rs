@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
             20.0, 10.0, 20.0,
         )))
         .add_component(components::Camera::FPS {
-            look_at: components::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+            look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
             speed: 10.0,
             sensitivity: 0.5,
         })

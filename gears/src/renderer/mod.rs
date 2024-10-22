@@ -491,7 +491,7 @@ impl<'a> State<'a> {
                 sensitivity,
             } => {
                 let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
-                let look_at_point = cgmath::Point3::from_vec(look_at.pos);
+                let look_at_point = look_at;
                 let camera = camera::Camera::new_look_at(pos_point, look_at_point);
                 let controller = camera::CameraController::new(speed, sensitivity);
 
@@ -499,7 +499,7 @@ impl<'a> State<'a> {
             }
             components::Camera::Fixed { look_at } => {
                 let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
-                let look_at_point = cgmath::Point3::from_vec(look_at.pos);
+                let look_at_point = look_at;
                 let camera = camera::Camera::new_look_at(pos_point, look_at_point);
                 let controller = camera::CameraController::new(0.0, 0.0);
 
