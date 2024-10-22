@@ -2,10 +2,7 @@ use app::GearsApp;
 use cgmath::Rotation3;
 use ecs::traits::EntityBuilder;
 use gears::prelude::*;
-use log::{self, info};
 use std::f32::consts::PI;
-use std::sync::Arc;
-use std::{env, thread};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
