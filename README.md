@@ -19,22 +19,26 @@ Goals
 ## Simple example
 
 You can try it with `cargo run --bin minimal` or run a more complex example with `cargo run --bin sandbox`.
+When creating components you can use a macro or an entity builder as well.
 
 ```rust
-use gears::prelude::*;
+use gears::{new_entity, prelude::*};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut app = GearsApp::default();
 
-    app.new_entity() // Add fixed camera
-        .add_component(components::Name("Fixed Camera"))
-        .add_component(components::Pos3::new(cgmath::Vector3::new(5.0, 5.0, 5.0)))
-        .add_component(components::Camera::Fixed {
+    // Add fixed camera
+    new_entity!(
+        app,
+        components::Name("Fixed Camera"),
+        components::Pos3::new(cgmath::Vector3::new(5.0, 5.0, 5.0)),
+        components::Camera::Fixed {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
-        })
-        .build();
+        }
+    );
 
+    // Use the entity builder
     app.new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))
         .add_component(components::Light::Ambient { intensity: 0.05 })
@@ -58,14 +62,15 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
         .build();
 
-    let _sphere = app
-        .new_entity() // Add a sphere
-        .add_component(components::Name("Sphere1"))
-        .add_component(components::Model::Dynamic {
+    // Add a sphere and get the Entity for reference
+    let _sphere_entity = new_entity!(
+        app,
+        components::Name("Sphere1"),
+        components::Model::Dynamic {
             obj_path: "res/models/sphere/sphere.obj",
-        })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)))
-        .build();
+        },
+        components::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+    );
 
     app.run().await?;
     Ok(())

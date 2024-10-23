@@ -14,6 +14,7 @@ async fn main() -> anyhow::Result<()> {
         }
     );
 
+    // Use the entity builder
     app.new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))
         .add_component(components::Light::Ambient { intensity: 0.05 })
@@ -37,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
         .build();
 
-    // Add a sphere
+    // Add a sphere and get the Entity for reference
     let _sphere_entity = new_entity!(
         app,
         components::Name("Sphere1"),
