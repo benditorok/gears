@@ -14,7 +14,7 @@ Goals
 - [x] Generic lights
 - [ ] Shadows
 
-![Demo](/doc/imgs/demo2.png)
+![Demo](/doc/imgs/demo3.png)
 
 ## Simple example
 
