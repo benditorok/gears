@@ -1,3 +1,4 @@
+use super::traits::Component;
 use crate::renderer;
 
 /// A component that stores the position of any object.
@@ -6,6 +7,8 @@ pub struct Pos3 {
     pub pos: cgmath::Vector3<f32>,
     pub rot: Option<cgmath::Quaternion<f32>>,
 }
+
+impl Component for Pos3 {}
 
 impl renderer::traits::Pos for Pos3 {
     fn get_pos(&self) -> cgmath::Vector3<f32> {
@@ -60,6 +63,8 @@ pub enum Camera {
     },
 }
 
+impl Component for Camera {}
+
 /// A component that stores the model type.
 #[derive(Debug, Copy, Clone)]
 pub enum Model<'a> {
@@ -67,7 +72,12 @@ pub enum Model<'a> {
     Static { obj_path: &'a str },
 }
 
+impl Component for Model<'static> {}
+
+/// A component that stores the name of an object.
 pub struct Name(pub &'static str);
+
+impl Component for Name {}
 
 /// A component that stores the light type.
 #[derive(Debug, Copy, Clone)]
@@ -99,12 +109,16 @@ pub enum Light {
     },
 }
 
+impl Component for Light {}
+
 /// A component that stores the scale of an object.
 #[derive(Debug, Copy, Clone)]
 pub enum Scale {
     Uniform(f32),
     NonUniform { x: f32, y: f32, z: f32 },
 }
+
+impl Component for Scale {}
 
 /// A component that stores the rotation of an object.
 #[derive(Debug, Copy, Clone)]
@@ -114,12 +128,16 @@ pub enum Flip {
     Both,
 }
 
+impl Component for Flip {}
+
 /// Axis-aligned bounding box component.
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct AABB {
     pub min: cgmath::Vector3<f32>,
     pub max: cgmath::Vector3<f32>,
 }
+
+impl Component for AABB {}
 
 impl AABB {
     fn new(min: cgmath::Vector3<f32>, max: cgmath::Vector3<f32>) -> Self {
@@ -148,6 +166,8 @@ impl renderer::traits::Collider for AABB {
 /// Collider component.
 #[derive(Debug, Copy, Clone)]
 pub struct Collider(AABB);
+
+impl Component for Collider {}
 
 impl Collider {
     pub fn new(min: cgmath::Vector3<f32>, max: cgmath::Vector3<f32>) -> Self {

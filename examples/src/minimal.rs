@@ -1,16 +1,18 @@
-use gears::prelude::*;
+use gears::{new_entity, prelude::*};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut app = GearsApp::default();
 
-    app.new_entity() // Add fixed camera
-        .add_component(components::Name("Fixed Camera"))
-        .add_component(components::Pos3::new(cgmath::Vector3::new(5.0, 5.0, 5.0)))
-        .add_component(components::Camera::Fixed {
+    // Add fixed camera
+    new_entity!(
+        app,
+        components::Name("Fixed Camera"),
+        components::Pos3::new(cgmath::Vector3::new(5.0, 5.0, 5.0)),
+        components::Camera::Fixed {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
-        })
-        .build();
+        }
+    );
 
     app.new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))
@@ -35,14 +37,15 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
         .build();
 
-    let _sphere = app
-        .new_entity() // Add a sphere
-        .add_component(components::Name("Sphere1"))
-        .add_component(components::Model::Dynamic {
+    // Add a sphere
+    let _sphere_entity = new_entity!(
+        app,
+        components::Name("Sphere1"),
+        components::Model::Dynamic {
             obj_path: "res/models/sphere/sphere.obj",
-        })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)))
-        .build();
+        },
+        components::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+    );
 
     app.run().await?;
     Ok(())

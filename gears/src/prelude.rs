@@ -3,5 +3,6 @@ pub use crate::{
     core::app::{self, App, GearsApp},
     ecs,
     ecs::components,
-    ecs::traits::EntityBuilder,
+    ecs::macros,
+    ecs::traits::{Component, EntityBuilder},
 };

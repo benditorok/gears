@@ -2,7 +2,7 @@ use std::f64::consts::E;
 
 use log::warn;
 
-use super::{Entity, Manager};
+use super::{traits::Component, Entity, Manager};
 
 pub struct EcsBuilder<'a> {
     ecs: &'a mut Manager,
@@ -21,7 +21,7 @@ impl super::traits::EntityBuilder for EcsBuilder<'_> {
         self
     }
 
-    fn add_component<T: 'static + Send + Sync>(&mut self, component: T) -> &mut Self {
+    fn add_component(&mut self, component: impl Component) -> &mut Self {
         if let Some(entity) = self.ecs.get_last() {
             self.ecs.add_component_to_entity(entity, component);
         } else {
@@ -57,6 +57,8 @@ mod tests {
     struct TestComponent {
         value: i32,
     }
+
+    impl Component for TestComponent {}
 
     #[test]
     fn test_create_entity() {

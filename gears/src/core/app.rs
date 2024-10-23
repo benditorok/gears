@@ -1,6 +1,7 @@
 use super::config::{self, Config, LogConfig, LogLevel};
 use super::Dt;
 use super::{event::EventQueue, threadpool::ThreadPool};
+use crate::ecs::traits::Component;
 use crate::ecs::Entity;
 use crate::{ecs, renderer};
 use log::info;
@@ -170,7 +171,7 @@ impl ecs::traits::EntityBuilder for GearsApp {
         self
     }
 
-    fn add_component<T: 'static + Send + Sync>(&mut self, component: T) -> &mut Self {
+    fn add_component(&mut self, component: impl Component) -> &mut Self {
         {
             let ecs = self.ecs.lock().unwrap();
 
