@@ -63,6 +63,7 @@ impl App for GearsApp {
 
     /// Run the application.
     async fn run(&mut self) -> anyhow::Result<()> {
+        // TODO env builder should be initialized by the user (in main.rs)
         // Initialize logger
         let mut env_builder = env_logger::Builder::new();
         // Set the minimum log level from the config.

@@ -30,9 +30,9 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.8, 0.0],
-            intensity: 1.0,
+            intensity: 0.6,
         })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(-15.0, 5.0, 0.0)))
+        .add_component(components::Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
         .build();
 
     let _sphere = app
