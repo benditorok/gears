@@ -1,4 +1,6 @@
 pub mod components;
+pub mod macros;
+pub mod traits;
 pub mod utils;
 
 use std::any::{Any, TypeId};
@@ -8,6 +10,12 @@ use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(pub u32);
+
+impl Entity {
+    pub fn id(&self) -> u32 {
+        self.0
+    }
+}
 
 type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>;
 
@@ -50,6 +58,17 @@ impl Manager {
             .unwrap()
             .insert(entity, HashMap::new());
         entity
+    }
+
+    /// Get the last entity created, or `None` if no entities have been created yet.
+    pub fn get_last(&self) -> Option<Entity> {
+        let current_idx = self.next_entity.load(Ordering::SeqCst);
+
+        if current_idx == 0 {
+            None
+        } else {
+            Some(Entity(current_idx - 1))
+        }
     }
 
     /// Get the number of entities currently in the EntityManager.
@@ -245,5 +264,38 @@ mod tests {
 
         let entities_with_component = manager.get_entites_with_component::<TestComponent>();
         assert!(entities_with_component.is_empty());
+    }
+
+    #[test]
+    fn test_get_last() {
+        let manager = Manager::default();
+        let entity1 = manager.create_entity();
+        let entity2 = manager.create_entity();
+        assert_eq!(manager.get_last().unwrap(), entity2);
+        assert_ne!(manager.get_last().unwrap(), entity1);
+    }
+
+    #[test]
+    fn test_get_last_no_entities() {
+        let manager = Manager::default();
+        assert!(manager.get_last().is_none());
+    }
+
+    #[test]
+    fn test_get_last_single_entity() {
+        let manager = Manager::default();
+        let entity = manager.create_entity();
+        assert_eq!(manager.get_last().unwrap(), entity);
+    }
+
+    #[test]
+    fn test_get_last_multiple_entities() {
+        let manager = Manager::default();
+        let entity1 = manager.create_entity();
+        let entity2 = manager.create_entity();
+        let entity3 = manager.create_entity();
+        assert_eq!(manager.get_last().unwrap(), entity3);
+        assert_ne!(manager.get_last().unwrap(), entity1);
+        assert_ne!(manager.get_last().unwrap(), entity2);
     }
 }

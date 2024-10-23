@@ -1,8 +1,8 @@
 use super::{model, texture};
-use std::{
-    io::{BufReader, Cursor},
-    path::Path,
-};
+use anyhow::Context;
+use image::GenericImageView;
+use std::io::{BufReader, Cursor};
+use std::path::Path;
 use wgpu::util::DeviceExt;
 
 pub(crate) async fn load_string(file_path: &str) -> anyhow::Result<String> {
@@ -63,7 +63,10 @@ pub(crate) async fn load_model(
     let mut materials = Vec::new();
     for m in obj_materials? {
         let diffuse_texture = load_texture(
-            model_root_dir.join(&m.diffuse_texture).to_str().unwrap(),
+            model_root_dir
+                .join(m.diffuse_texture.as_ref().unwrap())
+                .to_str()
+                .unwrap(),
             device,
             queue,
         )

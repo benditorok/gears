@@ -1,27 +1,3 @@
-# Gears
-
-A 3D game engine written in Rust using wgpu for rendering.
-
-Goals
-
-- Ease of use
-- Cross platform compatibility
-- Parallel execution where possible
-
-## Current progress
-
-- [x] Load 3D objects
-- [x] Generic lights
-- [ ] Shadows
-
-![Demo](/doc/imgs/demo2.png)
-
-## Simple example
-
-You can try it with `cargo run --bin minimal` or run a more complex example with `cargo run --bin sandbox`.
-When creating components you can use a macro or an entity builder as well.
-
-```rust
 use gears::{new_entity, prelude::*};
 
 #[tokio::main]
@@ -75,4 +51,3 @@ async fn main() -> anyhow::Result<()> {
     app.run().await?;
     Ok(())
 }
-```

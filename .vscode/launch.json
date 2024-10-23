@@ -7,17 +7,35 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'gears'",
+            "name": "Debug executable 'minimal'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=minimal",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "minimal",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'minimal'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--lib",
-                    "--package=gears"
+                    "--bin=minimal",
+                    "--package=examples"
                 ],
                 "filter": {
-                    "name": "gears",
-                    "kind": "lib"
+                    "name": "minimal",
+                    "kind": "bin"
                 }
             },
             "args": [],
@@ -31,7 +49,7 @@
                 "args": [
                     "build",
                     "--bin=sandbox",
-                    "--package=sandbox"
+                    "--package=examples"
                 ],
                 "filter": {
                     "name": "sandbox",
@@ -50,11 +68,30 @@
                     "test",
                     "--no-run",
                     "--bin=sandbox",
-                    "--package=sandbox"
+                    "--package=examples"
                 ],
                 "filter": {
                     "name": "sandbox",
                     "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'gears'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=gears"
+                ],
+                "filter": {
+                    "name": "gears",
+                    "kind": "lib"
                 }
             },
             "args": [],

@@ -491,7 +491,7 @@ impl<'a> State<'a> {
                 sensitivity,
             } => {
                 let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
-                let look_at_point = cgmath::Point3::from_vec(look_at.pos);
+                let look_at_point = look_at;
                 let camera = camera::Camera::new_look_at(pos_point, look_at_point);
                 let controller = camera::CameraController::new(speed, sensitivity);
 
@@ -499,7 +499,7 @@ impl<'a> State<'a> {
             }
             components::Camera::Fixed { look_at } => {
                 let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
-                let look_at_point = cgmath::Point3::from_vec(look_at.pos);
+                let look_at_point = look_at;
                 let camera = camera::Camera::new_look_at(pos_point, look_at_point);
                 let controller = camera::CameraController::new(0.0, 0.0);
 
@@ -513,10 +513,6 @@ impl<'a> State<'a> {
         let light_entities = ecs_lock.get_entites_with_component::<components::Light>();
 
         for entity in light_entities.iter() {
-            // let name = ecs_lock
-            //     .get_component_from_entity::<components::Name>(*entity)
-            //     .expect("No name provided for the light!");
-
             let pos = ecs_lock
                 .get_component_from_entity::<components::Pos3>(*entity)
                 .expect("No position provided for the light!");
@@ -530,41 +526,53 @@ impl<'a> State<'a> {
                 let rlock_light = light.read().unwrap();
 
                 match *rlock_light {
-                    components::Light::Point { radius } => light::LightUniform {
+                    components::Light::Point { radius, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Point as u32,
                         color: [1.0, 1.0, 1.0],
                         radius,
+                        direction: [0.0; 3],
+                        intensity,
                     },
-                    components::Light::PointColoured { radius, color } => light::LightUniform {
+                    components::Light::PointColoured { radius, color, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Point as u32,
                         color,
                         radius,
+                        direction: [0.0; 3],
+                        intensity,
                     },
-                    components::Light::Ambient => light::LightUniform {
+                    components::Light::Ambient {intensity} => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Ambient as u32,
                         color: [1.0, 1.0, 1.0],
                         radius: 0.0,
+                        direction: [0.0; 3],
+                        intensity,
                     },
-                    components::Light::AmbientColoured { color } => light::LightUniform {
+                    components::Light::AmbientColoured { color, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Ambient as u32,
                         color,
                         radius: 0.0,
+                        direction: [0.0; 3],
+                        intensity,
                     },
-                    components::Light::Directional => light::LightUniform {
+                    components::Light::Directional {direction, intensity} => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Directional as u32,
                         color: [1.0, 1.0, 1.0],
                         radius: 0.0,
+                        direction,
+                        intensity,
                     },
-                    components::Light::DirectionalColoured { color } => light::LightUniform {
+                    components::Light::DirectionalColoured { direction, color, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Directional as u32,
                         color,
                         radius: 0.0,
+                        direction,
+                        intensity,
                     },
                 }
             };
@@ -611,6 +619,14 @@ impl<'a> State<'a> {
                     )
                     .await
                     .unwrap(),
+                    components::Model::Static { obj_path } => resources::load_model(
+                        obj_path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap()
                 }
             };
             ecs_lock.add_component_to_entity(*entity, obj_model);
@@ -619,7 +635,7 @@ impl<'a> State<'a> {
             let mut instance = {
                 let rlock_pos = pos.read().unwrap();
                 instance::Instance {
-                    position: rlock_pos.pos.into(),
+                    position: rlock_pos.pos,
                     rotation: rlock_pos.rot.unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0))),
                 }
             };
@@ -749,12 +765,16 @@ impl<'a> State<'a> {
                     .get_component_from_entity::<light::LightUniform>(*entity)
                     .unwrap();
 
-                // TODO update the colors
-                light_uniform.write().unwrap().position = [
-                    pos.read().unwrap().pos.x,
-                    pos.read().unwrap().pos.y,
-                    pos.read().unwrap().pos.z,
-                ];
+                {
+                    // TODO update the colors
+                    let rlock_pos = pos.read().unwrap();
+
+                    light_uniform.write().unwrap().position = [
+                        rlock_pos.pos.x,
+                        rlock_pos.pos.y,
+                        rlock_pos.pos.z,
+                    ];
+                }
 
                 let rlock_light_uniform = light_uniform.read().unwrap();
 
@@ -785,6 +805,15 @@ impl<'a> State<'a> {
         if let Some(model_entities) = &self.model_entities {
             for entity in model_entities {
                 let ecs_lock = self.ecs.lock().unwrap();
+
+                let model_type = ecs_lock.get_component_from_entity::<components::Model>(*entity);
+                
+                if let Some(model_type) = model_type {
+                    let model_type = model_type.read().unwrap();
+                    if let components::Model::Static { .. } = *model_type {
+                        continue;
+                    }
+                }
 
                 let pos = ecs_lock
                     .get_component_from_entity::<components::Pos3>(*entity)
@@ -872,38 +901,6 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            // render_pass.set_pipeline(&self.light_render_pipeline);
-            // render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            // render_pass.set_bind_group(1, &self.light_bind_group, &[]);
-
-            // // Draw the lights and models
-            // if let Some(light_entities) = &self.light_entities {
-            //     for entity in light_entities {
-            //         let ecs_lock = self.ecs.lock().unwrap();
-
-            //         let light_model = ecs_lock
-            //             .get_component_from_entity::<model::Model>(*entity)
-            //             .unwrap();
-
-            //         let light_model: &model::Model =
-            //             unsafe { &*(&*light_model.read().unwrap() as *const _) };
-
-            //         // Draw light
-            //         render_pass.draw_light_model(
-            //             light_model,
-            //             &self.camera_bind_group,
-            //             &self.light_bind_group,
-            //         );
-            //         // model::DrawModel::draw_model_instanced(
-            //         //     &mut render_pass,
-            //         //     light_model,
-            //         //     0..1,
-            //         //     &self.camera_bind_group,
-            //         //     &self.light_bind_group,
-            //         // );
-            //     }
-            // }
-
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_bind_group(2, &self.light_bind_group, &[]);
@@ -924,13 +921,7 @@ impl<'a> State<'a> {
                     render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
 
                     // Draw model
-                    model::DrawModel::draw_model_instanced(
-                        &mut render_pass,
-                        model,
-                        0..1,
-                        &self.camera_bind_group,
-                        &self.light_bind_group,
-                    );
+                    render_pass.draw_model(model, &self.camera_bind_group, &self.light_bind_group);
                 }
             }
         }

@@ -1,27 +1,56 @@
-use super::{Entity, Manager};
+use std::f64::consts::E;
 
-pub struct EntityBuilder<'a> {
+use log::warn;
+
+use super::{traits::Component, Entity, Manager};
+
+pub struct EcsBuilder<'a> {
     ecs: &'a mut Manager,
-    entity: Entity,
 }
 
-impl<'a> EntityBuilder<'a> {
-    pub fn new_entity(ecs: &'a mut Manager) -> Self {
-        let entity = ecs.create_entity();
-        Self { ecs, entity }
+impl<'a> EcsBuilder<'a> {
+    pub fn new(ecs: &'a mut Manager) -> Self {
+        Self { ecs }
     }
+}
 
-    pub fn add_component<T: 'static + Send + Sync>(self, component: T) -> Self {
-        self.ecs.add_component_to_entity(self.entity, component);
+impl super::traits::EntityBuilder for EcsBuilder<'_> {
+    fn new_entity(&mut self) -> &mut Self {
+        self.ecs.create_entity();
+
         self
     }
 
-    pub fn build(self) -> Entity {
-        self.entity
+    fn add_component(&mut self, component: impl Component) -> &mut Self {
+        if let Some(entity) = self.ecs.get_last() {
+            self.ecs.add_component_to_entity(entity, component);
+        } else {
+            warn!("No entity found, creating a new one...");
+
+            let entity = self.ecs.create_entity();
+            self.ecs.add_component_to_entity(entity, component);
+        }
+
+        self
+    }
+
+    fn build(&mut self) -> Entity {
+        if let Some(entity) = self.ecs.get_last() {
+            entity
+        } else {
+            warn!("No entity found, creating a new one...");
+
+            self.ecs.create_entity()
+        }
     }
 }
+
 #[cfg(test)]
 mod tests {
+    use log::warn;
+
+    use crate::ecs::{self, traits::EntityBuilder};
+
     use super::*;
 
     #[derive(Debug, PartialEq)]
@@ -29,17 +58,22 @@ mod tests {
         value: i32,
     }
 
+    impl Component for TestComponent {}
+
     #[test]
     fn test_create_entity() {
         let mut manager = Manager::default();
-        EntityBuilder::new_entity(&mut manager).build();
-        assert!(manager.entity_count() == 1);
+        let entity = EcsBuilder::new(&mut manager).new_entity().build();
+
+        assert_eq!(Entity(0), entity);
+        assert_eq!(manager.entity_count(), 1);
     }
 
     #[test]
     fn test_add_component() {
         let mut manager = Manager::default();
-        let entity = EntityBuilder::new_entity(&mut manager)
+        let entity = EcsBuilder::new(&mut manager)
+            .new_entity()
             .add_component(TestComponent { value: 42 })
             .build();
         let binding = manager
@@ -52,11 +86,12 @@ mod tests {
     #[test]
     fn test_chain_add_components() {
         let mut manager = Manager::default();
-        let builder = EntityBuilder::new_entity(&mut manager);
-        let entity = builder
+        let entity = EcsBuilder::new(&mut manager)
+            .new_entity()
             .add_component(TestComponent { value: 42 })
             .add_component(TestComponent { value: 100 })
             .build();
+
         let component = manager
             .get_component_from_entity::<TestComponent>(entity)
             .unwrap();

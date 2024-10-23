@@ -1,3 +1,4 @@
+use super::traits::Component;
 use crate::renderer;
 
 /// A component that stores the position of any object.
@@ -6,6 +7,8 @@ pub struct Pos3 {
     pub pos: cgmath::Vector3<f32>,
     pub rot: Option<cgmath::Quaternion<f32>>,
 }
+
+impl Component for Pos3 {}
 
 impl renderer::traits::Pos for Pos3 {
     fn get_pos(&self) -> cgmath::Vector3<f32> {
@@ -51,34 +54,62 @@ impl Pos3 {
 #[derive(Debug, Copy, Clone)]
 pub enum Camera {
     FPS {
-        look_at: Pos3,
+        look_at: cgmath::Point3<f32>,
         speed: f32,
         sensitivity: f32,
     },
     Fixed {
-        look_at: Pos3,
+        look_at: cgmath::Point3<f32>,
     },
 }
+
+impl Component for Camera {}
 
 /// A component that stores the model type.
 #[derive(Debug, Copy, Clone)]
 pub enum Model<'a> {
     Dynamic { obj_path: &'a str },
-    // TODO Static: can't update the pos, etc
+    Static { obj_path: &'a str },
 }
 
+impl Component for Model<'static> {}
+
+/// A component that stores the name of an object.
 pub struct Name(pub &'static str);
+
+impl Component for Name {}
 
 /// A component that stores the light type.
 #[derive(Debug, Copy, Clone)]
 pub enum Light {
-    Point { radius: f32 },
-    PointColoured { radius: f32, color: [f32; 3] },
-    Ambient,
-    AmbientColoured { color: [f32; 3] },
-    Directional,
-    DirectionalColoured { color: [f32; 3] },
+    Point {
+        radius: f32,
+        intensity: f32,
+    },
+    PointColoured {
+        radius: f32,
+        color: [f32; 3],
+        intensity: f32,
+    },
+    Ambient {
+        intensity: f32,
+    },
+    AmbientColoured {
+        color: [f32; 3],
+        intensity: f32,
+    },
+    Directional {
+        direction: [f32; 3],
+        intensity: f32,
+    },
+    DirectionalColoured {
+        direction: [f32; 3],
+        color: [f32; 3],
+        intensity: f32,
+    },
 }
+
+impl Component for Light {}
 
 /// A component that stores the scale of an object.
 #[derive(Debug, Copy, Clone)]
@@ -86,6 +117,8 @@ pub enum Scale {
     Uniform(f32),
     NonUniform { x: f32, y: f32, z: f32 },
 }
+
+impl Component for Scale {}
 
 /// A component that stores the rotation of an object.
 #[derive(Debug, Copy, Clone)]
@@ -95,12 +128,16 @@ pub enum Flip {
     Both,
 }
 
+impl Component for Flip {}
+
 /// Axis-aligned bounding box component.
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct AABB {
     pub min: cgmath::Vector3<f32>,
     pub max: cgmath::Vector3<f32>,
 }
+
+impl Component for AABB {}
 
 impl AABB {
     fn new(min: cgmath::Vector3<f32>, max: cgmath::Vector3<f32>) -> Self {
@@ -129,6 +166,8 @@ impl renderer::traits::Collider for AABB {
 /// Collider component.
 #[derive(Debug, Copy, Clone)]
 pub struct Collider(AABB);
+
+impl Component for Collider {}
 
 impl Collider {
     pub fn new(min: cgmath::Vector3<f32>, max: cgmath::Vector3<f32>) -> Self {
