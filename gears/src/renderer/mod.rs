@@ -47,7 +47,7 @@ const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 ///
 /// A future which can be awaited.
 pub async fn run(
-    world: Arc<Mutex<ecs::Manager>>,
+    ecs: Arc<Mutex<ecs::Manager>>,
     tx_dt: broadcast::Sender<Dt>,
 ) -> anyhow::Result<()> {
     // * Window creation
@@ -58,7 +58,7 @@ pub async fn run(
         .with_window_icon(None);
 
     let window = event_loop.create_window(window_attributes)?;
-    let mut state = State::new(&window, world).await;
+    let mut state = State::new(&window, ecs).await;
     state.init_components().await?;
     let mut last_render_time = instant::Instant::now();
     
@@ -168,7 +168,7 @@ struct State<'a> {
     mouse_pressed: bool,
     draw_colliders: bool,
     egui_renderer: EguiRenderer,
-    egui_windows: Vec<egui::Window<'a>>,    
+    egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
 }
 
 impl<'a> State<'a> {
@@ -726,6 +726,13 @@ impl<'a> State<'a> {
     fn input(&mut self, event: &WindowEvent) -> bool {
         // TODO is this important? chek perf on DGPU
         self.window.request_redraw();
+
+        // * Capture the input for the custom windows
+        if self.egui_renderer.handle_input(self.window, event) {
+            // If a window consumed the event return true since no other component should handle it again
+            return true;
+        }
+     
 
         match event {
             WindowEvent::KeyboardInput {

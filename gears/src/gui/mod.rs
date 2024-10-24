@@ -48,8 +48,9 @@ impl EguiRenderer {
         }
     }
 
-    pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) {
-        let _ = self.state.on_window_event(window, event);
+    pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) -> bool {
+        let response = self.state.on_window_event(window, event);
+        response.consumed
     }
 
     pub fn ppp(&mut self, v: f32) {
@@ -62,6 +63,7 @@ impl EguiRenderer {
         self.frame_started = true;
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_ui_full(
         &mut self,
         device: &Device,
@@ -70,7 +72,7 @@ impl EguiRenderer {
         window: &Window,
         window_surface_view: &TextureView,
         screen_descriptor: ScreenDescriptor,
-        run_ui: &mut impl FnMut(&Context),
+        run_ui: &mut impl FnMut(&egui::Context),
     ) {
         let raw_input = self.state.take_egui_input(window);
         self.ppp(screen_descriptor.pixels_per_point);
