@@ -14,10 +14,13 @@ use tokio::sync::broadcast;
 
 pub trait App {
     fn new(config: Config) -> Self;
-    fn map_ecs(&mut self, ecs: ecs::Manager) -> Arc<Mutex<ecs::Manager>>;
     #[allow(async_fn_in_trait)]
     async fn run(&mut self) -> anyhow::Result<()>;
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>>;
+    async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
+    where
+        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static;
+    fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>);
     // TODO add a create job fn to access the thread pool
 }
 
@@ -58,12 +61,6 @@ impl App for GearsApp {
         }
     }
 
-    /// Map the world to the app.
-    fn map_ecs(&mut self, world: ecs::Manager) -> Arc<Mutex<ecs::Manager>> {
-        self.ecs = Arc::new(Mutex::new(world));
-        Arc::clone(&self.ecs)
-    }
-
     /// Run the application.
     async fn run(&mut self) -> anyhow::Result<()> {
         // TODO env builder should be initialized by the user (in main.rs)
@@ -93,6 +90,43 @@ impl App for GearsApp {
     /// This is used to communicate the delta time between the main thread and the renderer thread.
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>> {
         self.tx_dt.as_ref().map(|tx| tx.subscribe())
+    }
+
+    /// Create a new update job.
+    async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
+    where
+        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static,
+    {
+        let mut rx_dt = self
+            .get_dt_channel()
+            .ok_or_else(|| anyhow::anyhow!("No dt channel exists"))?;
+
+        let ecs = Arc::clone(&self.ecs);
+        let is_running = Arc::clone(&self.is_running);
+
+        tokio::spawn(async move {
+            while is_running.load(std::sync::atomic::Ordering::Relaxed) {
+                match rx_dt.recv().await {
+                    Ok(dt) => f(Arc::clone(&ecs), dt),
+                    Err(e) => {
+                        eprintln!("Failed to receive: {:?}", e);
+                    }
+                }
+            }
+
+            info!("Update loop stopped...");
+        });
+
+        Ok(())
+    }
+
+    /// Add a custom window to the app.
+    fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>) {
+        if let Some(windows) = &mut self.egui_windows {
+            windows.push(window);
+        } else {
+            self.egui_windows = Some(vec![window]);
+        }
     }
 }
 
@@ -128,42 +162,6 @@ impl GearsApp {
         });
 
         Ok(())
-    }
-
-    /// Create a new update job.
-    pub async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
-    where
-        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static,
-    {
-        let mut rx_dt = self
-            .get_dt_channel()
-            .ok_or_else(|| anyhow::anyhow!("No dt channel exists"))?;
-
-        let ecs = Arc::clone(&self.ecs);
-        let is_running = Arc::clone(&self.is_running);
-
-        tokio::spawn(async move {
-            while is_running.load(std::sync::atomic::Ordering::Relaxed) {
-                match rx_dt.recv().await {
-                    Ok(dt) => f(Arc::clone(&ecs), dt),
-                    Err(e) => {
-                        eprintln!("Failed to receive: {:?}", e);
-                    }
-                }
-            }
-
-            info!("Update loop stopped...");
-        });
-
-        Ok(())
-    }
-
-    pub fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>) {
-        if let Some(windows) = &mut self.egui_windows {
-            windows.push(window);
-        } else {
-            self.egui_windows = Some(vec![window]);
-        }
     }
 }
 
