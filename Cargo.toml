@@ -41,3 +41,6 @@ tobj = { version = "4.0.2", features = [
 ]}
 image = { version = "0.25.4", default-features = false, features = ["png", "jpeg"] }
 rand = "0.8"
+egui = "0.29.1"
+egui-wgpu = "0.29.1"
+egui-winit = "0.29.1"
