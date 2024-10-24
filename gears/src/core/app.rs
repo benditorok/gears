@@ -197,3 +197,36 @@ impl ecs::traits::EntityBuilder for GearsApp {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ecs::traits::EntityBuilder;
+
+    #[derive(Debug, PartialEq)]
+    struct TestComponent {
+        value: i32,
+    }
+
+    impl Component for TestComponent {}
+
+    #[test]
+    fn test_entity_builder() {
+        let mut app = GearsApp::default();
+
+        let entity = app
+            .new_entity()
+            .add_component(TestComponent { value: 10 })
+            .build();
+
+        let ecs = app.ecs.lock().unwrap();
+
+        let entities = ecs.entity_count();
+        assert_eq!(entities, 1);
+
+        let component = ecs
+            .get_component_from_entity::<TestComponent>(entity)
+            .unwrap();
+        assert_eq!(component.read().unwrap().value, 10);
+    }
+}
