@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Fixed Camera"),
-        components::Pos3::new(cgmath::Vector3::new(5.0, 5.0, 5.0)),
+        components::Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
         components::Camera::Fixed {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
         }
