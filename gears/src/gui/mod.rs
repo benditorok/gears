@@ -71,7 +71,7 @@ impl EguiRenderer {
         encoder: &mut CommandEncoder,
         window: &Window,
         window_surface_view: &TextureView,
-        screen_descriptor: ScreenDescriptor,
+        screen_descriptor: &ScreenDescriptor,
         run_ui: &mut impl FnMut(&egui::Context),
     ) {
         let raw_input = self.state.take_egui_input(window);

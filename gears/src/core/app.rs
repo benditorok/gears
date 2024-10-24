@@ -27,6 +27,7 @@ pub struct GearsApp {
     ecs: Arc<Mutex<ecs::Manager>>,
     pub thread_pool: ThreadPool,
     event_queue: EventQueue,
+    egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
     tx_dt: Option<broadcast::Sender<Dt>>,
     rx_dt: Option<broadcast::Receiver<Dt>>,
     is_running: Arc<AtomicBool>,
@@ -50,6 +51,7 @@ impl App for GearsApp {
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
             ecs: Arc::new(Mutex::new(ecs::Manager::default())),
+            egui_windows: None,
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
@@ -84,7 +86,7 @@ impl App for GearsApp {
         let tx = self.tx_dt.take().unwrap();
 
         // Run the event loop
-        renderer::run(Arc::clone(&self.ecs), tx).await
+        renderer::run(Arc::clone(&self.ecs), tx, self.egui_windows.take()).await
     }
 
     /// Get the delta time channel.
@@ -154,6 +156,14 @@ impl GearsApp {
         });
 
         Ok(())
+    }
+
+    pub fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>) {
+        if let Some(windows) = &mut self.egui_windows {
+            windows.push(window);
+        } else {
+            self.egui_windows = Some(vec![window]);
+        }
     }
 }
 
