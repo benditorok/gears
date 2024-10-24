@@ -17,6 +17,7 @@ pub trait App {
     #[allow(async_fn_in_trait)]
     async fn run(&mut self) -> anyhow::Result<()>;
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>>;
+    #[allow(async_fn_in_trait)]
     async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
     where
         F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static;
@@ -24,7 +25,8 @@ pub trait App {
     // TODO add a create job fn to access the thread pool
 }
 
-/// The main application.
+/// This struct is used to manage the entire application.
+/// The application can also be used to create entities, add components, windows etc. to itself.
 pub struct GearsApp {
     config: Config,
     ecs: Arc<Mutex<ecs::Manager>>,
@@ -43,7 +45,16 @@ impl Default for GearsApp {
 }
 
 impl App for GearsApp {
-    // Initialize the application.
+    /// Initialize the application.
+    /// This will create a new instance of the application with the given configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration for the application.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of the application.
     fn new(config: config::Config) -> Self {
         assert!(config.threadpool_size >= 1);
 
@@ -61,7 +72,7 @@ impl App for GearsApp {
         }
     }
 
-    /// Run the application.
+    /// Run the application and start the event loop.
     async fn run(&mut self) -> anyhow::Result<()> {
         // TODO env builder should be initialized by the user (in main.rs)
         // Initialize logger
@@ -92,7 +103,13 @@ impl App for GearsApp {
         self.tx_dt.as_ref().map(|tx| tx.subscribe())
     }
 
-    /// Create a new update job.
+    /// This will create a new async task that will run the given update function on each update.
+    /// The function will be passed the ecs manager and the delta time.ű
+    /// **The update loop will run until the application is stopped.**
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The function to run on each update.
     async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
     where
         F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static,
@@ -121,6 +138,10 @@ impl App for GearsApp {
     }
 
     /// Add a custom window to the app.
+    ///
+    /// # Arguments
+    ///
+    /// * `window` - A function that will be called to render the window.
     fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>) {
         if let Some(windows) = &mut self.egui_windows {
             windows.push(window);
@@ -132,6 +153,8 @@ impl App for GearsApp {
 
 impl GearsApp {
     /// Create a new update job.
+    /// This will create a new async task that will run the given update function on each update.
+    #[warn(unstable_features)]
     pub async fn update_loop_async<F>(&self, f: F) -> anyhow::Result<()>
     where
         F: Fn(Arc<Mutex<ecs::Manager>>, Dt) -> Pin<Box<dyn Future<Output = ()> + Send>>
