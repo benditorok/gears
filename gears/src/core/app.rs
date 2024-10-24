@@ -200,6 +200,8 @@ impl ecs::traits::EntityBuilder for GearsApp {
 
 #[cfg(test)]
 mod tests {
+    use crate::new_entity;
+
     use super::*;
     use ecs::traits::EntityBuilder;
 
@@ -218,6 +220,23 @@ mod tests {
             .new_entity()
             .add_component(TestComponent { value: 10 })
             .build();
+
+        let ecs = app.ecs.lock().unwrap();
+
+        let entities = ecs.entity_count();
+        assert_eq!(entities, 1);
+
+        let component = ecs
+            .get_component_from_entity::<TestComponent>(entity)
+            .unwrap();
+        assert_eq!(component.read().unwrap().value, 10);
+    }
+
+    #[test]
+    fn test_new_entity_macro() {
+        let mut app = crate::core::app::GearsApp::default();
+
+        let entity = new_entity!(app, TestComponent { value: 10 });
 
         let ecs = app.ecs.lock().unwrap();
 
