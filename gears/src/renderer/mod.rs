@@ -9,11 +9,14 @@ pub mod traits;
 use crate::core::Dt;
 use crate::ecs::components::{Flip, Name, Scale};
 use crate::ecs::{self, components};
+use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
 use cgmath::*;
+use egui_wgpu::ScreenDescriptor;
 use instant::Duration;
 use log::{info, warn};
 use model::{DrawModel, Vertex};
+use winit::window::WindowAttributes;
 use std::f32::consts::FRAC_PI_2;
 use std::num::NonZero;
 use std::sync::{Arc, Mutex};
@@ -21,12 +24,12 @@ use std::{any, iter};
 use tokio::sync::{broadcast, Mutex as TokioMutex};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
-use winit::event::*;
+use winit::event::{self, *};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
-    window::{Window, WindowBuilder},
+    window::{Window},
 };
 
 #[rustfmt::skip]
@@ -36,8 +39,8 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 0.5,
     0.0, 0.0, 0.0, 1.0,
 );
-
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
+
 /// The main event loop of the application
 ///
 /// # Returns
@@ -47,13 +50,19 @@ pub async fn run(
     world: Arc<Mutex<ecs::Manager>>,
     tx_dt: broadcast::Sender<Dt>,
 ) -> anyhow::Result<()> {
-    let event_loop = EventLoop::new().unwrap();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    // * Window creation
+    let event_loop = EventLoop::new()?;
+    let window_attributes = WindowAttributes::default()
+        .with_title("Winit window")
+        .with_transparent(true)
+        .with_window_icon(None);
 
+    let window = event_loop.create_window(window_attributes)?;
     let mut state = State::new(&window, world).await;
     state.init_components().await?;
     let mut last_render_time = instant::Instant::now();
-
+    
+    // * Event loop
     event_loop
         .run(move |event, ewlt| match event {
             // todo HANDLE this on a separate thread
@@ -158,6 +167,8 @@ struct State<'a> {
     ecs: Arc<Mutex<ecs::Manager>>,
     mouse_pressed: bool,
     draw_colliders: bool,
+    egui_renderer: EguiRenderer,
+    egui_windows: Vec<egui::Window<'a>>,    
 }
 
 impl<'a> State<'a> {
@@ -172,9 +183,10 @@ impl<'a> State<'a> {
         });
         let surface = instance.create_surface(window).unwrap();
 
+        let power_pref = wgpu::PowerPreference::default();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
+                power_preference: power_pref,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
@@ -183,7 +195,6 @@ impl<'a> State<'a> {
 
         log::warn!("[State] Device and Queue");
         let required_features = wgpu::Features::BUFFER_BINDING_ARRAY;
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -359,6 +370,9 @@ impl<'a> State<'a> {
         //     )
         // };
 
+        let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, window);
+        let egui_windows = vec![];
+
         Self {
             surface,
             device,
@@ -384,6 +398,8 @@ impl<'a> State<'a> {
             ecs,
             mouse_pressed: false,
             draw_colliders: true,
+            egui_renderer,
+            egui_windows,
         }
     }
 
@@ -708,6 +724,9 @@ impl<'a> State<'a> {
         }
     }
     fn input(&mut self, event: &WindowEvent) -> bool {
+        // TODO is this important? chek perf on DGPU
+        self.window.request_redraw();
+
         match event {
             WindowEvent::KeyboardInput {
                 event:
@@ -866,13 +885,13 @@ impl<'a> State<'a> {
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
 
+        // ! Graphical render pass
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -924,6 +943,39 @@ impl<'a> State<'a> {
                     render_pass.draw_model(model, &self.camera_bind_group, &self.light_bind_group);
                 }
             }
+        }
+
+        // ! Egui render pass for the custom UI windows
+        {
+            // * if a custom ui is present
+            let screen_descriptor = ScreenDescriptor {
+                size_in_pixels: [self.config.width, self.config.height],
+                pixels_per_point: self.window.scale_factor() as f32
+            };
+    
+            self.egui_renderer.draw_ui_full(&self.device, &self.queue, &mut encoder, &self.window, &view, screen_descriptor, &mut |ui| {
+                egui::Window::new("TestWindow")
+                // .vscroll(true)
+                .default_open(true)
+                .max_width(1000.0)
+                .max_height(800.0)
+                .default_width(800.0)
+                .resizable(true)
+                .default_pos([0.0, 0.0])
+                //.anchor(Align2::LEFT_TOP, [0.0, 0.0])
+                .show(&ui, |mut ui| {
+                    if ui.add(egui::Button::new("Click me")).clicked() {
+                        println!("PRESSED")
+                    }
+
+                    ui.label("Slider");
+                    // ui.add(egui::Slider::new(_, 0..=120).text("age"));
+
+                    ui.end_row();
+
+                    // proto_scene.egui(ui);
+                });
+            });
         }
 
         self.queue.submit(iter::once(encoder.finish()));
