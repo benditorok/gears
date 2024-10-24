@@ -14,7 +14,6 @@ pub fn example_gui(ui: &egui::Context) {
             if ui.add(egui::Button::new("Click me")).clicked() {
                 warn!("Button clicked in the custom window!");
             }
-            ui.label("Slider");
             ui.end_row();
         });
 }
