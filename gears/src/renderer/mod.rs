@@ -9,8 +9,10 @@ pub mod traits;
 use crate::core::Dt;
 use crate::ecs::components::{Flip, Name, Scale};
 use crate::ecs::{self, components};
+use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
 use cgmath::*;
+use egui_wgpu::ScreenDescriptor;
 use instant::Duration;
 use log::{info, warn};
 use model::{DrawModel, Vertex};
@@ -21,12 +23,13 @@ use std::{any, iter};
 use tokio::sync::{broadcast, Mutex as TokioMutex};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
-use winit::event::*;
+use winit::event::{self, *};
+use winit::window::WindowAttributes;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
-    window::{Window, WindowBuilder},
+    window::Window,
 };
 
 #[rustfmt::skip]
@@ -36,92 +39,115 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 0.5,
     0.0, 0.0, 0.0, 1.0,
 );
-
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
+
 /// The main event loop of the application
 ///
 /// # Returns
 ///
 /// A future which can be awaited.
 pub async fn run(
-    world: Arc<Mutex<ecs::Manager>>,
+    ecs: Arc<Mutex<ecs::Manager>>,
     tx_dt: broadcast::Sender<Dt>,
+    egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
 ) -> anyhow::Result<()> {
-    let event_loop = EventLoop::new().unwrap();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    // * Window creation
+    let event_loop = EventLoop::new()?;
+    let window_attributes = WindowAttributes::default()
+        .with_title("Winit window")
+        .with_transparent(true)
+        .with_window_icon(None);
 
-    let mut state = State::new(&window, world).await;
+    let window = event_loop.create_window(window_attributes)?;
+    let mut state = State::new(&window, ecs).await;
     state.init_components().await?;
+
+    if let Some(egui_windows) = egui_windows {
+        state.egui_windows = egui_windows;
+    }
+
     let mut last_render_time = instant::Instant::now();
 
+    // * Event loop
     event_loop
-        .run(move |event, ewlt| match event {
-            // todo HANDLE this on a separate thread
-            Event::DeviceEvent {
-                event: DeviceEvent::MouseMotion{ delta, },
-                .. // We're not using device_id currently
-            } => if state.mouse_pressed {
-                state.camera_controller.process_mouse(delta.0, delta.1)
-            },
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == state.window().id() && !state.input(event) => {
-                match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        event:
-                            KeyEvent {
-                                state: ElementState::Pressed,
-                                physical_key: PhysicalKey::Code(KeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    } => ewlt.exit(),
-                    WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
-                    },
-                    // WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {
-                    //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
-                    // }
-                    WindowEvent::RedrawRequested => {
-                        let now = instant::Instant::now();
-                        let dt = now - last_render_time;
-                        last_render_time = now;
+        .run(move |event, ewlt| {
+            // if let Event::DeviceEvent {
+            //     event: DeviceEvent::MouseMotion{ delta, },
+            //     .. // We're not using device_id currently
+            // } = event {
+            //     if state.mouse_pressed {
+            //         state.camera_controller.process_mouse(delta.0, delta.1);
+            //     }
+            // }
 
-                        info!(
-                            "FPS: {:.0}, frame time: {} ms",
-                            1.0 / &dt.as_secs_f32(),
-                            &dt.as_millis()
-                        );
-
-                        // Send the delta time using the broadcast channel
-                        if let Err(e) = tx_dt.send(dt) {
-                            log::warn!("Failed to send delta time: {:?}", e);
+            match event {
+                // todo HANDLE this on a separate thread
+                Event::DeviceEvent {
+                    event: DeviceEvent::MouseMotion{ delta, },
+                    .. // We're not using device_id currently
+                } => if state.mouse_pressed {
+                    state.camera_controller.process_mouse(delta.0, delta.1)
+                },
+                Event::WindowEvent {
+                    ref event,
+                    window_id,
+                } if window_id == state.window().id() && !state.input(event) => {
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            event:
+                                KeyEvent {
+                                    state: ElementState::Pressed,
+                                    physical_key: PhysicalKey::Code(KeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => ewlt.exit(),
+                        WindowEvent::Resized(physical_size) => {
+                            state.resize(*physical_size);
                         }
-                        
-                        futures::executor::block_on(state.update(dt));
+                        // WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {
+                        //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
+                        // }
+                        WindowEvent::RedrawRequested => {
+                            let now = instant::Instant::now();
+                            let dt = now - last_render_time;
+                            last_render_time = now;
 
-                        match state.render() {
-                            Ok(_) => {}
-                            // Reconfigure the surface if it's lost or outdated
-                            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                                state.resize(state.size)
+                            info!(
+                                "FPS: {:.0}, frame time: {} ms",
+                                1.0 / &dt.as_secs_f32(),
+                                &dt.as_millis()
+                            );
+
+                            // Send the delta time using the broadcast channel
+                            if let Err(e) = tx_dt.send(dt) {
+                                log::warn!("Failed to send delta time: {:?}", e);
                             }
-                            // The system is out of memory, we should probably quit
-                            Err(wgpu::SurfaceError::OutOfMemory) => ewlt.exit(),
-                            // We're ignoring timeouts
-                            Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
+
+                            futures::executor::block_on(state.update(dt));
+
+                            match state.render() {
+                                Ok(_) => {}
+                                // Reconfigure the surface if it's lost or outdated
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                    state.resize(state.size)
+                                }
+                                // The system is out of memory, we should probably quit
+                                Err(wgpu::SurfaceError::OutOfMemory) => ewlt.exit(),
+                                // We're ignoring timeouts
+                                Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
+                            }
                         }
-                    }
-                    _ => {}
-                };
+                        _ => {}
+                    };
+                }
+                Event::AboutToWait => {
+                    // RedrawRequested will only trigger once unless manually requested.
+                    state.window().request_redraw();
+                }
+                _ => {}
             }
-            Event::AboutToWait => {
-                // RedrawRequested will only trigger once unless manually requested.
-                state.window().request_redraw();
-            }
-            _ => {}
         })
         .unwrap();
 
@@ -135,29 +161,25 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    //light_render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
     camera_projection: camera::Projection,
     camera_controller: camera::CameraController,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    // TODO add a buffer for the models
-    // ! LIGHT COMPONENTS
     light_entities: Option<Vec<ecs::Entity>>,
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
-    //
     model_entities: Option<Vec<ecs::Entity>>,
-    //
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
-    #[allow(dead_code)]
     depth_texture: texture::Texture,
     window: &'a Window,
     ecs: Arc<Mutex<ecs::Manager>>,
     mouse_pressed: bool,
     draw_colliders: bool,
+    egui_renderer: EguiRenderer,
+    egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
 }
 
 impl<'a> State<'a> {
@@ -172,9 +194,10 @@ impl<'a> State<'a> {
         });
         let surface = instance.create_surface(window).unwrap();
 
+        let power_pref = wgpu::PowerPreference::default();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
+                power_preference: power_pref,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
@@ -183,7 +206,6 @@ impl<'a> State<'a> {
 
         log::warn!("[State] Device and Queue");
         let required_features = wgpu::Features::BUFFER_BINDING_ARRAY;
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -359,6 +381,9 @@ impl<'a> State<'a> {
         //     )
         // };
 
+        let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, window);
+        let egui_windows = vec![];
+
         Self {
             surface,
             device,
@@ -366,7 +391,6 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            //light_render_pipeline,
             camera: state_camera,
             camera_projection,
             texture_bind_group_layout,
@@ -384,6 +408,8 @@ impl<'a> State<'a> {
             ecs,
             mouse_pressed: false,
             draw_colliders: true,
+            egui_renderer,
+            egui_windows,
         }
     }
 
@@ -534,7 +560,11 @@ impl<'a> State<'a> {
                         direction: [0.0; 3],
                         intensity,
                     },
-                    components::Light::PointColoured { radius, color, intensity } => light::LightUniform {
+                    components::Light::PointColoured {
+                        radius,
+                        color,
+                        intensity,
+                    } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Point as u32,
                         color,
@@ -542,7 +572,7 @@ impl<'a> State<'a> {
                         direction: [0.0; 3],
                         intensity,
                     },
-                    components::Light::Ambient {intensity} => light::LightUniform {
+                    components::Light::Ambient { intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Ambient as u32,
                         color: [1.0, 1.0, 1.0],
@@ -550,15 +580,20 @@ impl<'a> State<'a> {
                         direction: [0.0; 3],
                         intensity,
                     },
-                    components::Light::AmbientColoured { color, intensity } => light::LightUniform {
-                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
-                        light_type: light::LightType::Ambient as u32,
-                        color,
-                        radius: 0.0,
-                        direction: [0.0; 3],
+                    components::Light::AmbientColoured { color, intensity } => {
+                        light::LightUniform {
+                            position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
+                            light_type: light::LightType::Ambient as u32,
+                            color,
+                            radius: 0.0,
+                            direction: [0.0; 3],
+                            intensity,
+                        }
+                    }
+                    components::Light::Directional {
+                        direction,
                         intensity,
-                    },
-                    components::Light::Directional {direction, intensity} => light::LightUniform {
+                    } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Directional as u32,
                         color: [1.0, 1.0, 1.0],
@@ -566,7 +601,11 @@ impl<'a> State<'a> {
                         direction,
                         intensity,
                     },
-                    components::Light::DirectionalColoured { direction, color, intensity } => light::LightUniform {
+                    components::Light::DirectionalColoured {
+                        direction,
+                        color,
+                        intensity,
+                    } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Directional as u32,
                         color,
@@ -626,7 +665,7 @@ impl<'a> State<'a> {
                         &self.texture_bind_group_layout,
                     )
                     .await
-                    .unwrap()
+                    .unwrap(),
                 }
             };
             ecs_lock.add_component_to_entity(*entity, obj_model);
@@ -636,7 +675,9 @@ impl<'a> State<'a> {
                 let rlock_pos = pos.read().unwrap();
                 instance::Instance {
                     position: rlock_pos.pos,
-                    rotation: rlock_pos.rot.unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0))),
+                    rotation: rlock_pos
+                        .rot
+                        .unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0))),
                 }
             };
 
@@ -708,6 +749,15 @@ impl<'a> State<'a> {
         }
     }
     fn input(&mut self, event: &WindowEvent) -> bool {
+        // TODO is this important? chek perf on DGPU
+        //self.window.request_redraw();
+
+        // * Capture the input for the custom windows
+        if self.egui_renderer.handle_input(self.window, event) {
+            // If a window consumed the event return true since no other component should handle it again
+            return true;
+        }
+
         match event {
             WindowEvent::KeyboardInput {
                 event:
@@ -769,11 +819,8 @@ impl<'a> State<'a> {
                     // TODO update the colors
                     let rlock_pos = pos.read().unwrap();
 
-                    light_uniform.write().unwrap().position = [
-                        rlock_pos.pos.x,
-                        rlock_pos.pos.y,
-                        rlock_pos.pos.z,
-                    ];
+                    light_uniform.write().unwrap().position =
+                        [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z];
                 }
 
                 let rlock_light_uniform = light_uniform.read().unwrap();
@@ -807,7 +854,7 @@ impl<'a> State<'a> {
                 let ecs_lock = self.ecs.lock().unwrap();
 
                 let model_type = ecs_lock.get_component_from_entity::<components::Model>(*entity);
-                
+
                 if let Some(model_type) = model_type {
                     let model_type = model_type.read().unwrap();
                     if let components::Model::Static { .. } = *model_type {
@@ -831,9 +878,11 @@ impl<'a> State<'a> {
                     let rlock_pos3 = pos.read().unwrap();
 
                     wlock_instance.position = rlock_pos3.pos;
-                    wlock_instance.rotation = rlock_pos3.rot.unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0)));
+                    wlock_instance.rotation = rlock_pos3
+                        .rot
+                        .unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0)));
                 }
-                    
+
                 let instance_raw = instance.read().unwrap().to_raw();
                 self.queue.write_buffer(
                     &buffer.write().unwrap(),
@@ -866,13 +915,13 @@ impl<'a> State<'a> {
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
 
+        // ! Graphical render pass
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -923,6 +972,27 @@ impl<'a> State<'a> {
                     // Draw model
                     render_pass.draw_model(model, &self.camera_bind_group, &self.light_bind_group);
                 }
+            }
+        }
+
+        // ! Egui render pass for the custom UI windows
+        if !self.egui_windows.is_empty() {
+            // * if a custom ui is present
+            let screen_descriptor = ScreenDescriptor {
+                size_in_pixels: [self.config.width, self.config.height],
+                pixels_per_point: self.window.scale_factor() as f32,
+            };
+
+            for window in self.egui_windows.iter_mut() {
+                self.egui_renderer.draw_ui_full(
+                    &self.device,
+                    &self.queue,
+                    &mut encoder,
+                    self.window,
+                    &view,
+                    &screen_descriptor,
+                    window,
+                );
             }
         }
 

@@ -14,19 +14,25 @@ use tokio::sync::broadcast;
 
 pub trait App {
     fn new(config: Config) -> Self;
-    fn map_ecs(&mut self, ecs: ecs::Manager) -> Arc<Mutex<ecs::Manager>>;
     #[allow(async_fn_in_trait)]
     async fn run(&mut self) -> anyhow::Result<()>;
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>>;
+    #[allow(async_fn_in_trait)]
+    async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
+    where
+        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static;
+    fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>);
     // TODO add a create job fn to access the thread pool
 }
 
-/// The main application.
+/// This struct is used to manage the entire application.
+/// The application can also be used to create entities, add components, windows etc. to itself.
 pub struct GearsApp {
     config: Config,
     ecs: Arc<Mutex<ecs::Manager>>,
     pub thread_pool: ThreadPool,
     event_queue: EventQueue,
+    egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
     tx_dt: Option<broadcast::Sender<Dt>>,
     rx_dt: Option<broadcast::Receiver<Dt>>,
     is_running: Arc<AtomicBool>,
@@ -39,7 +45,16 @@ impl Default for GearsApp {
 }
 
 impl App for GearsApp {
-    // Initialize the application.
+    /// Initialize the application.
+    /// This will create a new instance of the application with the given configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration for the application.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of the application.
     fn new(config: config::Config) -> Self {
         assert!(config.threadpool_size >= 1);
 
@@ -50,19 +65,14 @@ impl App for GearsApp {
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
             ecs: Arc::new(Mutex::new(ecs::Manager::default())),
+            egui_windows: None,
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
         }
     }
 
-    /// Map the world to the app.
-    fn map_ecs(&mut self, world: ecs::Manager) -> Arc<Mutex<ecs::Manager>> {
-        self.ecs = Arc::new(Mutex::new(world));
-        Arc::clone(&self.ecs)
-    }
-
-    /// Run the application.
+    /// Run the application and start the event loop.
     async fn run(&mut self) -> anyhow::Result<()> {
         // TODO env builder should be initialized by the user (in main.rs)
         // Initialize logger
@@ -84,7 +94,7 @@ impl App for GearsApp {
         let tx = self.tx_dt.take().unwrap();
 
         // Run the event loop
-        renderer::run(Arc::clone(&self.ecs), tx).await
+        renderer::run(Arc::clone(&self.ecs), tx, self.egui_windows.take()).await
     }
 
     /// Get the delta time channel.
@@ -92,10 +102,59 @@ impl App for GearsApp {
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>> {
         self.tx_dt.as_ref().map(|tx| tx.subscribe())
     }
+
+    /// This will create a new async task that will run the given update function on each update.
+    /// The function will be passed the ecs manager and the delta time.ű
+    /// **The update loop will run until the application is stopped.**
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The function to run on each update.
+    async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
+    where
+        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static,
+    {
+        let mut rx_dt = self
+            .get_dt_channel()
+            .ok_or_else(|| anyhow::anyhow!("No dt channel exists"))?;
+
+        let ecs = Arc::clone(&self.ecs);
+        let is_running = Arc::clone(&self.is_running);
+
+        tokio::spawn(async move {
+            while is_running.load(std::sync::atomic::Ordering::Relaxed) {
+                match rx_dt.recv().await {
+                    Ok(dt) => f(Arc::clone(&ecs), dt),
+                    Err(e) => {
+                        eprintln!("Failed to receive: {:?}", e);
+                    }
+                }
+            }
+
+            info!("Update loop stopped...");
+        });
+
+        Ok(())
+    }
+
+    /// Add a custom window to the app.
+    ///
+    /// # Arguments
+    ///
+    /// * `window` - A function that will be called to render the window.
+    fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>) {
+        if let Some(windows) = &mut self.egui_windows {
+            windows.push(window);
+        } else {
+            self.egui_windows = Some(vec![window]);
+        }
+    }
 }
 
 impl GearsApp {
     /// Create a new update job.
+    /// This will create a new async task that will run the given update function on each update.
+    #[warn(unstable_features)]
     pub async fn update_loop_async<F>(&self, f: F) -> anyhow::Result<()>
     where
         F: Fn(Arc<Mutex<ecs::Manager>>, Dt) -> Pin<Box<dyn Future<Output = ()> + Send>>
@@ -116,34 +175,6 @@ impl GearsApp {
                     Ok(dt) => {
                         f(Arc::clone(&ecs), dt).await;
                     }
-                    Err(e) => {
-                        eprintln!("Failed to receive: {:?}", e);
-                    }
-                }
-            }
-
-            info!("Update loop stopped...");
-        });
-
-        Ok(())
-    }
-
-    /// Create a new update job.
-    pub async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
-    where
-        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static,
-    {
-        let mut rx_dt = self
-            .get_dt_channel()
-            .ok_or_else(|| anyhow::anyhow!("No dt channel exists"))?;
-
-        let ecs = Arc::clone(&self.ecs);
-        let is_running = Arc::clone(&self.is_running);
-
-        tokio::spawn(async move {
-            while is_running.load(std::sync::atomic::Ordering::Relaxed) {
-                match rx_dt.recv().await {
-                    Ok(dt) => f(Arc::clone(&ecs), dt),
                     Err(e) => {
                         eprintln!("Failed to receive: {:?}", e);
                     }
@@ -195,5 +226,57 @@ impl ecs::traits::EntityBuilder for GearsApp {
         } else {
             ecs.create_entity()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::new_entity;
+
+    use super::*;
+    use ecs::traits::EntityBuilder;
+
+    #[derive(Debug, PartialEq)]
+    struct TestComponent {
+        value: i32,
+    }
+
+    impl Component for TestComponent {}
+
+    #[test]
+    fn test_entity_builder() {
+        let mut app = GearsApp::default();
+
+        let entity = app
+            .new_entity()
+            .add_component(TestComponent { value: 10 })
+            .build();
+
+        let ecs = app.ecs.lock().unwrap();
+
+        let entities = ecs.entity_count();
+        assert_eq!(entities, 1);
+
+        let component = ecs
+            .get_component_from_entity::<TestComponent>(entity)
+            .unwrap();
+        assert_eq!(component.read().unwrap().value, 10);
+    }
+
+    #[test]
+    fn test_new_entity_macro() {
+        let mut app = crate::core::app::GearsApp::default();
+
+        let entity = new_entity!(app, TestComponent { value: 10 });
+
+        let ecs = app.ecs.lock().unwrap();
+
+        let entities = ecs.entity_count();
+        assert_eq!(entities, 1);
+
+        let component = ecs
+            .get_component_from_entity::<TestComponent>(entity)
+            .unwrap();
+        assert_eq!(component.read().unwrap().value, 10);
     }
 }

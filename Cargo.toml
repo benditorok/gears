@@ -30,7 +30,7 @@ futures = "0.3.31"
 anyhow = "1.0.89"
 cfg-if = "1"
 instant = "0.1.13"
-winit = { version = "0.29", features = ["rwh_05"] }
+winit = { version = "0.30.5", features = ["rwh_05"] }
 env_logger = "0.11.5"
 log = "0.4"
 wgpu = "22.0"
@@ -41,3 +41,7 @@ tobj = { version = "4.0.2", features = [
 ]}
 image = { version = "0.25.4", default-features = false, features = ["png", "jpeg"] }
 rand = "0.8"
+egui = "0.29.1"
+raw-window-handle = "0.6.2"
+egui-wgpu = { version = "0.29.1",features = ["winit"] }
+egui-winit = "0.29.1"

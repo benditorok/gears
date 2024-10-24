@@ -21,6 +21,9 @@ rand = { workspace = true }
 cgmath = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
+egui = { workspace = true }
+egui-wgpu = { workspace = true }
+egui-winit = { workspace = true }
 
 [[bin]]
 name = "minimal"
@@ -29,3 +32,7 @@ path = "src/minimal.rs"
 [[bin]]
 name = "sandbox"
 path = "src/sandbox.rs"
+
+[[bin]]
+name = "custom_window"
+path = "src/custom_window.rs"
