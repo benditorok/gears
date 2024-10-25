@@ -6,6 +6,11 @@ use std::f32::consts::PI;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Initialize the logger
+    let mut env_builder = env_logger::Builder::new();
+    env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
+    env_builder.init();
+
     let mut app = GearsApp::default();
 
     // Add FPS camera

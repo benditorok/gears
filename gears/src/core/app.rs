@@ -1,4 +1,4 @@
-use super::config::{self, Config, LogConfig, LogLevel};
+use super::config::{self, Config};
 use super::Dt;
 use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::ecs::traits::Component;
@@ -74,21 +74,6 @@ impl App for GearsApp {
 
     /// Run the application and start the event loop.
     async fn run(&mut self) -> anyhow::Result<()> {
-        // TODO env builder should be initialized by the user (in main.rs)
-        // Initialize logger
-        let mut env_builder = env_logger::Builder::new();
-        // Set the minimum log level from the config.
-        env_builder.filter_level(match self.config.log.level {
-            LogLevel::Error => log::LevelFilter::Error,
-            LogLevel::Warn => log::LevelFilter::Warn,
-            LogLevel::Info => log::LevelFilter::Info,
-            LogLevel::Debug => log::LevelFilter::Debug,
-            LogLevel::Trace => log::LevelFilter::Trace,
-        });
-        // Filter out specific log messages
-        env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
-        env_builder.init();
-
         info!("Starting Gears...");
 
         let tx = self.tx_dt.take().unwrap();
