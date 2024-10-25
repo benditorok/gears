@@ -1,6 +1,6 @@
 use cgmath::{One, Quaternion, Rotation3};
 use gears::{new_entity, prelude::*};
-use log::warn;
+use log::{warn, LevelFilter};
 
 pub fn example_gui(ui: &egui::Context) {
     egui::Window::new("TestWindow")
@@ -22,6 +22,7 @@ pub fn example_gui(ui: &egui::Context) {
 async fn main() -> anyhow::Result<()> {
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
+    env_builder.filter_level(LevelFilter::Info);
     env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
     env_builder.init();
 

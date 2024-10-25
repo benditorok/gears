@@ -1,10 +1,12 @@
 use cgmath::{One, Quaternion, Rotation3};
 use gears::{new_entity, prelude::*};
+use log::LevelFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
+    env_builder.filter_level(LevelFilter::Info);
     env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
     env_builder.init();
 
