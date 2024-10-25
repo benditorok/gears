@@ -154,6 +154,10 @@ pub async fn run(
     Ok(())
 }
 
+/// Global state of the application. This is where all rendering related data is stored.
+///
+/// The State is responsible for handling the rendering pipeline, the camera, the lights,
+/// the models, the window, etc.
 struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
@@ -183,17 +187,24 @@ struct State<'a> {
 }
 
 impl<'a> State<'a> {
+    /// Create a new instance of the State.
+    ///
+    /// # Arguments
+    ///
+    /// * `window` - The window to render to.
+    /// * `ecs` - The ECS manager.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of the State.
     async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
-        log::warn!("[State] Setup starting...");
-        let size = window.inner_size();
-
+        // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
         let surface = instance.create_surface(window).unwrap();
-
         let power_pref = wgpu::PowerPreference::default();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -204,7 +215,7 @@ impl<'a> State<'a> {
             .await
             .unwrap();
 
-        log::warn!("[State] Device and Queue");
+        // * Initializing the device and queue
         let required_features = wgpu::Features::BUFFER_BINDING_ARRAY;
         let (device, queue) = adapter
             .request_device(
@@ -219,7 +230,8 @@ impl<'a> State<'a> {
             .await
             .unwrap();
 
-        log::warn!("[State] Surface");
+        // * Configuring the surface
+        let size = window.inner_size();
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps
             .formats
@@ -238,6 +250,7 @@ impl<'a> State<'a> {
             desired_maximum_frame_latency: 2,
         };
 
+        // ! BIND GROUP LAYOUTS
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
@@ -260,7 +273,6 @@ impl<'a> State<'a> {
                 ],
                 label: Some("texture_bind_group_layout"),
             });
-
         let light_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -275,7 +287,6 @@ impl<'a> State<'a> {
                 }],
                 label: Some("light_bind_group_layout"),
             });
-
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -291,38 +302,18 @@ impl<'a> State<'a> {
                 label: Some("camera_bind_group_layout"),
             });
 
-        // * INITIALIZING STATE COMPONENTS
-        // ! CAMERA COMPONENT
+        // * Initializing the camera
+        // * Camera component is initialized here because there can be only one
+        // * camera entity in the scene and the state needs constant access to it
         let (state_camera, state_camera_controller) = Self::init_camera(Arc::clone(&ecs));
-
-        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light Buffer"),
-            contents: &[0; std::mem::size_of::<light::LightData>()], // ! Initialize the buffer for the maximum number of lights
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &light_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_buffer.as_entire_binding(),
-            }],
-            label: Some("light_bind_group"),
-        });
-        // ! MODELS -> init_models()
-        // * INITIALIZING STATE COMPONENTS
-
-        /* CAMERA */
         let camera_projection =
             camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
         let camera_uniform = camera::CameraUniform::new();
-
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&[camera_uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -332,11 +323,24 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
-        // TODO same models should be in the same buffer
+        // * Light buffer and bind group
+        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Buffer"),
+            contents: &[0; std::mem::size_of::<light::LightData>()], // ! Initialize the buffer for the maximum number of lights
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &light_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: light_buffer.as_entire_binding(),
+            }],
+            label: Some("light_bind_group"),
+        });
 
+        // ! Global render pipeline
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
-
         let render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -361,26 +365,7 @@ impl<'a> State<'a> {
             )
         };
 
-        // let light_render_pipeline = {
-        //     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        //         label: Some("Light Pipeline Layout"),
-        //         bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
-        //         push_constant_ranges: &[],
-        //     });
-        //     let shader = wgpu::ShaderModuleDescriptor {
-        //         label: Some("Light Shader"),
-        //         source: wgpu::ShaderSource::Wgsl(include_str!("light.wgsl").into()),
-        //     };
-        //     Self::create_render_pipeline(
-        //         &device,
-        //         &layout,
-        //         config.format,
-        //         Some(texture::Texture::DEPTH_FORMAT),
-        //         &[model::ModelVertex::desc()],
-        //         shader,
-        //     )
-        // };
-
+        // * Initializing the egui renderer
         let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, window);
         let egui_windows = vec![];
 
@@ -413,6 +398,21 @@ impl<'a> State<'a> {
         }
     }
 
+    /// Create a new render pipeline.
+    /// This function is used to create a new render pipeline for the given device.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The wgpu device.
+    /// * `layout` - The pipeline layout.
+    /// * `color_format` - The texture format for the output color.
+    /// * `depth_format` - The texture format for the output depth.
+    /// * `vertex_layouts` - The vertex buffer layouts.
+    /// * `shader` - The shader module descriptor.
+    ///
+    /// # Returns
+    ///
+    /// A new render pipeline.
     fn create_render_pipeline(
         device: &wgpu::Device,
         layout: &wgpu::PipelineLayout,
@@ -474,6 +474,7 @@ impl<'a> State<'a> {
         })
     }
 
+    /// Initialize the components which can be rendered.
     async fn init_components(&mut self) -> anyhow::Result<()> {
         self.init_lights().await;
         self.init_models().await;
@@ -481,6 +482,15 @@ impl<'a> State<'a> {
         Ok(())
     }
 
+    /// Initialize the camera component.
+    ///
+    /// # Arguments
+    ///
+    /// * `ecs` - The ECS manager.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the camera and the camera controller.
     fn init_camera(ecs: Arc<Mutex<ecs::Manager>>) -> (camera::Camera, camera::CameraController) {
         let ecs_lock = ecs.lock().unwrap();
         let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
@@ -534,6 +544,11 @@ impl<'a> State<'a> {
         }
     }
 
+    /// Initialize the light components.
+    ///
+    /// # Returns
+    ///
+    /// A future which can be awaited.
     async fn init_lights(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
         let light_entities = ecs_lock.get_entites_with_component::<components::Light>();
@@ -625,6 +640,11 @@ impl<'a> State<'a> {
         self.light_entities = Some(light_entities);
     }
 
+    /// Initialize the model components.
+    ///
+    /// # Returns
+    ///
+    /// A future which can be awaited.
     async fn init_models(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
         let model_entities = ecs_lock.get_entites_with_component::<components::Model>();
@@ -730,10 +750,20 @@ impl<'a> State<'a> {
         self.model_entities = Some(model_entities);
     }
 
+    /// Get a reference to the window used by the state.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the window.
     pub fn window(&self) -> &Window {
         self.window
     }
 
+    /// Resize the window when the size changes.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_size` - The new size of the window.
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.camera_projection
             .resize(new_size.width, new_size.height);
@@ -748,10 +778,17 @@ impl<'a> State<'a> {
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
     }
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        // TODO is this important? chek perf on DGPU
-        //self.window.request_redraw();
 
+    /// Handle the input events.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - The window event.
+    ///
+    /// # Returns
+    ///
+    /// A boolean indicating if the event was consumed.
+    fn input(&mut self, event: &WindowEvent) -> bool {
         // * Capture the input for the custom windows
         if self.egui_renderer.handle_input(self.window, event) {
             // If a window consumed the event return true since no other component should handle it again
@@ -784,6 +821,16 @@ impl<'a> State<'a> {
         }
     }
 
+    /// Update the state of the application.
+    /// This function is called every frame to update the state of the application.
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - The delta time since the last frame.
+    ///
+    /// # Returns
+    ///
+    /// A future which can be awaited.
     async fn update(&mut self, dt: instant::Duration) {
         // Update camera
         self.camera_controller.update_camera(&mut self.camera, dt);
@@ -801,6 +848,11 @@ impl<'a> State<'a> {
         //self.update_colliders();
     }
 
+    /// Update the lights in the scene.
+    ///
+    /// # Returns
+    ///
+    /// A future which can be awaited.
     fn update_lights(&mut self) {
         if let Some(light_entities) = &self.light_entities {
             let mut light_uniforms: Vec<light::LightUniform> = Vec::new();
@@ -848,6 +900,11 @@ impl<'a> State<'a> {
         }
     }
 
+    /// Update the models in the scene.
+    ///
+    /// # Returns
+    ///
+    /// A future which can be awaited.
     fn update_models(&mut self) {
         if let Some(model_entities) = &self.model_entities {
             for entity in model_entities {
@@ -910,6 +967,12 @@ impl<'a> State<'a> {
     //     }
     // }
 
+    /// Render the scene. This function is called every frame to render the scene.
+    /// It is responsible for rendering the models, the lights, the camera, etc.
+    ///
+    /// # Returns
+    ///
+    /// A result indicating if the rendering was successful or not.
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
