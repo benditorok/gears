@@ -651,6 +651,7 @@ impl<'a> State<'a> {
     async fn init_models(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
         let model_entities = ecs_lock.get_entites_with_component::<components::Model>();
+        let mut only_model_entities = vec![];
 
         for entity in model_entities.iter() {
             // ! EXCLUDE PHYSICS BODIES FROM THE MODEL INITIALIZATION, THEY WILL BE INITIALIZED SEPARATELY
@@ -756,9 +757,11 @@ impl<'a> State<'a> {
                     });
             ecs_lock.add_component_to_entity(*entity, instance);
             ecs_lock.add_component_to_entity(*entity, instance_buffer);
+
+            only_model_entities.push(*entity);
         }
 
-        self.model_entities = Some(model_entities);
+        self.model_entities = Some(only_model_entities);
     }
 
     async fn init_physics_models(&mut self) {
@@ -1067,6 +1070,7 @@ impl<'a> State<'a> {
     }
 
     fn update_physics_system(&mut self, dt: instant::Duration) {
+        let dt = dt.as_secs_f32();
         let mut physics_bodies = Vec::new();
 
         if let Some(physics_entities) = &self.physics_entities {
@@ -1113,23 +1117,23 @@ impl<'a> State<'a> {
             }
         }
 
-        // Damping factor (0.0 means no damping, 1.0 means full stop)
-        let damping_factor = 0.98;
+        let damping_coefficient = 1.0;
+        let damping_factor = (-damping_coefficient * dt).exp();
 
         // Update positions and velocities based on acceleration
         for (entity, physics_body) in &physics_bodies {
             let mut physics_body = physics_body.write().unwrap();
-            let acceleration = physics_body.acceleration;
 
             // Update velocity based on acceleration
-            physics_body.velocity += acceleration * dt.as_secs_f32();
+            let acceleration = physics_body.acceleration;
+            physics_body.velocity += acceleration * dt;
 
             // Apply damping to velocity
             physics_body.velocity *= damping_factor;
 
             // Update position based on velocity
             let velocity = physics_body.velocity;
-            physics_body.position += velocity * dt.as_secs_f32();
+            physics_body.position += velocity * dt;
         }
 
         // Check for collisions and resolve them
