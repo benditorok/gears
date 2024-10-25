@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
             .max_height(800.0)
             .default_width(800.0)
             .resizable(true)
-            .default_pos([0.5, 0.5])
+            .default_pos([400.0, 0.0])
             .show(ui, |ui| {
                 if ui.add(egui::Button::new("Click me")).clicked() {
                     warn!("Button clicked in the custom window!");
