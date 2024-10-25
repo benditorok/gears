@@ -186,14 +186,14 @@ async fn main() -> anyhow::Result<()> {
         app,
         components::Name("Physics Body 2"),
         components::PhysicsBody {
-            position: cgmath::Vector3::new(5.0, 0.0, -20.0),
+            position: cgmath::Vector3::new(6.0, 0.0, -20.0),
             rotation: cgmath::Quaternion::one(),
             mass: 1.0,
-            velocity: cgmath::Vector3::new(30.0, 0.0, 0.0),
+            velocity: cgmath::Vector3::new(-10.0, 0.0, 0.0),
             acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
             collision_box: components::CollisionBox {
-                min: cgmath::Vector3::new(-5.0, -5.0, -5.0),
-                max: cgmath::Vector3::new(5.0, 5.0, 5.0),
+                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         },
         components::Model::Dynamic {
@@ -209,11 +209,11 @@ async fn main() -> anyhow::Result<()> {
             position: cgmath::Vector3::new(-5.0, 0.0, -20.0),
             rotation: cgmath::Quaternion::one(),
             mass: 1.0,
-            velocity: cgmath::Vector3::new(-30.0, 0.0, 0.0),
+            velocity: cgmath::Vector3::new(10.0, 0.0, 0.0),
             acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
             collision_box: components::CollisionBox {
-                min: cgmath::Vector3::new(-5.0, -5.0, -5.0),
-                max: cgmath::Vector3::new(5.0, 5.0, 5.0),
+                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         },
         components::Model::Dynamic {

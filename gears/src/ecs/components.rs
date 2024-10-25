@@ -1,4 +1,4 @@
-use cgmath::Rotation3;
+use cgmath::{InnerSpace, Rotation3};
 
 use super::traits::Component;
 use crate::renderer;
@@ -230,40 +230,66 @@ impl PhysicsBody {
         }
     }
 
-    pub fn check_collision(&self, other: &Self) -> bool {
-        let a_min = other.position + other.collision_box.min;
-        let a_max = other.position + other.collision_box.max;
+    pub fn check_and_resolve_collision(&mut self, other: &mut Self) {
+        // Compute AABB for self
+        let a_min = self.position + self.collision_box.min;
+        let a_max = self.position + self.collision_box.max;
+
+        // Compute AABB for other
         let b_min = other.position + other.collision_box.min;
         let b_max = other.position + other.collision_box.max;
 
-        a_min.x <= b_max.x
-            && a_max.x >= b_min.x
-            && a_min.y <= b_max.y
-            && a_max.y >= b_min.y
-            && a_min.z <= b_max.z
-            && a_max.z >= b_min.z
-    }
+        // Check for collision on all three axes
+        if a_min.x < b_max.x
+            && a_max.x > b_min.x
+            && a_min.y < b_max.y
+            && a_max.y > b_min.y
+            && a_min.z < b_max.z
+            && a_max.z > b_min.z
+        {
+            // Collision detected
 
-    pub fn resolve_collision(&mut self, other: &mut Self) {
-        let overlap_x = (other.collision_box.max.x - other.collision_box.min.x)
-            .abs()
-            .min((other.collision_box.max.x - other.collision_box.min.x).abs());
-        let overlap_y = (other.collision_box.max.y - other.collision_box.min.y)
-            .abs()
-            .min((other.collision_box.max.y - other.collision_box.min.y).abs());
-        let overlap_z = (other.collision_box.max.z - other.collision_box.min.z)
-            .abs()
-            .min((other.collision_box.max.z - other.collision_box.min.z).abs());
+            // Calculate the collision normal
+            let normal = (other.position - self.position).normalize();
 
-        if overlap_x < overlap_y && overlap_x < overlap_z {
-            other.position.x -= overlap_x / 2.0;
-            other.position.x += overlap_x / 2.0;
-        } else if overlap_y < overlap_x && overlap_y < overlap_z {
-            other.position.y -= overlap_y / 2.0;
-            other.position.y += overlap_y / 2.0;
-        } else {
-            other.position.z -= overlap_z / 2.0;
-            other.position.z += overlap_z / 2.0;
+            // Calculate relative velocity
+            let relative_velocity = other.velocity - self.velocity;
+
+            // Calculate relative velocity along the normal
+            let vel_along_normal = relative_velocity.dot(normal);
+
+            // Coefficient of restitution (bounciness)
+            let restitution = 0.8; // Adjust between 0.0 (no bounce) and 1.0 (perfect bounce)
+
+            // Calculate impulse scalar
+            let impulse_scalar =
+                -(1.0 + restitution) * vel_along_normal / (1.0 / self.mass + 1.0 / other.mass);
+
+            // Apply impulse to each body
+            let impulse = impulse_scalar * normal;
+            self.velocity -= (1.0 / self.mass) * impulse;
+            other.velocity += (1.0 / other.mass) * impulse;
+
+            // Positional correction to prevent sinking
+            let percent = 0.2; // Penetration percentage to correct
+            let slop = 0.01; // Penetration allowance
+
+            // Calculate overlap on each axis
+            let overlap_x = (a_max.x.min(b_max.x)) - (a_min.x.max(b_min.x));
+            let overlap_y = (a_max.y.min(b_max.y)) - (a_min.y.max(b_min.y));
+            let overlap_z = (a_max.z.min(b_max.z)) - (a_min.z.max(b_min.z));
+
+            // Calculate penetration depth as minimum overlap
+            let penetration = overlap_x.min(overlap_y.min(overlap_z));
+
+            // Calculate correction vector
+            let correction = ((penetration - slop).max(0.0) / (1.0 / self.mass + 1.0 / other.mass))
+                * percent
+                * normal;
+
+            // Apply positional correction
+            self.position -= (1.0 / self.mass) * correction;
+            other.position += (1.0 / other.mass) * correction;
         }
     }
 }

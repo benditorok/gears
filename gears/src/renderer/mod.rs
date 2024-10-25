@@ -1145,9 +1145,7 @@ impl<'a> State<'a> {
                 let mut physics_body_a = physics_body_a.write().unwrap();
                 let mut physics_body_b = physics_body_b.write().unwrap();
 
-                if physics_body_a.check_collision(&physics_body_b) {
-                    physics_body_a.resolve_collision(&mut physics_body_b);
-                }
+                physics_body_a.check_and_resolve_collision(&mut physics_body_b);
             }
         }
     }
