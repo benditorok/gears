@@ -194,6 +194,49 @@ async fn main() -> anyhow::Result<()> {
                 min: cgmath::Vector3::new(-0.5, -0.5, -0.5),
                 max: cgmath::Vector3::new(0.5, 0.5, 0.5),
             },
+        },
+        components::Model::Dynamic {
+            obj_path: "res/models/sphere/sphere.obj"
+        }
+    );
+
+    // Physics Body 2
+    let physics_body_2 = new_entity!(
+        app,
+        components::Name("Physics Body 2"),
+        components::PhysicsBody {
+            position: cgmath::Vector3::new(5.0, 0.0, 0.0),
+            rotation: cgmath::Quaternion::one(),
+            mass: 1.0,
+            velocity: cgmath::Vector3::new(-1.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            collision_box: components::CollisionBox {
+                min: cgmath::Vector3::new(-0.5, -0.5, -0.5),
+                max: cgmath::Vector3::new(0.5, 0.5, 0.5),
+            },
+        },
+        components::Model::Dynamic {
+            obj_path: "res/models/sphere/sphere.obj"
+        }
+    );
+
+    // Physics Body 3
+    let physics_body_3 = new_entity!(
+        app,
+        components::Name("Physics Body 3"),
+        components::PhysicsBody {
+            position: cgmath::Vector3::new(-5.0, 0.0, 0.0),
+            rotation: cgmath::Quaternion::one(),
+            mass: 1.0,
+            velocity: cgmath::Vector3::new(1.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            collision_box: components::CollisionBox {
+                min: cgmath::Vector3::new(-0.5, -0.5, -0.5),
+                max: cgmath::Vector3::new(0.5, 0.5, 0.5),
+            },
+        },
+        components::Model::Dynamic {
+            obj_path: "res/models/sphere/sphere.obj"
         }
     );
 

@@ -175,6 +175,7 @@ struct State<'a> {
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     model_entities: Option<Vec<ecs::Entity>>,
+    physics_entities: Option<Vec<ecs::Entity>>,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: texture::Texture,
@@ -387,6 +388,7 @@ impl<'a> State<'a> {
             light_buffer,
             light_bind_group,
             model_entities: None,
+            physics_entities: None,
             light_bind_group_layout,
             depth_texture,
             window,
@@ -478,6 +480,7 @@ impl<'a> State<'a> {
     async fn init_components(&mut self) -> anyhow::Result<()> {
         self.init_lights().await;
         self.init_models().await;
+        self.init_physics_models().await;
 
         Ok(())
     }
@@ -650,6 +653,14 @@ impl<'a> State<'a> {
         let model_entities = ecs_lock.get_entites_with_component::<components::Model>();
 
         for entity in model_entities.iter() {
+            // ! EXCLUDE PHYSICS BODIES FROM THE MODEL INITIALIZATION, THEY WILL BE INITIALIZED SEPARATELY
+            if ecs_lock
+                .get_component_from_entity::<components::PhysicsBody>(*entity)
+                .is_some()
+            {
+                continue;
+            }
+
             let name = ecs_lock
                 .get_component_from_entity::<components::Name>(*entity)
                 .expect("No name provided for the Model!");
@@ -748,6 +759,109 @@ impl<'a> State<'a> {
         }
 
         self.model_entities = Some(model_entities);
+    }
+
+    async fn init_physics_models(&mut self) {
+        let ecs_lock = self.ecs.lock().unwrap();
+        let physics_entities = ecs_lock.get_entites_with_component::<components::PhysicsBody>();
+
+        for entity in physics_entities.iter() {
+            let name = ecs_lock
+                .get_component_from_entity::<components::Name>(*entity)
+                .expect("No name provided for the Model!");
+
+            let model = ecs_lock
+                .get_component_from_entity::<components::Model>(*entity)
+                .expect("PhysicsBodies must have a model component!");
+
+            let physics_body = ecs_lock
+                .get_component_from_entity::<components::PhysicsBody>(*entity)
+                .unwrap();
+
+            let flip = ecs_lock.get_component_from_entity::<components::Flip>(*entity);
+
+            let scale = ecs_lock.get_component_from_entity::<components::Scale>(*entity);
+
+            let obj_model = {
+                let model = model.read().unwrap();
+
+                match *model {
+                    components::Model::Dynamic { obj_path } => resources::load_model(
+                        obj_path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                    components::Model::Static { obj_path } => resources::load_model(
+                        obj_path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                }
+            };
+            ecs_lock.add_component_to_entity(*entity, obj_model);
+
+            // TODO rename instance to model::ModelUniform
+            let mut instance = {
+                let rlock_physics_body = physics_body.read().unwrap();
+                instance::Instance {
+                    position: rlock_physics_body.position,
+                    rotation: rlock_physics_body.rotation,
+                }
+            };
+
+            if let Some(flip) = flip {
+                let rlock_flip = flip.read().unwrap();
+
+                match *rlock_flip {
+                    Flip::Horizontal => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
+                    }
+                    Flip::Vertical => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    }
+                    Flip::Both => {
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
+                        instance.rotation =
+                            cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    }
+                }
+            }
+
+            // if let Some(scale) = scale {
+            //     let rlock_scale = scale.read().unwrap();
+
+            //     match *rlock_scale {
+            //         Scale::Uniform(s) => {
+            //             instance.scale = cgmath::Vector3::new(s, s, s);
+            //         }
+            //         Scale::NonUniform { x, y, z } => {
+            //             instance.scale = cgmath::Vector3::new(x, y, z);
+            //         }
+            //     }
+            // }
+
+            let instance_raw = instance.to_raw();
+            let instance_buffer =
+                self.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some(format!("{} Instance Buffer", name.read().unwrap().0).as_str()),
+                        contents: bytemuck::cast_slice(&[instance_raw]),
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    });
+            ecs_lock.add_component_to_entity(*entity, instance);
+            ecs_lock.add_component_to_entity(*entity, instance_buffer);
+        }
+
+        self.physics_entities = Some(physics_entities);
     }
 
     /// Get a reference to the window used by the state.
@@ -913,6 +1027,7 @@ impl<'a> State<'a> {
 
                 let model_type = ecs_lock.get_component_from_entity::<components::Model>(*entity);
 
+                // TODO remove?
                 if let Some(model_type) = model_type {
                     let model_type = model_type.read().unwrap();
                     if let components::Model::Static { .. } = *model_type {
@@ -952,16 +1067,50 @@ impl<'a> State<'a> {
     }
 
     fn update_physics_system(&mut self, dt: instant::Duration) {
-        let ecs_lock = self.ecs.lock().unwrap();
-        let physics_entities = ecs_lock.get_entites_with_component::<components::PhysicsBody>();
-
-        // Collect all physics bodies
         let mut physics_bodies = Vec::new();
-        for entity in physics_entities.iter() {
-            let physics_body = ecs_lock
-                .get_component_from_entity::<components::PhysicsBody>(*entity)
-                .unwrap();
-            physics_bodies.push((entity, physics_body));
+
+        if let Some(physics_entities) = &self.physics_entities {
+            for entity in physics_entities {
+                let ecs_lock = self.ecs.lock().unwrap();
+
+                let model_type = ecs_lock.get_component_from_entity::<components::Model>(*entity);
+
+                if let Some(model_type) = model_type {
+                    let model_type = model_type.read().unwrap();
+                    if let components::Model::Static { .. } = *model_type {
+                        continue;
+                    }
+                }
+
+                let physics_body = ecs_lock
+                    .get_component_from_entity::<components::PhysicsBody>(*entity)
+                    .unwrap();
+
+                let instance = ecs_lock
+                    .get_component_from_entity::<instance::Instance>(*entity)
+                    .unwrap();
+                let buffer = ecs_lock
+                    .get_component_from_entity::<wgpu::Buffer>(*entity)
+                    .unwrap();
+
+                // TODO rotation
+                {
+                    let mut wlock_instance = instance.write().unwrap();
+                    let rlock_physics_body = physics_body.read().unwrap();
+
+                    wlock_instance.position = rlock_physics_body.position;
+                    wlock_instance.rotation = rlock_physics_body.rotation
+                }
+
+                let instance_raw = instance.read().unwrap().to_raw();
+                self.queue.write_buffer(
+                    &buffer.write().unwrap(),
+                    0,
+                    bytemuck::cast_slice(&[instance_raw]),
+                );
+
+                physics_bodies.push((entity, physics_body));
+            }
         }
 
         // Damping factor (0.0 means no damping, 1.0 means full stop)
@@ -1068,6 +1217,26 @@ impl<'a> State<'a> {
 
             if let Some(model_entities) = &self.model_entities {
                 for entity in model_entities {
+                    let ecs_lock = self.ecs.lock().unwrap();
+
+                    let model = ecs_lock
+                        .get_component_from_entity::<model::Model>(*entity)
+                        .unwrap();
+                    let instance_buffer = ecs_lock
+                        .get_component_from_entity::<wgpu::Buffer>(*entity)
+                        .unwrap();
+
+                    let model: &model::Model = unsafe { &*(&*model.read().unwrap() as *const _) };
+
+                    render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
+
+                    // Draw model
+                    render_pass.draw_model(model, &self.camera_bind_group, &self.light_bind_group);
+                }
+            }
+
+            if let Some(physics_model_entities) = &self.physics_entities {
+                for entity in physics_model_entities {
                     let ecs_lock = self.ecs.lock().unwrap();
 
                     let model = ecs_lock

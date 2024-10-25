@@ -7,6 +7,43 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug executable 'custom_window'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=custom_window",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "custom_window",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'custom_window'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=custom_window",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "custom_window",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug executable 'minimal'",
             "cargo": {
                 "args": [
