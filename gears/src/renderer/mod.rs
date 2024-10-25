@@ -983,17 +983,15 @@ impl<'a> State<'a> {
                 pixels_per_point: self.window.scale_factor() as f32,
             };
 
-            for window in self.egui_windows.iter_mut() {
-                self.egui_renderer.draw_ui_full(
-                    &self.device,
-                    &self.queue,
-                    &mut encoder,
-                    self.window,
-                    &view,
-                    &screen_descriptor,
-                    window,
-                );
-            }
+            self.egui_renderer.draw_multiple_ui_full(
+                &self.device,
+                &self.queue,
+                &mut encoder,
+                self.window,
+                &view,
+                &screen_descriptor,
+                &mut self.egui_windows,
+            );
         }
 
         self.queue.submit(iter::once(encoder.finish()));

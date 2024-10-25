@@ -31,6 +31,22 @@ async fn main() -> anyhow::Result<()> {
     // Add the custom window
     app.add_window(Box::new(example_gui));
 
+    app.add_window(Box::new(move |ui| {
+        egui::Window::new("Window")
+            .default_open(true)
+            .max_width(1000.0)
+            .max_height(800.0)
+            .default_width(800.0)
+            .resizable(true)
+            .default_pos([0.5, 0.5])
+            .show(ui, |ui| {
+                if ui.add(egui::Button::new("Click me")).clicked() {
+                    warn!("Button clicked in the custom window!");
+                }
+                ui.end_row();
+            });
+    }));
+
     // Add fixed camera
     new_entity!(
         app,
