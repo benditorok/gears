@@ -16,63 +16,65 @@ Goals
 
 ![Demo](/doc/imgs/demo3.png)
 
-## Simple example
+## Examples
 
 You can try it with `cargo run --bin minimal` or run a more complex example with `cargo run --bin sandbox`.
 When creating components you can use a macro or an entity builder as well.
 
-```rust
-use gears::{new_entity, prelude::*};
+### Creating entities
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+```rust
     let mut app = GearsApp::default();
 
-    // Add fixed camera
-    new_entity!(
+    let red_light = new_entity!(
         app,
-        components::Name("Fixed Camera"),
-        components::Pos3::new(cgmath::Vector3::new(5.0, 5.0, 5.0)),
-        components::Camera::Fixed {
-            look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
-        }
-    );
-
-    // Use the entity builder
-    app.new_entity() // Add ambient light
-        .add_component(components::Name("Ambient Light"))
-        .add_component(components::Light::Ambient { intensity: 0.05 })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
-        .new_entity() // Add directional light
-        .add_component(components::Name("Directional Light"))
-        .add_component(components::Light::Directional {
-            direction: [-0.5, -0.5, 0.0],
-            intensity: 0.3,
-        })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(
-            30.0, 30.0, 30.0,
-        )))
-        .new_entity() // Add a green light
-        .add_component(components::Name("Green Light"))
-        .add_component(components::Light::PointColoured {
+        components::Name("Red Light"),
+        components::Light::PointColoured {
             radius: 10.0,
-            color: [0.0, 0.8, 0.0],
-            intensity: 0.6,
-        })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
-        .build();
-
-    // Add a sphere and get the Entity for reference
-    let _sphere_entity = new_entity!(
-        app,
-        components::Name("Sphere1"),
-        components::Model::Dynamic {
-            obj_path: "res/models/sphere/sphere.obj",
+            color: [0.8, 0.0, 0.0],
+            intensity: 1.0,
         },
-        components::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        components::Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0))
     );
+```
 
-    app.run().await?;
-    Ok(())
-}
+### Add a custom window
+
+```rust
+   app.add_window(Box::new(move |ui| {
+        egui::Window::new("Window")
+            .default_open(true)
+            .max_width(1000.0)
+            .max_height(800.0)
+            .default_width(800.0)
+            .resizable(true)
+            .default_pos([0.5, 0.5])
+            .show(ui, |ui| {
+                if ui.add(egui::Button::new("Click me")).clicked() {
+                    warn!("Button clicked in the custom window!");
+                }
+                ui.end_row();
+            });
+    }));
+```
+
+### Update entities
+
+```rust
+ app.update_loop(move |ecs, dt| {
+        // ! Here we are inside a loop, so this has to lock on all iterations.
+        let ecs = ecs.lock().unwrap();
+        let circle_speed = 8.0f32;
+        let light_speed_multiplier = 3.0f32;
+
+        if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(red_light) {
+            let mut pos3 = pos.write().unwrap();
+
+            pos3.pos = cgmath::Quaternion::from_axis_angle(
+                (0.0, 1.0, 0.0).into(),
+                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+            ) * pos3.pos;
+        }
+    })
+    .await?;
 ```
