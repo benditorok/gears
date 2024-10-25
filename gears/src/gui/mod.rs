@@ -183,7 +183,7 @@ impl EguiRenderer {
     /// * `window` - The window to render to.
     /// * `window_surface_view` - The texture view for the window surface.
     /// * `screen_descriptor` - The screen descriptor for the window.
-    /// * `run_ui` - A closure that will be called to run the UI.
+    /// * `run_ui` - Closures that will be called to run the UI.
     #[allow(clippy::too_many_arguments, clippy::complexity)]
     pub fn draw_ui_full(
         &mut self,
