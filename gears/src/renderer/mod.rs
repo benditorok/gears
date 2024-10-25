@@ -983,7 +983,7 @@ impl<'a> State<'a> {
                 pixels_per_point: self.window.scale_factor() as f32,
             };
 
-            self.egui_renderer.draw_multiple_ui_full(
+            self.egui_renderer.draw_ui_full(
                 &self.device,
                 &self.queue,
                 &mut encoder,
