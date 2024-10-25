@@ -843,6 +843,7 @@ impl<'a> State<'a> {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
+        self.update_physics_system(dt);
         self.update_lights();
         self.update_models();
         //self.update_colliders();
@@ -946,6 +947,54 @@ impl<'a> State<'a> {
                     0,
                     bytemuck::cast_slice(&[instance_raw]),
                 );
+            }
+        }
+    }
+
+    fn update_physics_system(&mut self, dt: instant::Duration) {
+        let ecs_lock = self.ecs.lock().unwrap();
+        let physics_entities = ecs_lock.get_entites_with_component::<components::PhysicsBody>();
+
+        // Collect all physics bodies
+        let mut physics_bodies = Vec::new();
+        for entity in physics_entities.iter() {
+            let physics_body = ecs_lock
+                .get_component_from_entity::<components::PhysicsBody>(*entity)
+                .unwrap();
+            physics_bodies.push((entity, physics_body));
+        }
+
+        // Damping factor (0.0 means no damping, 1.0 means full stop)
+        let damping_factor = 0.98;
+
+        // Update positions and velocities based on acceleration
+        for (entity, physics_body) in &physics_bodies {
+            let mut physics_body = physics_body.write().unwrap();
+            let acceleration = physics_body.acceleration;
+
+            // Update velocity based on acceleration
+            physics_body.velocity += acceleration * dt.as_secs_f32();
+
+            // Apply damping to velocity
+            physics_body.velocity *= damping_factor;
+
+            // Update position based on velocity
+            let velocity = physics_body.velocity;
+            physics_body.position += velocity * dt.as_secs_f32();
+        }
+
+        // Check for collisions and resolve them
+        for i in 0..physics_bodies.len() {
+            for j in (i + 1)..physics_bodies.len() {
+                let (entity_a, physics_body_a) = &physics_bodies[i];
+                let (entity_b, physics_body_b) = &physics_bodies[j];
+
+                let mut physics_body_a = physics_body_a.write().unwrap();
+                let mut physics_body_b = physics_body_b.write().unwrap();
+
+                if physics_body_a.check_collision(&physics_body_b) {
+                    physics_body_a.resolve_collision(&mut physics_body_b);
+                }
             }
         }
     }

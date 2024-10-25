@@ -1,5 +1,5 @@
 use app::GearsApp;
-use cgmath::Rotation3;
+use cgmath::{One, Rotation3};
 use ecs::traits::EntityBuilder;
 use gears::{new_entity, prelude::*};
 use log::LevelFilter;
@@ -180,6 +180,22 @@ async fn main() -> anyhow::Result<()> {
 
         *sphere = sphere_entity;
     }
+
+    let physics_body_1 = new_entity!(
+        app,
+        components::Name("Physics Body 1"),
+        components::PhysicsBody {
+            position: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            rotation: cgmath::Quaternion::one(),
+            mass: 1.0,
+            velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            collision_box: components::CollisionBox {
+                min: cgmath::Vector3::new(-0.5, -0.5, -0.5),
+                max: cgmath::Vector3::new(0.5, 0.5, 0.5),
+            },
+        }
+    );
 
     // Update loop
     app.update_loop(move |ecs, dt| {

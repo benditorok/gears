@@ -16,6 +16,12 @@ impl Entity {
     }
 }
 
+impl From<u32> for Entity {
+    fn from(id: u32) -> Self {
+        Entity(id)
+    }
+}
+
 type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>;
 
 // TODO add a world with scenes and scene switching

@@ -1,3 +1,5 @@
+use cgmath::Rotation3;
+
 use super::traits::Component;
 use crate::renderer;
 
@@ -10,7 +12,7 @@ pub struct Pos3 {
 
 impl Component for Pos3 {}
 
-impl renderer::traits::Pos for Pos3 {
+impl super::traits::Pos for Pos3 {
     fn get_pos(&self) -> cgmath::Vector3<f32> {
         self.pos
     }
@@ -145,7 +147,7 @@ impl AABB {
     }
 }
 
-impl renderer::traits::Collider for AABB {
+impl super::traits::Collider for AABB {
     fn intersects(&self, other: &AABB) -> bool {
         self.min.x <= other.max.x
             && self.max.x >= other.min.x
@@ -155,7 +157,7 @@ impl renderer::traits::Collider for AABB {
             && self.max.z >= other.min.z
     }
 
-    fn move_to(&mut self, pos: impl renderer::traits::Pos) {
+    fn move_to(&mut self, pos: impl super::traits::Pos) {
         let pos = pos.get_pos();
         let diff = pos - cgmath::Vector3::new(self.min.x, self.min.y, self.min.z);
         self.min += diff;
@@ -172,5 +174,96 @@ impl Component for Collider {}
 impl Collider {
     pub fn new(min: cgmath::Vector3<f32>, max: cgmath::Vector3<f32>) -> Self {
         Self(AABB::new(min, max))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CollisionBox {
+    pub min: cgmath::Vector3<f32>,
+    pub max: cgmath::Vector3<f32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PhysicsBody {
+    pub position: cgmath::Vector3<f32>,
+    pub rotation: cgmath::Quaternion<f32>,
+    pub mass: f32,
+    pub velocity: cgmath::Vector3<f32>,
+    pub acceleration: cgmath::Vector3<f32>,
+    pub collision_box: CollisionBox,
+}
+
+impl Component for PhysicsBody {}
+
+impl Default for PhysicsBody {
+    fn default() -> Self {
+        Self {
+            position: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            rotation: cgmath::Quaternion::from_angle_x(cgmath::Deg(0.0)),
+            mass: 1.0,
+            velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            collision_box: CollisionBox {
+                min: cgmath::Vector3::new(-0.5, -0.5, -0.5),
+                max: cgmath::Vector3::new(0.5, 0.5, 0.5),
+            },
+        }
+    }
+}
+
+impl PhysicsBody {
+    pub fn new(
+        position: cgmath::Vector3<f32>,
+        rotation: cgmath::Quaternion<f32>,
+        mass: f32,
+        velocity: cgmath::Vector3<f32>,
+        acceleration: cgmath::Vector3<f32>,
+        collision_box: CollisionBox,
+    ) -> Self {
+        Self {
+            position,
+            rotation,
+            mass,
+            velocity,
+            acceleration,
+            collision_box,
+        }
+    }
+
+    pub fn check_collision(&self, other: &Self) -> bool {
+        let a_min = other.position + other.collision_box.min;
+        let a_max = other.position + other.collision_box.max;
+        let b_min = other.position + other.collision_box.min;
+        let b_max = other.position + other.collision_box.max;
+
+        a_min.x <= b_max.x
+            && a_max.x >= b_min.x
+            && a_min.y <= b_max.y
+            && a_max.y >= b_min.y
+            && a_min.z <= b_max.z
+            && a_max.z >= b_min.z
+    }
+
+    pub fn resolve_collision(&mut self, other: &mut Self) {
+        let overlap_x = (other.collision_box.max.x - other.collision_box.min.x)
+            .abs()
+            .min((other.collision_box.max.x - other.collision_box.min.x).abs());
+        let overlap_y = (other.collision_box.max.y - other.collision_box.min.y)
+            .abs()
+            .min((other.collision_box.max.y - other.collision_box.min.y).abs());
+        let overlap_z = (other.collision_box.max.z - other.collision_box.min.z)
+            .abs()
+            .min((other.collision_box.max.z - other.collision_box.min.z).abs());
+
+        if overlap_x < overlap_y && overlap_x < overlap_z {
+            other.position.x -= overlap_x / 2.0;
+            other.position.x += overlap_x / 2.0;
+        } else if overlap_y < overlap_x && overlap_y < overlap_z {
+            other.position.y -= overlap_y / 2.0;
+            other.position.y += overlap_y / 2.0;
+        } else {
+            other.position.z -= overlap_z / 2.0;
+            other.position.z += overlap_z / 2.0;
+        }
     }
 }
