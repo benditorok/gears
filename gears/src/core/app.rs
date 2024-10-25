@@ -4,7 +4,7 @@ use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::ecs::traits::Component;
 use crate::ecs::Entity;
 use crate::{ecs, renderer};
-use log::info;
+use log::{info, warn};
 use std::env;
 use std::future::Future;
 use std::pin::Pin;
@@ -111,7 +111,7 @@ impl App for GearsApp {
                 match rx_dt.recv().await {
                     Ok(dt) => f(Arc::clone(&ecs), dt),
                     Err(e) => {
-                        eprintln!("Failed to receive: {:?}", e);
+                        warn!("Failed to receive: {:?}", e);
                     }
                 }
             }
