@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("FPS Camera"),
-        components::Pos3::new(cgmath::Vector3::new(20.0, 10.0, 20.0,)),
+        components::transform::Pos3::new(cgmath::Vector3::new(20.0, 10.0, 20.0,)),
         components::Camera::FPS {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
             speed: 10.0,
@@ -31,79 +31,79 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Ambient Light"),
-        components::Light::Ambient { intensity: 0.05 },
-        components::Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0))
+        components::light::Light::Ambient { intensity: 0.05 },
+        components::transform::Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0))
     );
 
     // Add directional light
     new_entity!(
         app,
         components::Name("Directional Light"),
-        components::Light::Directional {
+        components::light::Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.3,
         },
-        components::Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
+        components::transform::Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
     );
 
     // * Add moving red light
     let red_light = new_entity!(
         app,
         components::Name("Red Light"),
-        components::Light::PointColoured {
+        components::light::Light::PointColoured {
             radius: 10.0,
             color: [0.8, 0.0, 0.0],
             intensity: 1.0,
         },
-        components::Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0))
+        components::transform::Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0))
     );
 
     // * Add moving blue light
     let blue_light = new_entity!(
         app,
         components::Name("Blue Light"),
-        components::Light::PointColoured {
+        components::light::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.0, 0.8],
             intensity: 1.0,
         },
-        components::Pos3::new(cgmath::Vector3::new(-15.0, 5.0, 0.0))
+        components::transform::Pos3::new(cgmath::Vector3::new(-15.0, 5.0, 0.0))
     );
 
     // Red light
     new_entity!(
         app,
         components::Name("R"),
-        components::Light::PointColoured {
+        components::light::Light::PointColoured {
             radius: 10.0,
             color: [1.0, 0.0, 0.0],
             intensity: 1.0,
         },
-        components::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -20.0))
+        components::transform::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -20.0))
     );
 
     // Green light
     new_entity!(
         app,
         components::Name("G"),
-        components::Light::PointColoured {
+        components::light::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 1.0, 0.0],
             intensity: 1.0,
         },
-        components::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -30.0))
+        components::transform::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -30.0))
     );
 
     // Blue light
     new_entity!(
         app,
         components::Name("B"),
-        components::Light::PointColoured {
+        components::light::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.0, 1.0],
             intensity: 1.0,
         },
-        components::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -40.0))
+        components::transform::Pos3::new(cgmath::Vector3::new(0.0, 5.0, -40.0))
     );
 
     // * If you do not need the IDs of the entities you can chain them together
@@ -112,13 +112,15 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Model::Static {
             obj_path: "res/models/cube/cube.obj",
         })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(10.0, 0.0, 10.0)))
+        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+            10.0, 0.0, 10.0,
+        )))
         .new_entity() // Cube 2
         .add_component(components::Name("Cube2"))
         .add_component(components::Model::Static {
             obj_path: "res/models/cube/cube.obj",
         })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
             10.0, 0.0, -10.0,
         )))
         .new_entity() // Cube 3
@@ -126,7 +128,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Model::Static {
             obj_path: "res/models/cube/cube.obj",
         })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
             -10.0, 0.0, -10.0,
         )))
         .new_entity() // Cube 4
@@ -134,7 +136,7 @@ async fn main() -> anyhow::Result<()> {
         .add_component(components::Model::Static {
             obj_path: "res/models/cube/cube.obj",
         })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
             -10.0, 0.0, 10.0,
         )))
         .build();
@@ -146,8 +148,8 @@ async fn main() -> anyhow::Result<()> {
         components::Model::Static {
             obj_path: "res/models/sphere/sphere.obj",
         },
-        components::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
-        components::Flip::Vertical
+        components::transform::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        components::transform::Flip::Vertical
     );
 
     // Plane
@@ -157,7 +159,7 @@ async fn main() -> anyhow::Result<()> {
         components::Model::Dynamic {
             obj_path: "res/models/plane/plane.obj",
         },
-        components::Pos3::new(cgmath::Vector3::new(0.0, -3.0, 0.0)),
+        components::transform::Pos3::new(cgmath::Vector3::new(0.0, -3.0, 0.0)),
     );
 
     // Add 5 spheres in a circle
@@ -175,7 +177,7 @@ async fn main() -> anyhow::Result<()> {
             components::Model::Dynamic {
                 obj_path: "res/models/sphere/sphere.obj",
             },
-            components::Pos3::new(cgmath::Vector3::new(x, 0.0, z))
+            components::transform::Pos3::new(cgmath::Vector3::new(x, 0.0, z))
         );
 
         *sphere = sphere_entity;
@@ -190,7 +192,8 @@ async fn main() -> anyhow::Result<()> {
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(*sphere) {
+            if let Some(pos) = ecs.get_component_from_entity::<components::transform::Pos3>(*sphere)
+            {
                 let mut pos3 = pos.write().unwrap();
 
                 pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -200,7 +203,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(red_light) {
+        if let Some(pos) = ecs.get_component_from_entity::<components::transform::Pos3>(red_light) {
             let mut pos3 = pos.write().unwrap();
 
             pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -209,7 +212,8 @@ async fn main() -> anyhow::Result<()> {
             ) * pos3.pos;
         }
 
-        if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(blue_light) {
+        if let Some(pos) = ecs.get_component_from_entity::<components::transform::Pos3>(blue_light)
+        {
             let mut pos3 = pos.write().unwrap();
 
             pos3.pos = cgmath::Quaternion::from_axis_angle(

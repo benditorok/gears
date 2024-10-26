@@ -16,7 +16,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Fixed Camera"),
-        components::Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
+        components::transform::Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
         components::Camera::Fixed {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
         }
@@ -25,25 +25,29 @@ async fn main() -> anyhow::Result<()> {
     // Use the entity builder
     app.new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))
-        .add_component(components::Light::Ambient { intensity: 0.05 })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
+        .add_component(components::light::Light::Ambient { intensity: 0.05 })
+        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+            0.0, 50.0, 0.0,
+        )))
         .new_entity() // Add directional light
         .add_component(components::Name("Directional Light"))
-        .add_component(components::Light::Directional {
+        .add_component(components::light::Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.3,
         })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
             30.0, 30.0, 30.0,
         )))
         .new_entity() // Add a green light
         .add_component(components::Name("Green Light"))
-        .add_component(components::Light::PointColoured {
+        .add_component(components::light::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.8, 0.0],
             intensity: 0.6,
         })
-        .add_component(components::Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
+        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+            -4.0, 4.0, 4.0,
+        )))
         .build();
 
     // Add a sphere and get the Entity for reference
@@ -53,7 +57,10 @@ async fn main() -> anyhow::Result<()> {
         components::Model::Dynamic {
             obj_path: "res/models/sphere/sphere.obj",
         },
-        components::Pos3::with_rot(cgmath::Vector3::new(0.0, 0.0, 0.0), Quaternion::one()),
+        components::transform::Pos3::with_rot(
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            Quaternion::one()
+        ),
     );
 
     // Use the update loop to spin the sphere
@@ -61,7 +68,9 @@ async fn main() -> anyhow::Result<()> {
         let ecs = ecs.lock().unwrap();
         let spin_speed = 0.5f32;
 
-        if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(sphere_entity) {
+        if let Some(pos) =
+            ecs.get_component_from_entity::<components::transform::Pos3>(sphere_entity)
+        {
             let mut pos3 = pos.write().unwrap();
 
             pos3.rot = Some(
