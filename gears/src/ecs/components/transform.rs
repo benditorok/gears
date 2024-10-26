@@ -1,13 +1,27 @@
 use crate::ecs::traits::Component;
+use cgmath::One;
 
 /// A component that stores the position of any object.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
     pub pos: cgmath::Vector3<f32>,
-    pub rot: Option<cgmath::Quaternion<f32>>,
+    pub rot: cgmath::Quaternion<f32>,
 }
 
 impl Component for Pos3 {}
+
+impl Pos3 {
+    pub fn new(pos: cgmath::Vector3<f32>) -> Self {
+        Self {
+            pos,
+            rot: cgmath::Quaternion::one(),
+        }
+    }
+
+    pub fn with_rot(pos: cgmath::Vector3<f32>, rot: cgmath::Quaternion<f32>) -> Self {
+        Self { pos, rot }
+    }
+}
 
 impl crate::ecs::traits::Pos for Pos3 {
     fn get_pos(&self) -> cgmath::Vector3<f32> {
@@ -19,20 +33,7 @@ impl Default for Pos3 {
     fn default() -> Self {
         Self {
             pos: cgmath::Vector3::new(0.0, 0.0, 0.0),
-            rot: None,
-        }
-    }
-}
-
-impl Pos3 {
-    pub fn new(pos: cgmath::Vector3<f32>) -> Self {
-        Self { pos, rot: None }
-    }
-
-    pub fn with_rot(pos: cgmath::Vector3<f32>, rot: cgmath::Quaternion<f32>) -> Self {
-        Self {
-            pos,
-            rot: Some(rot),
+            rot: cgmath::Quaternion::one(),
         }
     }
 }

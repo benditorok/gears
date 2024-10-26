@@ -73,10 +73,9 @@ async fn main() -> anyhow::Result<()> {
         {
             let mut pos3 = pos.write().unwrap();
 
-            pos3.rot = Some(
-                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed))
-                    * pos3.rot.unwrap(),
-            );
+            let pos3_rot = pos3.rot;
+            pos3.rot =
+                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * pos3_rot;
         }
     })
     .await?;

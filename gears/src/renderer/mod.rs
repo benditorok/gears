@@ -706,9 +706,7 @@ impl<'a> State<'a> {
                 let rlock_pos = pos.read().unwrap();
                 instance::Instance {
                     position: rlock_pos.pos,
-                    rotation: rlock_pos
-                        .rot
-                        .unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0))),
+                    rotation: rlock_pos.rot,
                 }
             };
 
@@ -1054,9 +1052,7 @@ impl<'a> State<'a> {
                     let rlock_pos3 = pos.read().unwrap();
 
                     wlock_instance.position = rlock_pos3.pos;
-                    wlock_instance.rotation = rlock_pos3
-                        .rot
-                        .unwrap_or(cgmath::Quaternion::from_angle_y(cgmath::Rad(0.0)));
+                    wlock_instance.rotation = rlock_pos3.rot
                 }
 
                 let instance_raw = instance.read().unwrap().to_raw();
