@@ -106,6 +106,47 @@ async fn main() -> anyhow::Result<()> {
         },
     );
 
+    // Bouncing sphere
+    new_entity!(
+        app,
+        components::Name("Cube"),
+        components::transform::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        components::physics::PhysicsBody {
+            position: cgmath::Vector3::new(5.0, 0.0, 20.0),
+            rotation: cgmath::Quaternion::one(),
+            mass: 10000000.0,
+            velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            collision_box: components::physics::CollisionBox {
+                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+            },
+        },
+        components::Model::Dynamic {
+            obj_path: "res/models/cube/cube.obj"
+        },
+    );
+
+    new_entity!(
+        app,
+        components::Name("Falling sphere"),
+        components::physics::PhysicsBody {
+            position: cgmath::Vector3::new(5.0, 20.0, 20.0),
+            rotation: cgmath::Quaternion::one(),
+            mass: 0.1,
+            velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, -10.0, 0.0),
+            collision_box: components::physics::CollisionBox {
+                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+            },
+        },
+        components::Model::Dynamic {
+            obj_path: "res/models/sphere/sphere.obj"
+        }
+    );
+
+    // Falling sphere bouncing off into the void
     new_entity!(
         app,
         components::Name("Cube"),
@@ -128,12 +169,12 @@ async fn main() -> anyhow::Result<()> {
 
     new_entity!(
         app,
-        components::Name("Physics Body 2"),
+        components::Name("Falling sphere"),
         components::physics::PhysicsBody {
             position: cgmath::Vector3::new(0.0, 20.0, 20.0),
             rotation: cgmath::Quaternion::one(),
             mass: 0.1,
-            velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            velocity: cgmath::Vector3::new(0.0, 0.0, 1.0),
             acceleration: cgmath::Vector3::new(0.0, -10.0, 0.0),
             collision_box: components::physics::CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
