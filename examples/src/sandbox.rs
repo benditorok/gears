@@ -109,46 +109,53 @@ async fn main() -> anyhow::Result<()> {
     // * If you do not need the IDs of the entities you can chain them together
     app.new_entity() // Cube 1
         .add_component(components::Name("Cube1"))
-        .add_component(components::Model::Static {
+        .add_component(components::model::ModelSource {
             obj_path: "res/models/cube/cube.obj",
         })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
-            10.0, 0.0, 10.0,
-        )))
+        .add_component(components::model::StaticModel {
+            position: cgmath::Vector3::new(10.0, 0.0, 10.0),
+            rotation: cgmath::Quaternion::one(),
+        })
         .new_entity() // Cube 2
         .add_component(components::Name("Cube2"))
-        .add_component(components::Model::Static {
+        .add_component(components::model::ModelSource {
             obj_path: "res/models/cube/cube.obj",
         })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
-            10.0, 0.0, -10.0,
-        )))
+        .add_component(components::model::StaticModel {
+            position: cgmath::Vector3::new(10.0, 0.0, -10.0),
+            rotation: cgmath::Quaternion::one(),
+        })
         .new_entity() // Cube 3
         .add_component(components::Name("Cube3"))
-        .add_component(components::Model::Static {
+        .add_component(components::model::ModelSource {
             obj_path: "res/models/cube/cube.obj",
         })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
-            -10.0, 0.0, -10.0,
-        )))
+        .add_component(components::model::StaticModel {
+            position: cgmath::Vector3::new(-10.0, 0.0, -10.0),
+            rotation: cgmath::Quaternion::one(),
+        })
         .new_entity() // Cube 4
         .add_component(components::Name("Cube4"))
-        .add_component(components::Model::Static {
+        .add_component(components::model::ModelSource {
             obj_path: "res/models/cube/cube.obj",
         })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
-            -10.0, 0.0, 10.0,
-        )))
+        .add_component(components::model::StaticModel {
+            position: cgmath::Vector3::new(-10.0, 0.0, 10.0),
+            rotation: cgmath::Quaternion::one(),
+        })
         .build();
 
     // Center sphere
     new_entity!(
         app,
         components::Name("Sphere1"),
-        components::Model::Static {
+        components::model::ModelSource {
             obj_path: "res/models/sphere/sphere.obj",
         },
-        components::transform::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        components::model::StaticModel {
+            position: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            rotation: cgmath::Quaternion::one(),
+        },
         components::transform::Flip::Vertical
     );
 
@@ -156,10 +163,13 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Plane"),
-        components::Model::Dynamic {
+        components::model::ModelSource {
             obj_path: "res/models/plane/plane.obj",
         },
-        components::transform::Pos3::new(cgmath::Vector3::new(0.0, -3.0, 0.0)),
+        components::model::StaticModel {
+            position: cgmath::Vector3::new(0.0, -3.0, 0.0),
+            rotation: cgmath::Quaternion::one(),
+        },
     );
 
     // Add 5 spheres in a circle
@@ -174,10 +184,13 @@ async fn main() -> anyhow::Result<()> {
         let sphere_entity = new_entity!(
             app,
             components::Name(Box::leak(name.into_boxed_str())),
-            components::Model::Dynamic {
+            components::model::ModelSource {
                 obj_path: "res/models/sphere/sphere.obj",
             },
-            components::transform::Pos3::new(cgmath::Vector3::new(x, 0.0, z))
+            components::model::StaticModel {
+                position: cgmath::Vector3::new(x, 0.0, z),
+                rotation: cgmath::Quaternion::one(),
+            },
         );
 
         *sphere = sphere_entity;
@@ -192,14 +205,17 @@ async fn main() -> anyhow::Result<()> {
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(pos) = ecs.get_component_from_entity::<components::transform::Pos3>(*sphere)
+            if let Some(static_model) =
+                ecs.get_component_from_entity::<components::model::StaticModel>(*sphere)
             {
-                let mut pos3 = pos.write().unwrap();
+                let mut wlock_static_model = static_model.write().unwrap();
 
-                pos3.pos = cgmath::Quaternion::from_axis_angle(
+                let position = wlock_static_model.position;
+
+                wlock_static_model.position = cgmath::Quaternion::from_axis_angle(
                     (0.0, 1.0, 0.0).into(),
                     cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
-                ) * pos3.pos;
+                ) * position;
             }
         }
         // Move the red and blue lights in a circle considering accumulated time

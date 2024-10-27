@@ -173,7 +173,7 @@ struct State<'a> {
     light_entities: Option<Vec<ecs::Entity>>,
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
-    model_entities: Option<Vec<ecs::Entity>>,
+    static_model_entities: Option<Vec<ecs::Entity>>,
     physics_entities: Option<Vec<ecs::Entity>>,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
@@ -386,7 +386,7 @@ impl<'a> State<'a> {
             light_entities: None,
             light_buffer,
             light_bind_group,
-            model_entities: None,
+            static_model_entities: None,
             physics_entities: None,
             light_bind_group_layout,
             depth_texture,
@@ -649,64 +649,50 @@ impl<'a> State<'a> {
     /// A future which can be awaited.
     async fn init_models(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
-        let model_entities = ecs_lock.get_entites_with_component::<components::Model>();
-        let mut only_model_entities = vec![];
+        let model_entities =
+            ecs_lock.get_entites_with_component::<components::model::StaticModel>();
 
         for entity in model_entities.iter() {
-            // ! EXCLUDE PHYSICS BODIES FROM THE MODEL INITIALIZATION, THEY WILL BE INITIALIZED SEPARATELY
-            if ecs_lock
-                .get_component_from_entity::<components::physics::PhysicsBody>(*entity)
-                .is_some()
-            {
-                continue;
-            }
-
             let name = ecs_lock
                 .get_component_from_entity::<components::Name>(*entity)
                 .expect("No name provided for the Model!");
 
-            let pos = ecs_lock
-                .get_component_from_entity::<components::transform::Pos3>(*entity)
-                .expect("No position provided for the Model!");
+            // let pos = ecs_lock
+            //     .get_component_from_entity::<components::transform::Pos3>(*entity)
+            //     .expect("No position provided for the Model!");
 
-            let model = ecs_lock
-                .get_component_from_entity::<components::Model>(*entity)
+            let static_model = ecs_lock
+                .get_component_from_entity::<components::model::StaticModel>(*entity)
                 .unwrap();
+
+            let model_source = ecs_lock
+                .get_component_from_entity::<components::model::ModelSource>(*entity)
+                .expect("No source provided for the Model!");
 
             let flip = ecs_lock.get_component_from_entity::<components::transform::Flip>(*entity);
 
             let scale = ecs_lock.get_component_from_entity::<components::transform::Scale>(*entity);
 
             let obj_model = {
-                let model = model.read().unwrap();
+                let rlock_model_source = model_source.read().unwrap();
 
-                match *model {
-                    components::Model::Dynamic { obj_path } => resources::load_model(
-                        obj_path,
-                        &self.device,
-                        &self.queue,
-                        &self.texture_bind_group_layout,
-                    )
-                    .await
-                    .unwrap(),
-                    components::Model::Static { obj_path } => resources::load_model(
-                        obj_path,
-                        &self.device,
-                        &self.queue,
-                        &self.texture_bind_group_layout,
-                    )
-                    .await
-                    .unwrap(),
-                }
+                resources::load_model(
+                    rlock_model_source.obj_path,
+                    &self.device,
+                    &self.queue,
+                    &self.texture_bind_group_layout,
+                )
+                .await
+                .unwrap()
             };
             ecs_lock.add_component_to_entity(*entity, obj_model);
 
             // TODO rename instance to model::ModelUniform
             let mut instance = {
-                let rlock_pos = pos.read().unwrap();
+                let rlock_static_model = static_model.read().unwrap();
                 instance::Instance {
-                    position: rlock_pos.pos,
-                    rotation: rlock_pos.rot,
+                    position: rlock_static_model.position,
+                    rotation: rlock_static_model.rotation,
                 }
             };
 
@@ -754,11 +740,9 @@ impl<'a> State<'a> {
                     });
             ecs_lock.add_component_to_entity(*entity, instance);
             ecs_lock.add_component_to_entity(*entity, instance_buffer);
-
-            only_model_entities.push(*entity);
         }
 
-        self.model_entities = Some(only_model_entities);
+        self.static_model_entities = Some(model_entities);
     }
 
     async fn init_physics_models(&mut self) {
@@ -771,39 +755,29 @@ impl<'a> State<'a> {
                 .get_component_from_entity::<components::Name>(*entity)
                 .expect("No name provided for the Model!");
 
-            let model = ecs_lock
-                .get_component_from_entity::<components::Model>(*entity)
-                .expect("PhysicsBodies must have a model component!");
-
             let physics_body = ecs_lock
                 .get_component_from_entity::<components::physics::PhysicsBody>(*entity)
                 .unwrap();
+
+            let model_source = ecs_lock
+                .get_component_from_entity::<components::model::ModelSource>(*entity)
+                .expect("PhysicsBodies must have a model component!");
 
             let flip = ecs_lock.get_component_from_entity::<components::transform::Flip>(*entity);
 
             let scale = ecs_lock.get_component_from_entity::<components::transform::Scale>(*entity);
 
             let obj_model = {
-                let model = model.read().unwrap();
+                let rlock_model_source = model_source.read().unwrap();
 
-                match *model {
-                    components::Model::Dynamic { obj_path } => resources::load_model(
-                        obj_path,
-                        &self.device,
-                        &self.queue,
-                        &self.texture_bind_group_layout,
-                    )
-                    .await
-                    .unwrap(),
-                    components::Model::Static { obj_path } => resources::load_model(
-                        obj_path,
-                        &self.device,
-                        &self.queue,
-                        &self.texture_bind_group_layout,
-                    )
-                    .await
-                    .unwrap(),
-                }
+                resources::load_model(
+                    rlock_model_source.obj_path,
+                    &self.device,
+                    &self.queue,
+                    &self.texture_bind_group_layout,
+                )
+                .await
+                .unwrap()
             };
             ecs_lock.add_component_to_entity(*entity, obj_model);
 
@@ -982,12 +956,16 @@ impl<'a> State<'a> {
                 let light_uniform = ecs_lock
                     .get_component_from_entity::<light::LightUniform>(*entity)
                     .unwrap();
+                let light = ecs_lock
+                    .get_component_from_entity::<components::light::Light>(*entity)
+                    .unwrap();
 
                 {
                     // TODO update the colors
                     let rlock_pos = pos.read().unwrap();
+                    let mut wlock_light_uniform = light_uniform.write().unwrap();
 
-                    light_uniform.write().unwrap().position =
+                    wlock_light_uniform.position =
                         [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z];
                 }
 
@@ -1022,22 +1000,12 @@ impl<'a> State<'a> {
     ///
     /// A future which can be awaited.
     fn update_models(&mut self) {
-        if let Some(model_entities) = &self.model_entities {
+        if let Some(model_entities) = &self.static_model_entities {
             for entity in model_entities {
                 let ecs_lock = self.ecs.lock().unwrap();
 
-                let model_type = ecs_lock.get_component_from_entity::<components::Model>(*entity);
-
-                // TODO remove?
-                if let Some(model_type) = model_type {
-                    let model_type = model_type.read().unwrap();
-                    if let components::Model::Static { .. } = *model_type {
-                        continue;
-                    }
-                }
-
-                let pos = ecs_lock
-                    .get_component_from_entity::<components::transform::Pos3>(*entity)
+                let static_model = ecs_lock
+                    .get_component_from_entity::<components::model::StaticModel>(*entity)
                     .unwrap();
                 let instance = ecs_lock
                     .get_component_from_entity::<instance::Instance>(*entity)
@@ -1046,13 +1014,12 @@ impl<'a> State<'a> {
                     .get_component_from_entity::<wgpu::Buffer>(*entity)
                     .unwrap();
 
-                // TODO rotation
                 {
                     let mut wlock_instance = instance.write().unwrap();
-                    let rlock_pos3 = pos.read().unwrap();
+                    let rlock_static_model = static_model.read().unwrap();
 
-                    wlock_instance.position = rlock_pos3.pos;
-                    wlock_instance.rotation = rlock_pos3.rot
+                    wlock_instance.position = rlock_static_model.position;
+                    wlock_instance.rotation = rlock_static_model.rotation;
                 }
 
                 let instance_raw = instance.read().unwrap().to_raw();
@@ -1073,15 +1040,6 @@ impl<'a> State<'a> {
             for entity in physics_entities {
                 let ecs_lock = self.ecs.lock().unwrap();
 
-                let model_type = ecs_lock.get_component_from_entity::<components::Model>(*entity);
-
-                if let Some(model_type) = model_type {
-                    let model_type = model_type.read().unwrap();
-                    if let components::Model::Static { .. } = *model_type {
-                        continue;
-                    }
-                }
-
                 let physics_body = ecs_lock
                     .get_component_from_entity::<components::physics::PhysicsBody>(*entity)
                     .unwrap();
@@ -1093,7 +1051,6 @@ impl<'a> State<'a> {
                     .get_component_from_entity::<wgpu::Buffer>(*entity)
                     .unwrap();
 
-                // TODO rotation
                 {
                     let mut wlock_instance = instance.write().unwrap();
                     let rlock_physics_body = physics_body.read().unwrap();
@@ -1135,13 +1092,16 @@ impl<'a> State<'a> {
         // Check for collisions and resolve them
         for i in 0..physics_bodies.len() {
             for j in (i + 1)..physics_bodies.len() {
-                let (entity_a, physics_body_a) = &physics_bodies[i];
-                let (entity_b, physics_body_b) = &physics_bodies[j];
+                let (_entity_a, physics_body_a) = &physics_bodies[i];
+                let (_entity_b, physics_body_b) = &physics_bodies[j];
 
                 let mut physics_body_a = physics_body_a.write().unwrap();
                 let mut physics_body_b = physics_body_b.write().unwrap();
 
-                physics_body_a.check_and_resolve_collision(&mut physics_body_b);
+                components::physics::PhysicsBody::check_and_resolve_collision(
+                    &mut physics_body_a,
+                    &mut physics_body_b,
+                );
             }
         }
     }
@@ -1213,7 +1173,7 @@ impl<'a> State<'a> {
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_bind_group(2, &self.light_bind_group, &[]);
 
-            if let Some(model_entities) = &self.model_entities {
+            if let Some(model_entities) = &self.static_model_entities {
                 for entity in model_entities {
                     let ecs_lock = self.ecs.lock().unwrap();
 

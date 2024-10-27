@@ -54,13 +54,13 @@ async fn main() -> anyhow::Result<()> {
     let sphere_entity = new_entity!(
         app,
         components::Name("Sphere1"),
-        components::Model::Dynamic {
+        components::model::ModelSource {
             obj_path: "res/models/sphere/sphere.obj",
         },
-        components::transform::Pos3::with_rot(
-            cgmath::Vector3::new(0.0, 0.0, 0.0),
-            Quaternion::one()
-        ),
+        components::model::StaticModel {
+            position: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            rotation: Quaternion::one(),
+        },
     );
 
     // Use the update loop to spin the sphere
@@ -68,14 +68,14 @@ async fn main() -> anyhow::Result<()> {
         let ecs = ecs.lock().unwrap();
         let spin_speed = 0.5f32;
 
-        if let Some(pos) =
-            ecs.get_component_from_entity::<components::transform::Pos3>(sphere_entity)
+        if let Some(static_model) =
+            ecs.get_component_from_entity::<components::model::StaticModel>(sphere_entity)
         {
-            let mut pos3 = pos.write().unwrap();
+            let mut wlock_static_model = static_model.write().unwrap();
 
-            let pos3_rot = pos3.rot;
-            pos3.rot =
-                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * pos3_rot;
+            let rotation = wlock_static_model.rotation;
+            wlock_static_model.rotation =
+                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
         }
     })
     .await?;

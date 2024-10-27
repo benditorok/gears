@@ -2,14 +2,6 @@ use crate::ecs::traits::Component;
 use cgmath::{InnerSpace, Rotation3};
 
 #[derive(Debug, Clone)]
-pub enum PhysicsObject {
-    Static(PhysicsBody),
-    Dynamic(PhysicsBody),
-}
-
-impl Component for PhysicsObject {}
-
-#[derive(Debug, Clone)]
 pub struct CollisionBox {
     pub min: cgmath::Vector3<f32>,
     pub max: cgmath::Vector3<f32>,
@@ -25,6 +17,7 @@ pub struct PhysicsBody {
     pub velocity: cgmath::Vector3<f32>,
     pub acceleration: cgmath::Vector3<f32>,
     pub collision_box: CollisionBox,
+    pub is_static: bool,
 }
 
 impl Component for PhysicsBody {}
@@ -41,6 +34,7 @@ impl Default for PhysicsBody {
                 min: cgmath::Vector3::new(-0.5, -0.5, -0.5),
                 max: cgmath::Vector3::new(0.5, 0.5, 0.5),
             },
+            is_static: false,
         }
     }
 }
@@ -61,7 +55,28 @@ impl PhysicsBody {
             velocity,
             acceleration,
             collision_box,
+            is_static: false,
         }
+    }
+
+    pub fn new_static(
+        position: cgmath::Vector3<f32>,
+        rotation: cgmath::Quaternion<f32>,
+        collision_box: CollisionBox,
+    ) -> Self {
+        Self {
+            position,
+            rotation,
+            mass: 0.0,
+            velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            collision_box,
+            is_static: true,
+        }
+    }
+
+    pub fn is_static(&self) -> bool {
+        self.is_static
     }
 
     pub fn check_and_resolve_collision(&mut self, other: &mut Self) {
@@ -92,17 +107,34 @@ impl PhysicsBody {
             // Calculate relative velocity along the normal
             let vel_along_normal = relative_velocity.dot(normal);
 
+            // Do not resolve if velocities are separating
+            if vel_along_normal > 0.0 {
+                return;
+            }
+
             // Coefficient of restitution (bounciness)
-            let restitution = 0.8; // Adjust between 0.0 (no bounce) and 1.0 (perfect bounce)
+            let restitution = 0.8;
+
+            // Inverse masses, zero if static
+            let inv_mass_self = if self.is_static { 0.0 } else { 1.0 / self.mass };
+            let inv_mass_other = if other.is_static {
+                0.0
+            } else {
+                1.0 / other.mass
+            };
 
             // Calculate impulse scalar
             let impulse_scalar =
-                -(1.0 + restitution) * vel_along_normal / (1.0 / self.mass + 1.0 / other.mass);
+                -(1.0 + restitution) * vel_along_normal / (inv_mass_self + inv_mass_other);
 
             // Apply impulse to each body
             let impulse = impulse_scalar * normal;
-            self.velocity -= (1.0 / self.mass) * impulse;
-            other.velocity += (1.0 / other.mass) * impulse;
+            if !self.is_static {
+                self.velocity -= inv_mass_self * impulse;
+            }
+            if !other.is_static {
+                other.velocity += inv_mass_other * impulse;
+            }
 
             // Positional correction to prevent sinking
             let percent = 0.2; // Penetration percentage to correct
@@ -117,13 +149,17 @@ impl PhysicsBody {
             let penetration = overlap_x.min(overlap_y.min(overlap_z));
 
             // Calculate correction vector
-            let correction = ((penetration - slop).max(0.0) / (1.0 / self.mass + 1.0 / other.mass))
+            let correction = ((penetration - slop).max(0.0) / (inv_mass_self + inv_mass_other))
                 * percent
                 * normal;
 
             // Apply positional correction
-            self.position -= (1.0 / self.mass) * correction;
-            other.position += (1.0 / other.mass) * correction;
+            if !self.is_static {
+                self.position -= inv_mass_self * correction;
+            }
+            if !other.is_static {
+                other.position += inv_mass_other * correction;
+            }
         }
     }
 }
