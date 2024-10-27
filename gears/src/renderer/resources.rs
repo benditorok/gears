@@ -29,6 +29,7 @@ pub(crate) async fn load_texture(
     texture::Texture::from_bytes(device, queue, &data, file_path)
 }
 
+// TODO ! use the example from the tobj crate's documentation
 pub(crate) async fn load_model(
     file_path: &str,
     device: &wgpu::Device,

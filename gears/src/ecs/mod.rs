@@ -18,7 +18,7 @@ impl Entity {
 
 impl From<u32> for Entity {
     fn from(id: u32) -> Self {
-        Entity(id)
+        Self(id)
     }
 }
 
