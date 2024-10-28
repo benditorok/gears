@@ -656,15 +656,9 @@ impl<'a> State<'a> {
             let name = ecs_lock
                 .get_component_from_entity::<components::Name>(*entity)
                 .expect("No name provided for the Model!");
-
-            // let pos = ecs_lock
-            //     .get_component_from_entity::<components::transform::Pos3>(*entity)
-            //     .expect("No position provided for the Model!");
-
             let static_model = ecs_lock
                 .get_component_from_entity::<components::model::StaticModel>(*entity)
                 .unwrap();
-
             let model_source = ecs_lock
                 .get_component_from_entity::<components::model::ModelSource>(*entity)
                 .expect("No source provided for the Model!");
@@ -717,6 +711,7 @@ impl<'a> State<'a> {
                 }
             }
 
+            // TODO scale should update the rot (quaternion)??
             // if let Some(scale) = scale {
             //     let rlock_scale = scale.read().unwrap();
 
@@ -811,6 +806,7 @@ impl<'a> State<'a> {
                 }
             }
 
+            // TODO scale should update the rot (quaternion)??
             // if let Some(scale) = scale {
             //     let rlock_scale = scale.read().unwrap();
 
@@ -935,7 +931,6 @@ impl<'a> State<'a> {
         self.update_physics_system(dt);
         self.update_lights();
         self.update_models();
-        //self.update_colliders();
     }
 
     /// Update the lights in the scene.
@@ -1105,23 +1100,6 @@ impl<'a> State<'a> {
             }
         }
     }
-
-    // fn update_colliders(&mut self) {
-    //     let ecs_lock = self.ecs.lock().unwrap();
-    //     let collider_entities = ecs_lock.get_entites_with_component::<components::Collider>();
-
-    //     for entity in collider_entities.iter() {
-    //         let pos = ecs_lock
-    //             .get_component_from_entity::<components::Pos3>(*entity)
-    //             .unwrap();
-    //         let collider = ecs_lock
-    //             .get_component_from_entity::<components::Collider>(*entity)
-    //             .unwrap();
-
-    //         let pos = pos.read().unwrap();
-    //         let collider = collider.read().unwrap();
-    //     }
-    // }
 
     /// Render the scene. This function is called every frame to render the scene.
     /// It is responsible for rendering the models, the lights, the camera, etc.
