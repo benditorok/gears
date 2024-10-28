@@ -17,6 +17,7 @@ pub trait App {
     #[allow(async_fn_in_trait)]
     async fn run(&mut self) -> anyhow::Result<()>;
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>>;
+    fn get_ecs(&self) -> Arc<Mutex<ecs::Manager>>;
     #[allow(async_fn_in_trait)]
     async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
     where
@@ -86,6 +87,16 @@ impl App for GearsApp {
     /// This is used to communicate the delta time between the main thread and the renderer thread.
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>> {
         self.tx_dt.as_ref().map(|tx| tx.subscribe())
+    }
+
+    /// Get a mutable reference to the ecs manager.
+    /// This can be used to access the ecs manager from outside the application.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the ecs manager.
+    fn get_ecs(&self) -> Arc<Mutex<ecs::Manager>> {
+        Arc::clone(&self.ecs)
     }
 
     /// This will create a new async task that will run the given update function on each update.
