@@ -5,6 +5,8 @@ use winit::{
     keyboard::{KeyCode, PhysicalKey},
 };
 
+use crate::ecs::{self, components::CameraKeycodes};
+
 use super::{OPENGL_TO_WGPU_MATRIX, SAFE_FRAC_PI_2};
 
 #[repr(C)]
@@ -113,10 +115,11 @@ pub(crate) struct CameraController {
     scroll: f32,
     speed: f32,
     sensitivity: f32,
+    keycodes: ecs::components::CameraKeycodes,
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32) -> Self {
+    pub fn new(speed: f32, sensitivity: f32, keycodes: Option<CameraKeycodes>) -> Self {
         Self {
             amount_left: 0.0,
             amount_right: 0.0,
@@ -129,6 +132,7 @@ impl CameraController {
             scroll: 0.0,
             speed,
             sensitivity,
+            keycodes: keycodes.unwrap_or_default(),
         }
     }
 
@@ -138,32 +142,27 @@ impl CameraController {
         } else {
             0.0
         };
-        match key {
-            KeyCode::KeyW | KeyCode::ArrowUp => {
-                self.amount_forward = amount;
-                true
-            }
-            KeyCode::KeyS | KeyCode::ArrowDown => {
-                self.amount_backward = amount;
-                true
-            }
-            KeyCode::KeyA | KeyCode::ArrowLeft => {
-                self.amount_left = amount;
-                true
-            }
-            KeyCode::KeyD | KeyCode::ArrowRight => {
-                self.amount_right = amount;
-                true
-            }
-            KeyCode::Space => {
-                self.amount_up = amount;
-                true
-            }
-            KeyCode::ShiftLeft => {
-                self.amount_down = amount;
-                true
-            }
-            _ => false,
+
+        if key == self.keycodes.forward {
+            self.amount_forward = amount;
+            true
+        } else if key == self.keycodes.backward {
+            self.amount_backward = amount;
+            true
+        } else if key == self.keycodes.left {
+            self.amount_left = amount;
+            true
+        } else if key == self.keycodes.right {
+            self.amount_right = amount;
+            true
+        } else if key == self.keycodes.up {
+            self.amount_up = amount;
+            true
+        } else if key == self.keycodes.down {
+            self.amount_down = amount;
+            true
+        } else {
+            false
         }
     }
 

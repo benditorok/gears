@@ -20,6 +20,7 @@ pub enum Camera {
         look_at: cgmath::Point3<f32>,
         speed: f32,
         sensitivity: f32,
+        keycodes: CameraKeycodes,
     },
     Fixed {
         look_at: cgmath::Point3<f32>,
@@ -27,3 +28,26 @@ pub enum Camera {
 }
 
 impl Component for Camera {}
+
+#[derive(Debug, Copy, Clone)]
+pub struct CameraKeycodes {
+    pub forward: winit::keyboard::KeyCode,
+    pub backward: winit::keyboard::KeyCode,
+    pub left: winit::keyboard::KeyCode,
+    pub right: winit::keyboard::KeyCode,
+    pub up: winit::keyboard::KeyCode,
+    pub down: winit::keyboard::KeyCode,
+}
+
+impl Default for CameraKeycodes {
+    fn default() -> Self {
+        Self {
+            forward: winit::keyboard::KeyCode::KeyW,
+            backward: winit::keyboard::KeyCode::KeyS,
+            left: winit::keyboard::KeyCode::KeyA,
+            right: winit::keyboard::KeyCode::KeyD,
+            up: winit::keyboard::KeyCode::Space,
+            down: winit::keyboard::KeyCode::ShiftLeft,
+        }
+    }
+}

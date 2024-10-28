@@ -24,6 +24,7 @@ async fn main() -> anyhow::Result<()> {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
             speed: 10.0,
             sensitivity: 0.5,
+            keycodes: components::CameraKeycodes::default(),
         }
     );
 

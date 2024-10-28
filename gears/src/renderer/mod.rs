@@ -17,6 +17,7 @@ use log::{info, warn};
 use model::{DrawModel, Vertex};
 use std::f32::consts::FRAC_PI_2;
 use std::num::NonZero;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::{any, iter};
 use tokio::sync::{broadcast, Mutex as TokioMutex};
@@ -82,26 +83,21 @@ pub async fn run(
             match event {
                 // todo HANDLE this on a separate thread
                 Event::DeviceEvent {
-                    event: DeviceEvent::MouseMotion{ delta, },
-                    .. // We're not using device_id currently
-                } => if state.mouse_pressed {
-                    state.camera_controller.process_mouse(delta.0, delta.1)
-                },
+                    event: DeviceEvent::MouseMotion { delta },
+                    ..
+                } => {
+                    // Handle the mouse motion for the camera if the state is NOT in a paused state
+                    if !state.is_state_paused.load(Ordering::Relaxed) {
+                        state.camera_controller.process_mouse(delta.0, delta.1);
+                    }
+                }
                 Event::WindowEvent {
                     ref event,
                     window_id,
+                    // TODO the state.input should handle device events as well as window events
                 } if window_id == state.window().id() && !state.input(event) => {
                     match event {
-                        WindowEvent::CloseRequested
-                        | WindowEvent::KeyboardInput {
-                            event:
-                                KeyEvent {
-                                    state: ElementState::Pressed,
-                                    physical_key: PhysicalKey::Code(KeyCode::Escape),
-                                    ..
-                                },
-                            ..
-                        } => ewlt.exit(),
+                        WindowEvent::CloseRequested => ewlt.exit(),
                         WindowEvent::Resized(physical_size) => {
                             state.resize(*physical_size);
                         }
@@ -184,6 +180,7 @@ struct State<'a> {
     draw_colliders: bool,
     egui_renderer: EguiRenderer,
     egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
+    is_state_paused: AtomicBool,
 }
 
 impl<'a> State<'a> {
@@ -396,6 +393,7 @@ impl<'a> State<'a> {
             draw_colliders: true,
             egui_renderer,
             egui_windows,
+            is_state_paused: AtomicBool::new(false),
         }
     }
 
@@ -505,7 +503,11 @@ impl<'a> State<'a> {
         if camera_entity.is_empty() {
             let camera =
                 camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
-            let controller = camera::CameraController::new(0.5, 0.2);
+            let controller = camera::CameraController::new(
+                0.5,
+                0.2,
+                Some(components::CameraKeycodes::default()),
+            );
 
             return (camera, controller);
         }
@@ -527,11 +529,12 @@ impl<'a> State<'a> {
                 look_at,
                 speed,
                 sensitivity,
+                keycodes,
             } => {
                 let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
                 let look_at_point = look_at;
                 let camera = camera::Camera::new_look_at(pos_point, look_at_point);
-                let controller = camera::CameraController::new(speed, sensitivity);
+                let controller = camera::CameraController::new(speed, sensitivity, Some(keycodes));
 
                 (camera, controller)
             }
@@ -539,7 +542,7 @@ impl<'a> State<'a> {
                 let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
                 let look_at_point = look_at;
                 let camera = camera::Camera::new_look_at(pos_point, look_at_point);
-                let controller = camera::CameraController::new(0.0, 0.0);
+                let controller = camera::CameraController::new(0.0, 0.0, None);
 
                 (camera, controller)
             }
@@ -874,6 +877,24 @@ impl<'a> State<'a> {
     ///
     /// A boolean indicating if the event was consumed.
     fn input(&mut self, event: &WindowEvent) -> bool {
+        // * Pause the state
+        if let WindowEvent::KeyboardInput {
+            event:
+                KeyEvent {
+                    state: ElementState::Pressed,
+                    physical_key: PhysicalKey::Code(KeyCode::Escape),
+                    ..
+                },
+            ..
+        } = event
+        {
+            self.is_state_paused.store(
+                !self.is_state_paused.load(Ordering::Relaxed),
+                Ordering::Relaxed,
+            );
+            return true;
+        }
+
         // * Capture the input for the custom windows
         if self.egui_renderer.handle_input(self.window, event) {
             // If a window consumed the event return true since no other component should handle it again
