@@ -25,6 +25,9 @@ egui = { workspace = true }
 egui-wgpu = { workspace = true }
 egui-winit = { workspace = true }
 
+[profile.release]
+debug = true
+
 [[bin]]
 name = "minimal"
 path = "src/minimal.rs"
