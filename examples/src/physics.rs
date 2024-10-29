@@ -59,9 +59,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::model::ModelSource {
-            obj_path: "res/models/sphere/sphere.obj"
-        }
+        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     // Physics Body 2
@@ -79,9 +77,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::model::ModelSource {
-            obj_path: "res/models/sphere/sphere.obj"
-        }
+        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     new_entity!(
@@ -99,9 +95,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::model::ModelSource {
-            obj_path: "res/models/cube/cube.obj"
-        },
+        components::model::ModelSource::Obj("res/models/cube/cube.obj"),
     );
 
     // Bouncing sphere
@@ -116,9 +110,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::model::ModelSource {
-            obj_path: "res/models/cube/cube.obj"
-        },
+        components::model::ModelSource::Obj("res/models/cube/cube.obj"),
     );
 
     new_entity!(
@@ -135,9 +127,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::model::ModelSource {
-            obj_path: "res/models/sphere/sphere.obj"
-        }
+        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     // Falling sphere bouncing off into the void
@@ -152,9 +142,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::model::ModelSource {
-            obj_path: "res/models/cube/cube.obj"
-        },
+        components::model::ModelSource::Obj("res/models/cube/cube.obj"),
     );
 
     new_entity!(
@@ -171,9 +159,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::model::ModelSource {
-            obj_path: "res/models/sphere/sphere.obj"
-        }
+        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     // Run the application

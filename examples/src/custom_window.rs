@@ -58,9 +58,7 @@ async fn main() -> anyhow::Result<()> {
     let sphere_entity = new_entity!(
         app,
         components::Name("Sphere1"),
-        components::model::ModelSource {
-            obj_path: "res/models/sphere/sphere.obj",
-        },
+        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
         components::model::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::one(),

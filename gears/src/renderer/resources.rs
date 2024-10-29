@@ -31,7 +31,7 @@ pub(crate) async fn load_texture(
 }
 
 // TODO ! use the example from the tobj crate's documentation
-pub(crate) async fn load_model(
+pub(crate) async fn load_model_obj(
     file_path: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,

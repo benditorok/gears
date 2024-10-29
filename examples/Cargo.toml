@@ -43,3 +43,7 @@ path = "src/custom_window.rs"
 [[bin]]
 name = "physics"
 path = "src/physics.rs"
+
+[[bin]]
+name = "animations"
+path = "src/animations.rs"

@@ -7,6 +7,43 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug executable 'animations'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=animations",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "animations",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'animations'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=animations",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "animations",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug executable 'custom_window'",
             "cargo": {
                 "args": [
@@ -72,6 +109,43 @@
                 ],
                 "filter": {
                     "name": "minimal",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'physics'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=physics",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "physics",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'physics'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=physics",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "physics",
                     "kind": "bin"
                 }
             },

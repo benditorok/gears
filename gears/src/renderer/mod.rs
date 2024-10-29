@@ -675,14 +675,24 @@ impl<'a> State<'a> {
             let obj_model = {
                 let rlock_model_source = model_source.read().unwrap();
 
-                resources::load_model(
-                    rlock_model_source.obj_path,
-                    &self.device,
-                    &self.queue,
-                    &self.texture_bind_group_layout,
-                )
-                .await
-                .unwrap()
+                match *rlock_model_source {
+                    components::model::ModelSource::Obj(path) => resources::load_model_obj(
+                        path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                    components::model::ModelSource::Gltf(path) => resources::load_model_gltf(
+                        path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                }
             };
             ecs_lock.add_component_to_entity(*entity, obj_model);
 
@@ -770,14 +780,24 @@ impl<'a> State<'a> {
             let obj_model = {
                 let rlock_model_source = model_source.read().unwrap();
 
-                resources::load_model(
-                    rlock_model_source.obj_path,
-                    &self.device,
-                    &self.queue,
-                    &self.texture_bind_group_layout,
-                )
-                .await
-                .unwrap()
+                match *rlock_model_source {
+                    components::model::ModelSource::Obj(path) => resources::load_model_obj(
+                        path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                    components::model::ModelSource::Gltf(path) => resources::load_model_gltf(
+                        path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                    )
+                    .await
+                    .unwrap(),
+                }
             };
             ecs_lock.add_component_to_entity(*entity, obj_model);
 

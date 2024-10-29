@@ -12,8 +12,9 @@ impl Component for StaticModel {}
 
 /// A component that stores the source of a model.
 #[derive(Debug, Copy, Clone)]
-pub struct ModelSource {
-    pub obj_path: &'static str,
+pub enum ModelSource {
+    Obj(&'static str),
+    Gltf(&'static str),
 }
 
 impl Component for ModelSource {}

@@ -108,36 +108,36 @@ async fn main() -> anyhow::Result<()> {
     // * If you do not need the IDs of the entities you can chain them together
     app.new_entity() // Cube 1
         .add_component(components::Name("Cube1"))
-        .add_component(components::model::ModelSource {
-            obj_path: "res/models/cube/cube.obj",
-        })
+        .add_component(components::model::ModelSource::Obj(
+            "res/models/cube/cube.obj",
+        ))
         .add_component(components::model::StaticModel {
             position: cgmath::Vector3::new(10.0, 0.0, 10.0),
             rotation: cgmath::Quaternion::one(),
         })
         .new_entity() // Cube 2
         .add_component(components::Name("Cube2"))
-        .add_component(components::model::ModelSource {
-            obj_path: "res/models/cube/cube.obj",
-        })
+        .add_component(components::model::ModelSource::Obj(
+            "res/models/cube/cube.obj",
+        ))
         .add_component(components::model::StaticModel {
             position: cgmath::Vector3::new(10.0, 0.0, -10.0),
             rotation: cgmath::Quaternion::one(),
         })
         .new_entity() // Cube 3
         .add_component(components::Name("Cube3"))
-        .add_component(components::model::ModelSource {
-            obj_path: "res/models/cube/cube.obj",
-        })
+        .add_component(components::model::ModelSource::Obj(
+            "res/models/cube/cube.obj",
+        ))
         .add_component(components::model::StaticModel {
             position: cgmath::Vector3::new(-10.0, 0.0, -10.0),
             rotation: cgmath::Quaternion::one(),
         })
         .new_entity() // Cube 4
         .add_component(components::Name("Cube4"))
-        .add_component(components::model::ModelSource {
-            obj_path: "res/models/cube/cube.obj",
-        })
+        .add_component(components::model::ModelSource::Obj(
+            "res/models/cube/cube.obj",
+        ))
         .add_component(components::model::StaticModel {
             position: cgmath::Vector3::new(-10.0, 0.0, 10.0),
             rotation: cgmath::Quaternion::one(),
@@ -148,9 +148,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Sphere1"),
-        components::model::ModelSource {
-            obj_path: "res/models/sphere/sphere.obj",
-        },
+        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
         components::model::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rotation: cgmath::Quaternion::one(),
@@ -162,9 +160,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Plane"),
-        components::model::ModelSource {
-            obj_path: "res/models/plane/plane.obj",
-        },
+        components::model::ModelSource::Obj("res/models/plane/plane.obj"),
         components::model::StaticModel {
             position: cgmath::Vector3::new(0.0, -3.0, 0.0),
             rotation: cgmath::Quaternion::one(),
@@ -183,9 +179,7 @@ async fn main() -> anyhow::Result<()> {
         let sphere_entity = new_entity!(
             app,
             components::Name(Box::leak(name.into_boxed_str())),
-            components::model::ModelSource {
-                obj_path: "res/models/sphere/sphere.obj",
-            },
+            components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
             components::model::StaticModel {
                 position: cgmath::Vector3::new(x, 0.0, z),
                 rotation: cgmath::Quaternion::one(),

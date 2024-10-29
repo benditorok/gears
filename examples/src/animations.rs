@@ -1,6 +1,8 @@
-use cgmath::{One, Quaternion, Rotation3};
+use cgmath::{Euler, One, Quaternion, Rad, Rotation3};
+use egui::Align2;
 use gears::prelude::*;
 use log::LevelFilter;
+use std::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -12,6 +14,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut app = GearsApp::default();
 
+    // ! Entities
     // Add fixed camera
     new_entity!(
         app,
@@ -50,31 +53,42 @@ async fn main() -> anyhow::Result<()> {
         )))
         .build();
 
-    // Add a sphere and get the Entity for reference
-    let sphere_entity = new_entity!(
+    let animated_cube = new_entity!(
         app,
         components::Name("Sphere1"),
-        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        components::model::ModelSource::Gltf("res/animated/cube/AnimatedCube.gltf"),
         components::model::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::one(),
         },
     );
 
+    // ! Custom windows
+    // Informations about the renderer
+    let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
+    app.add_window(Box::new(move |ui| {
+        egui::Window::new("Renderer info")
+            .default_open(true)
+            .max_width(1000.0)
+            .max_height(800.0)
+            .default_width(800.0)
+            .resizable(true)
+            .anchor(Align2::RIGHT_TOP, [0.0, 0.0])
+            .show(ui, |ui| {
+                if let Ok(dt) = w1_frame_rx.try_recv() {
+                    ui.label(format!("Frame time: {:.2} ms", dt.as_secs_f32() * 1000.0));
+                    ui.label(format!("FPS: {:.0}", 1.0 / dt.as_secs_f32()));
+                }
+                ui.end_row();
+            });
+    }));
+
     // Use the update loop to spin the sphere
     app.update_loop(move |ecs, dt| {
+        // Send the frame time to the custom window
+        w1_frame_tx.send(dt).unwrap();
+
         let ecs = ecs.lock().unwrap();
-        let spin_speed = 0.5f32;
-
-        if let Some(static_model) =
-            ecs.get_component_from_entity::<components::model::StaticModel>(sphere_entity)
-        {
-            let mut wlock_static_model = static_model.write().unwrap();
-
-            let rotation = wlock_static_model.rotation;
-            wlock_static_model.rotation =
-                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
-        }
     })
     .await?;
 
