@@ -2,20 +2,46 @@ use super::{model, texture};
 use anyhow::Context;
 use gltf::Gltf;
 use image::GenericImageView;
+use std::fmt::format;
 use std::io::{BufReader, Cursor};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use log::info;
 use wgpu::util::DeviceExt;
 
 pub(crate) async fn load_string(file_path: &str) -> anyhow::Result<String> {
     let path = std::path::Path::new(env!("OUT_DIR")).join(file_path);
-    let txt = std::fs::read_to_string(path)?;
+    let txt = std::fs::read_to_string(&path).context(format!(
+        "Failed to read file to string: {}",
+        &path.display()
+    ))?;
+
+    Ok(txt)
+}
+
+pub(crate) async fn load_string_path(path: PathBuf) -> anyhow::Result<String> {
+    let txt = std::fs::read_to_string(&path).context(format!(
+        "Failed to read file to string: {}",
+        &path.display()
+    ))?;
 
     Ok(txt)
 }
 
 pub(crate) async fn load_binary(file_path: &str) -> anyhow::Result<Vec<u8>> {
     let path = std::path::Path::new(env!("OUT_DIR")).join(file_path);
-    let data = std::fs::read(path)?;
+    let data = std::fs::read(&path).context(format!(
+        "Failed to read file to binary: {}",
+        &path.display()
+    ))?;
+
+    Ok(data)
+}
+
+pub(crate) async fn load_binary_path(path: PathBuf) -> anyhow::Result<Vec<u8>> {
+    let data = std::fs::read(&path).context(format!(
+        "Failed to read file to binary: {}",
+        &path.display()
+    ))?;
 
     Ok(data)
 }
@@ -28,6 +54,16 @@ pub(crate) async fn load_texture(
     let data = load_binary(file_path).await?;
 
     texture::Texture::from_bytes(device, queue, &data, file_path)
+}
+
+pub(crate) async fn load_texture_path(
+    path: PathBuf,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+) -> anyhow::Result<texture::Texture> {
+    let data = load_binary_path(path.clone()).await?;
+
+    texture::Texture::from_bytes(device, queue, &data, path.file_name().unwrap().to_str().unwrap())
 }
 
 // TODO ! use the example from the tobj crate's documentation
@@ -163,13 +199,18 @@ pub(crate) async fn load_model_obj(
     })
 }
 
-pub async fn load_model_gltf(
-    file_name: &str,
+pub(crate) async fn load_model_gltf(
+    gltf_path: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
-    let gltf_text = load_string(file_name).await?;
+    let file_path = Path::new(gltf_path);
+    let model_root_dir = file_path.parent().unwrap();
+    let file_name = model_root_dir.file_name().unwrap().to_str().unwrap();
+
+    let string_path = Path::new(env!("OUT_DIR")).join(gltf_path);
+    let gltf_text = load_string_path(string_path).await?;
     let gltf_cursor = Cursor::new(gltf_text);
     let gltf_reader = BufReader::new(gltf_cursor);
     let gltf = Gltf::from_reader(gltf_reader)?;
@@ -185,7 +226,8 @@ pub async fn load_model_gltf(
                 // };
             }
             gltf::buffer::Source::Uri(uri) => {
-                let bin = load_binary(uri).await?;
+                let uri_path = Path::new(env!("OUT_DIR")).join(model_root_dir).join(uri);
+                let bin = load_binary_path(uri_path).await?;
                 buffer_data.push(bin);
             }
         }
@@ -292,7 +334,8 @@ pub async fn load_model_gltf(
                 });
             }
             gltf::image::Source::Uri { uri, mime_type } => {
-                let diffuse_texture = load_texture(uri, device, queue).await?;
+                let uri_path = Path::new(env!("OUT_DIR")).join(model_root_dir).join(uri);
+                let diffuse_texture = load_texture_path(uri_path, device, queue).await?;
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout,
                     entries: &[
