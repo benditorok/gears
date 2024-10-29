@@ -68,8 +68,6 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // ! Custom windows
-    let (dt_tx, dt_rx) = tokio::sync::mpsc::channel::<Dt>(10);
-
     // Informations about the renderer
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
     app.add_window(Box::new(move |ui| {
