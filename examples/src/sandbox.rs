@@ -1,7 +1,5 @@
-use app::GearsApp;
 use cgmath::{One, Rotation3};
-use ecs::traits::EntityBuilder;
-use gears::{new_entity, prelude::*};
+use gears::prelude::*;
 use log::LevelFilter;
 use std::f32::consts::PI;
 

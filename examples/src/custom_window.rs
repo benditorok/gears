@@ -1,9 +1,9 @@
 use std::sync::mpsc;
 
 use cgmath::{Euler, One, Quaternion, Rad, Rotation3};
-use egui::{Align, Align2};
-use gears::{core::Dt, new_entity, prelude::*};
-use log::{warn, LevelFilter};
+use egui::Align2;
+use gears::prelude::*;
+use log::LevelFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

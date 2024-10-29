@@ -1,5 +1,5 @@
 use cgmath::{One, Quaternion, Rotation3};
-use gears::{new_entity, prelude::*};
+use gears::prelude::*;
 use log::LevelFilter;
 
 #[tokio::main]

@@ -1,9 +1,6 @@
-use app::GearsApp;
-use cgmath::{One, Rotation3};
-use ecs::traits::EntityBuilder;
-use gears::{new_entity, prelude::*};
+use cgmath::One;
+use gears::prelude::*;
 use log::LevelFilter;
-use std::f32::consts::PI;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
