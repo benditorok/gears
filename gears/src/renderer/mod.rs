@@ -12,13 +12,13 @@ use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
 use cgmath::*;
 use egui_wgpu::ScreenDescriptor;
-use instant::Duration;
 use log::{info, warn};
 use model::{DrawModel, Vertex};
 use std::f32::consts::FRAC_PI_2;
 use std::num::NonZero;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{self, Instant};
 use std::{any, iter};
 use tokio::sync::{broadcast, Mutex as TokioMutex};
 use wgpu::util::DeviceExt;
@@ -66,7 +66,7 @@ pub async fn run(
         state.egui_windows = egui_windows;
     }
 
-    let mut last_render_time = instant::Instant::now();
+    let mut last_render_time = time::Instant::now();
 
     // * Event loop
     event_loop
@@ -105,7 +105,7 @@ pub async fn run(
                         //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
                         // }
                         WindowEvent::RedrawRequested => {
-                            let now = instant::Instant::now();
+                            let now = time::Instant::now();
                             let dt = now - last_render_time;
                             last_render_time = now;
 
@@ -181,6 +181,7 @@ struct State<'a> {
     egui_renderer: EguiRenderer,
     egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
     is_state_paused: AtomicBool,
+    time: Instant,
 }
 
 impl<'a> State<'a> {
@@ -394,6 +395,7 @@ impl<'a> State<'a> {
             egui_renderer,
             egui_windows,
             is_state_paused: AtomicBool::new(false),
+            time: time::Instant::now(),
         }
     }
 
@@ -937,7 +939,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A future which can be awaited.
-    async fn update(&mut self, dt: instant::Duration) {
+    async fn update(&mut self, dt: time::Duration) {
         // Update camera
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
@@ -1048,7 +1050,7 @@ impl<'a> State<'a> {
         }
     }
 
-    fn update_physics_system(&mut self, dt: instant::Duration) {
+    fn update_physics_system(&mut self, dt: time::Duration) {
         let dt = dt.as_secs_f32();
         let mut physics_bodies = Vec::new();
 

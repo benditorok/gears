@@ -1,3 +1,5 @@
+use std::time;
+
 use cgmath::{perspective, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3};
 use winit::{
     dpi::PhysicalPosition,
@@ -179,7 +181,7 @@ impl CameraController {
         };
     }
 
-    pub fn update_camera(&mut self, camera: &mut Camera, dt: instant::Duration) {
+    pub fn update_camera(&mut self, camera: &mut Camera, dt: time::Duration) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right

@@ -29,7 +29,6 @@ tokio = { version = "1.40.0", features = ["full"] }
 futures = "0.3.31"
 anyhow = "1.0.89"
 cfg-if = "1"
-instant = "0.1.13"
 winit = { version = "0.30.5", features = ["rwh_05"] }
 env_logger = "0.11.5"
 log = "0.4"

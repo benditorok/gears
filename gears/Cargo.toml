@@ -28,7 +28,6 @@ tokio = { workspace = true }
 futures = { workspace = true }
 anyhow = { workspace = true }
 cfg-if = { workspace = true }
-instant = { workspace = true }
 winit = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }

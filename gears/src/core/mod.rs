@@ -3,4 +3,4 @@ pub mod config;
 pub mod event;
 pub mod threadpool;
 
-pub type Dt = instant::Duration;
+pub type Dt = std::time::Duration;
