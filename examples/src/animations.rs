@@ -1,4 +1,5 @@
 use cgmath::{Euler, One, Quaternion, Rad, Rotation3};
+use core::panic;
 use egui::Align2;
 use gears::prelude::*;
 use log::LevelFilter;
@@ -15,13 +16,16 @@ async fn main() -> anyhow::Result<()> {
     let mut app = GearsApp::default();
 
     // ! Entities
-    // Add fixed camera
+    // Add FPS camera
     new_entity!(
         app,
-        components::Name("Fixed Camera"),
-        components::transform::Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
-        components::Camera::Fixed {
+        components::Name("FPS Camera"),
+        components::transform::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+        components::Camera::FPS {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
+            speed: 10.0,
+            sensitivity: 0.5,
+            keycodes: components::CameraKeycodes::default(),
         }
     );
 
@@ -55,13 +59,33 @@ async fn main() -> anyhow::Result<()> {
 
     let animated_cube = new_entity!(
         app,
-        components::Name("Sphere1"),
-        components::model::ModelSource::Gltf("res/animated/cube/AnimatedCube.gltf"),
+        components::Name("test"),
+        components::model::ModelSource::Gltf("res/gltf/cube/AnimatedCube.gltf"),
         components::model::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::one(),
         },
     );
+
+    let animated_cube = new_entity!(
+        app,
+        components::Name("test"),
+        components::model::ModelSource::Gltf("res/gltf/helmet/DamagedHelmet.gltf"),
+        components::model::StaticModel {
+            position: cgmath::Vector3::new(0.0, 5.0, 0.0),
+            rotation: Quaternion::from_angle_x(cgmath::Rad(90.0)),
+        },
+    );
+
+    // let avo = new_entity!(
+    //     app,
+    //     components::Name("avo"),
+    //     components::model::ModelSource::Gltf("res/animated/avocado/Avocado.gltf"),
+    //     components::model::StaticModel {
+    //         position: cgmath::Vector3::new(0.0, 15.0, 0.0),
+    //         rotation: Quaternion::one(),
+    //     },
+    // );
 
     // ! Custom windows
     // Informations about the renderer
@@ -87,8 +111,6 @@ async fn main() -> anyhow::Result<()> {
     app.update_loop(move |ecs, dt| {
         // Send the frame time to the custom window
         w1_frame_tx.send(dt).unwrap();
-
-        let ecs = ecs.lock().unwrap();
     })
     .await?;
 

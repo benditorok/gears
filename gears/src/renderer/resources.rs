@@ -2,10 +2,10 @@ use super::{model, texture};
 use anyhow::Context;
 use gltf::Gltf;
 use image::GenericImageView;
+use log::info;
 use std::fmt::format;
 use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
-use log::info;
 use wgpu::util::DeviceExt;
 
 pub(crate) async fn load_string(file_path: &str) -> anyhow::Result<String> {
@@ -63,7 +63,12 @@ pub(crate) async fn load_texture_path(
 ) -> anyhow::Result<texture::Texture> {
     let data = load_binary_path(path.clone()).await?;
 
-    texture::Texture::from_bytes(device, queue, &data, path.file_name().unwrap().to_str().unwrap())
+    texture::Texture::from_bytes(
+        device,
+        queue,
+        &data,
+        path.file_name().unwrap().to_str().unwrap(),
+    )
 }
 
 // TODO ! use the example from the tobj crate's documentation

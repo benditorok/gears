@@ -109,11 +109,12 @@ pub async fn run(
                             let dt = now - last_render_time;
                             last_render_time = now;
 
-                            info!(
-                                "FPS: {:.0}, frame time: {} ms",
-                                1.0 / &dt.as_secs_f32(),
-                                &dt.as_millis()
-                            );
+                            // * Log FPS
+                            // info!(
+                            //     "FPS: {:.0}, frame time: {} ms",
+                            //     1.0 / &dt.as_secs_f32(),
+                            //     &dt.as_millis()
+                            // );
 
                             // Send the delta time using the broadcast channel
                             if let Err(e) = tx_dt.send(dt) {
@@ -1042,6 +1043,9 @@ impl<'a> State<'a> {
             for entity in model_entities {
                 let ecs_lock = self.ecs.lock().unwrap();
 
+                let name = ecs_lock
+                    .get_component_from_entity::<components::Name>(*entity)
+                    .unwrap();
                 let static_model = ecs_lock
                     .get_component_from_entity::<components::model::StaticModel>(*entity)
                     .unwrap();
@@ -1051,13 +1055,61 @@ impl<'a> State<'a> {
                 let buffer = ecs_lock
                     .get_component_from_entity::<wgpu::Buffer>(*entity)
                     .unwrap();
+                let model = ecs_lock
+                    .get_component_from_entity::<model::Model>(*entity)
+                    .unwrap();
 
                 {
-                    let mut wlock_instance = instance.write().unwrap();
-                    let rlock_static_model = static_model.read().unwrap();
+                    // ! Animations testing
+                    let rlock_model = model.read().unwrap();
 
-                    wlock_instance.position = rlock_static_model.position;
-                    wlock_instance.rotation = rlock_static_model.rotation;
+                    if !rlock_model.animations.is_empty() {
+                        info!("Animation found for model: {}", name.read().unwrap().0);
+                        let current_time = self.time.elapsed().as_secs_f32();
+
+                        let animation = &rlock_model.animations[0];
+                        let mut current_keyframe_index = 0;
+
+                        for (i, timestamp) in animation.timestamps.iter().enumerate() {
+                            if *timestamp > current_time {
+                                break;
+                            }
+                            current_keyframe_index = i;
+                        }
+
+                        // Loop the animation
+                        if current_keyframe_index == animation.timestamps.len() - 1 {
+                            self.time = Instant::now();
+                            current_keyframe_index = 0;
+                        }
+
+                        info!("Current keyframe index: {}", current_keyframe_index);
+
+                        let current_animation = &animation.keyframes;
+                        let mut current_frame: Option<&Vec<f32>> = None;
+                        match current_animation {
+                            model::Keyframes::Translation(frames) => {
+                                current_frame = Some(&frames[current_keyframe_index])
+                            }
+                            model::Keyframes::Other => (),
+                        }
+
+                        if let Some(current_frame) = current_frame {
+                            let mut wlock_instance = instance.write().unwrap();
+
+                            wlock_instance.position = cgmath::Vector3::new(
+                                current_frame[0],
+                                current_frame[1],
+                                current_frame[2],
+                            );
+                        }
+                    } else {
+                        let mut wlock_instance = instance.write().unwrap();
+                        let rlock_static_model = static_model.read().unwrap();
+
+                        wlock_instance.position = rlock_static_model.position;
+                        wlock_instance.rotation = rlock_static_model.rotation;
+                    }
                 }
 
                 let instance_raw = instance.read().unwrap().to_raw();
@@ -1236,7 +1288,7 @@ impl<'a> State<'a> {
         }
 
         // ! Egui render pass for the custom UI windows
-        if !self.egui_windows.is_empty() {
+        if (!self.egui_windows.is_empty()) {
             // * if a custom ui is present
             let screen_descriptor = ScreenDescriptor {
                 size_in_pixels: [self.config.width, self.config.height],
