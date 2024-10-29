@@ -57,9 +57,21 @@ pub(crate) struct Mesh {
     pub material: usize,
 }
 
+pub(crate) enum Keyframes {
+    Translation(Vec<Vec<f32>>),
+    Other,
+}
+
+pub(crate) struct AnimationClip {
+    pub name: String,
+    pub keyframes: Keyframes,
+    pub timestamps: Vec<f32>,
+}
+
 pub(crate) struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
+    pub animations: Vec<AnimationClip>,
 }
 
 pub(crate) trait DrawModel<'a> {

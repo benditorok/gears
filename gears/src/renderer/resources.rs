@@ -156,13 +156,18 @@ pub(crate) async fn load_model(
         })
         .collect::<Vec<_>>();
 
-    Ok(model::Model { meshes, materials })
+    Ok(model::Model {
+        meshes,
+        materials,
+        animations: Vec::new(),
+    })
 }
 
 pub async fn load_model_gltf(
     file_name: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
+    layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
     let gltf_text = load_string(file_name).await?;
     let gltf_cursor = Cursor::new(gltf_text);
@@ -222,18 +227,18 @@ pub async fn load_model_gltf(
                                 vector
                             })
                             .collect();
-                        Keyframes::Translation(translation_vec)
+                        model::Keyframes::Translation(translation_vec)
                     }
-                    other => Keyframes::Other, // gltf::animation::util::ReadOutputs::Rotations(_) => todo!(),
-                                               // gltf::animation::util::ReadOutputs::Scales(_) => todo!(),
-                                               // gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => todo!(),
+                    other => model::Keyframes::Other, // gltf::animation::util::ReadOutputs::Rotations(_) => todo!(),
+                                                      // gltf::animation::util::ReadOutputs::Scales(_) => todo!(),
+                                                      // gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => todo!(),
                 }
             } else {
                 println!("We got problems");
-                Keyframes::Other
+                model::Keyframes::Other
             };
 
-            animation_clips.push(AnimationClip {
+            animation_clips.push(model::AnimationClip {
                 name: animation.name().unwrap_or("Default").to_string(),
                 keyframes,
                 timestamps,
@@ -265,18 +270,48 @@ pub async fn load_model_gltf(
                     file_name,
                 )
                 .expect("Couldn't load diffuse");
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                        },
+                    ],
+                    label: None,
+                });
 
                 materials.push(model::Material {
                     name: material.name().unwrap_or("Default Material").to_string(),
                     diffuse_texture,
+                    bind_group,
                 });
             }
             gltf::image::Source::Uri { uri, mime_type } => {
                 let diffuse_texture = load_texture(uri, device, queue).await?;
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                        },
+                    ],
+                    label: None,
+                });
 
                 materials.push(model::Material {
                     name: material.name().unwrap_or("Default Material").to_string(),
                     diffuse_texture,
+                    bind_group,
                 });
             }
         };
@@ -300,7 +335,7 @@ pub async fn load_model_gltf(
                 if let Some(vertex_attribute) = reader.read_positions() {
                     vertex_attribute.for_each(|vertex| {
                         // dbg!(vertex);
-                        vertices.push(ModelVertex {
+                        vertices.push(model::ModelVertex {
                             position: vertex,
                             tex_coords: Default::default(),
                             normal: Default::default(),
