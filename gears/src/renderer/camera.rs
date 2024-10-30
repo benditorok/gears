@@ -3,8 +3,8 @@ use std::time;
 use cgmath::{perspective, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3};
 use winit::{
     dpi::PhysicalPosition,
-    event::{ElementState, KeyEvent, MouseScrollDelta, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey},
+    event::{ElementState, MouseScrollDelta},
+    keyboard::KeyCode,
 };
 
 use crate::ecs::{self, components::CameraKeycodes};

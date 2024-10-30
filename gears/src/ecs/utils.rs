@@ -1,4 +1,3 @@
-use std::f64::consts::E;
 
 use log::warn;
 
@@ -48,8 +47,8 @@ impl super::traits::EntityBuilder for EcsBuilder<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::{self, traits::EntityBuilder};
-    use log::warn;
+    use crate::ecs::{traits::EntityBuilder};
+    
 
     #[derive(Debug, PartialEq)]
     struct TestComponent {

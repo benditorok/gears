@@ -3,10 +3,8 @@ pub mod model;
 pub mod physics;
 pub mod transform;
 
-use std::ops::Deref;
 
 use super::traits::Component;
-use cgmath::{InnerSpace, Rotation3};
 
 /// A component that stores the name of an object.
 pub struct Name(pub &'static str);

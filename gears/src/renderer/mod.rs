@@ -10,25 +10,21 @@ use crate::core::Dt;
 use crate::ecs::{self, components};
 use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
-use cgmath::*;
 use egui_wgpu::ScreenDescriptor;
-use log::{info, warn};
+use log::warn;
 use model::{DrawModel, Vertex};
 use std::f32::consts::FRAC_PI_2;
-use std::num::NonZero;
+use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{self, Instant};
-use std::{any, iter};
-use tokio::sync::{broadcast, Mutex as TokioMutex};
+use tokio::sync::broadcast;
 use wgpu::util::DeviceExt;
-use winit::dpi::PhysicalPosition;
-use winit::event::{self, *};
+use winit::event::*;
 use winit::window::WindowAttributes;
 use winit::{
-    event::*,
-    event_loop::{ControlFlow, EventLoop},
-    keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
+    event_loop::EventLoop,
+    keyboard::{KeyCode, PhysicalKey},
     window::Window,
 };
 
@@ -1330,7 +1326,7 @@ impl<'a> State<'a> {
         }
 
         // ! Egui render pass for the custom UI windows
-        if (!self.egui_windows.is_empty()) {
+        if !self.egui_windows.is_empty() {
             // * if a custom ui is present
             let screen_descriptor = ScreenDescriptor {
                 size_in_pixels: [self.config.width, self.config.height],

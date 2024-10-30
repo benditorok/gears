@@ -45,12 +45,12 @@ impl EventQueue {
     }
 
     pub fn add_event(&mut self, event: GearsEvent) {
-        let mut events = &mut self.events.lock().unwrap();
+        let events = &mut self.events.lock().unwrap();
         events.push_back(event);
     }
 
     pub fn remove_event(&mut self) -> Option<GearsEvent> {
-        let mut events = &mut self.events.lock().unwrap();
+        let events = &mut self.events.lock().unwrap();
         events.pop_front()
     }
 }

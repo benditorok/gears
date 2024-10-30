@@ -1,7 +1,4 @@
-use std::default;
 
-use cgmath::{Point3, Vector3};
-use wgpu::util::DeviceExt;
 
 pub(crate) const NUM_MAX_LIGHTS: u32 = 20;
 

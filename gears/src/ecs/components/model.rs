@@ -1,5 +1,4 @@
 use crate::ecs::traits::Component;
-use cgmath::{InnerSpace, Rotation3};
 
 /// A drawable model component. Does not have any physics properties nor collision.
 #[derive(Debug, Copy, Clone)]

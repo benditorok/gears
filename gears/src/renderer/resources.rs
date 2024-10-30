@@ -3,7 +3,6 @@ use anyhow::Context;
 use gltf::Gltf;
 use image::GenericImageView;
 use log::{info, warn};
-use std::fmt::format;
 use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
 use wgpu::util::DeviceExt;

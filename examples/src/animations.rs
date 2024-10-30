@@ -1,5 +1,4 @@
-use cgmath::{Euler, One, Quaternion, Rad, Rotation3};
-use core::panic;
+use cgmath::{One, Quaternion, Rotation3};
 use egui::Align2;
 use gears::prelude::*;
 use log::LevelFilter;

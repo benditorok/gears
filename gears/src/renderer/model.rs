@@ -1,5 +1,5 @@
 use super::texture;
-use std::{clone, ops::Range};
+use std::ops::Range;
 
 pub(crate) trait Vertex {
     fn desc() -> wgpu::VertexBufferLayout<'static>;
