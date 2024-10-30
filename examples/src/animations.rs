@@ -77,6 +77,17 @@ async fn main() -> anyhow::Result<()> {
         },
     );
 
+    // Add a sphere and get the Entity for reference
+    let sphere_entity = new_entity!(
+        app,
+        components::Name("Sphere1"),
+        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        components::model::StaticModel {
+            position: cgmath::Vector3::new(0.0, 0.0, 5.0),
+            rotation: Quaternion::one(),
+        },
+    );
+
     // let avo = new_entity!(
     //     app,
     //     components::Name("avo"),

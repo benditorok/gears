@@ -225,6 +225,7 @@ pub(crate) async fn load_model_gltf(
     for buffer in gltf.buffers() {
         match buffer.source() {
             gltf::buffer::Source::Bin => {
+                // Handle binary buffer if necessary
                 // if let Some(blob) = gltf.blob.as_deref() {
                 //     buffer_data.push(blob.into());
                 //     println!("Found a bin, saving");
@@ -299,32 +300,30 @@ pub(crate) async fn load_model_gltf(
         let base_color_texture = &pbr.base_color_texture();
         let texture_source = &pbr
             .base_color_texture()
-            .map(|tex| {
-                // println!("Grabbing diffuse tex");
-                // dbg!(&tex.texture().source());
-                tex.texture().source().source()
-            })
+            .map(|tex| tex.texture().source().source())
             .expect("texture");
 
         match texture_source {
             gltf::image::Source::View { view, mime_type } => {
-                let diffuse_texture = texture::Texture::from_bytes(
+                let texture = texture::Texture::from_bytes(
                     device,
                     queue,
                     &buffer_data[view.buffer().index()],
                     file_name,
-                )
-                .expect("Couldn't load diffuse");
+                )?;
+                // Removed the invalid cloning line:
+                // texture.view = texture.view.clone();
+
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout,
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                            resource: wgpu::BindingResource::TextureView(&texture.view),
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                            resource: wgpu::BindingResource::Sampler(&texture.sampler),
                         },
                     ],
                     label: None,
@@ -332,13 +331,16 @@ pub(crate) async fn load_model_gltf(
 
                 materials.push(model::Material {
                     name: material.name().unwrap_or("Default Material").to_string(),
-                    diffuse_texture,
+                    diffuse_texture: texture,
                     bind_group,
                 });
             }
             gltf::image::Source::Uri { uri, mime_type } => {
                 let uri_path = Path::new(env!("OUT_DIR")).join(model_root_dir).join(uri);
                 let diffuse_texture = load_texture_path(uri_path, device, queue).await?;
+                // Removed the invalid cloning line:
+                // diffuse_texture.view = diffuse_texture.view.clone();
+
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout,
                     entries: &[
@@ -368,76 +370,90 @@ pub(crate) async fn load_model_gltf(
     for scene in gltf.scenes() {
         for node in scene.nodes() {
             println!("Node {}", node.index());
-            // dbg!(node);
 
-            let mesh = node.mesh().expect("Got mesh");
-            let primitives = mesh.primitives();
-            primitives.for_each(|primitive| {
-                // dbg!(primitive);
+            if let Some(mesh) = node.mesh() {
+                let mesh_name = mesh.name().unwrap_or("Unnamed Mesh").to_string(); // Capture mesh name
 
-                let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
+                for primitive in mesh.primitives() {
+                    let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
 
-                let mut vertices = Vec::new();
-                if let Some(vertex_attribute) = reader.read_positions() {
-                    vertex_attribute.for_each(|vertex| {
-                        // dbg!(vertex);
-                        vertices.push(model::ModelVertex {
-                            position: vertex,
-                            tex_coords: Default::default(),
-                            normal: Default::default(),
+                    // Read positions
+                    let positions: Vec<[f32; 3]> = reader
+                        .read_positions()
+                        .ok_or_else(|| anyhow::anyhow!("Missing positions"))?
+                        .collect();
+
+                    // Read normals or generate default
+                    let normals: Vec<[f32; 3]> = reader
+                        .read_normals()
+                        .map(|n| n.collect())
+                        .unwrap_or_else(|| {
+                            warn!("No normals found for mesh {}", mesh_name);
+                            positions.iter().map(|_| [0.0, 0.0, 0.0]).collect()
+                        });
+
+                    // Read tex_coords or generate default
+                    let tex_coords: Vec<[f32; 2]> = reader
+                        .read_tex_coords(0)
+                        .map(|v| {
+                            v.into_f32()
+                                .map(|mut tex_coord| {
+                                    // Flip the V-component of the texture coordinate
+                                    tex_coord[1] = 1.0 - tex_coord[1];
+                                    tex_coord
+                                })
+                                .collect::<Vec<_>>()
                         })
+                        .unwrap_or_else(|| {
+                            warn!("No texture coordinates found for mesh {}", mesh_name);
+                            positions.iter().map(|_| [0.0, 0.0]).collect()
+                        });
+
+                    // Read indices or generate sequential
+                    let indices: Vec<u32> = reader
+                        .read_indices()
+                        .map(|i| i.into_u32().collect())
+                        .unwrap_or_else(|| (0..positions.len() as u32).collect());
+
+                    // Construct vertices using indices
+                    let vertices: Vec<model::ModelVertex> = indices
+                        .iter()
+                        .map(|&i| model::ModelVertex {
+                            position: positions[i as usize],
+                            normal: normals[i as usize],
+                            tex_coords: tex_coords[i as usize],
+                        })
+                        .collect();
+
+                    // Use deduplicated indices
+                    let unique_vertices = vertices.clone();
+                    let unique_indices: Vec<u32> = (0..unique_vertices.len() as u32).collect();
+
+                    let vertex_buffer =
+                        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some(&format!("{:?} Vertex Buffer", mesh_name)),
+                            contents: bytemuck::cast_slice(&unique_vertices),
+                            usage: wgpu::BufferUsages::VERTEX,
+                        });
+                    let index_buffer =
+                        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some(&format!("{:?} Index Buffer", mesh_name)),
+                            contents: bytemuck::cast_slice(&unique_indices),
+                            usage: wgpu::BufferUsages::INDEX,
+                        });
+
+                    log::info!("Mesh: {}", mesh_name);
+                    meshes.push(model::Mesh {
+                        name: mesh_name.clone(),
+                        vertex_buffer,
+                        index_buffer,
+                        num_elements: unique_indices.len() as u32,
+                        material: primitive.material().index().unwrap_or(0),
                     });
                 }
-                if let Some(normal_attribute) = reader.read_normals() {
-                    let mut normal_index = 0;
-                    normal_attribute.for_each(|normal| {
-                        // dbg!(normal);
-                        vertices[normal_index].normal = normal;
-
-                        normal_index += 1;
-                    });
-                }
-                if let Some(tex_coord_attribute) = reader.read_tex_coords(0).map(|v| v.into_f32()) {
-                    let mut tex_coord_index = 0;
-                    tex_coord_attribute.for_each(|tex_coord| {
-                        // dbg!(tex_coord);
-                        vertices[tex_coord_index].tex_coords = tex_coord;
-
-                        tex_coord_index += 1;
-                    });
-                }
-
-                let mut indices = Vec::new();
-                if let Some(indices_raw) = reader.read_indices() {
-                    // dbg!(indices_raw);
-                    indices.append(&mut indices_raw.into_u32().collect::<Vec<u32>>());
-                }
-                // dbg!(indices);
-
-                // println!("{:#?}", &indices.expect("got indices").data_type());
-                // println!("{:#?}", &indices.expect("got indices").index());
-                // println!("{:#?}", &material);
-
-                let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some(&format!("{:?} Vertex Buffer", file_name)),
-                    contents: bytemuck::cast_slice(&vertices),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-                let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some(&format!("{:?} Index Buffer", file_name)),
-                    contents: bytemuck::cast_slice(&indices),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-
-                meshes.push(model::Mesh {
-                    name: file_name.to_string(),
-                    vertex_buffer,
-                    index_buffer,
-                    num_elements: indices.len() as u32,
-                    // material: m.mesh.material_id.unwrap_or(0),
-                    material: 0,
-                });
-            });
+            } else {
+                warn!("Node {} has no mesh", node.index());
+            }
         }
     }
 
