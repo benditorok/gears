@@ -2,7 +2,7 @@ use super::{model, texture};
 use anyhow::Context;
 use gltf::Gltf;
 use image::GenericImageView;
-use log::info;
+use log::{info, warn};
 use std::fmt::format;
 use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
@@ -247,41 +247,39 @@ pub(crate) async fn load_model_gltf(
                 match inputs {
                     gltf::accessor::Iter::Standard(times) => {
                         let times: Vec<f32> = times.collect();
-                        println!("Time: {}", times.len());
-                        dbg!(&times);
+                        info!("Times: {:?}", &times);
                         times
                     }
                     gltf::accessor::Iter::Sparse(_) => {
-                        println!("Sparse keyframes not supported");
-                        let times: Vec<f32> = Vec::new();
-                        times
+                        warn!("Sparse keyframes not supported");
+                        Vec::new()
                     }
                 }
             } else {
-                println!("We got problems");
-                let times: Vec<f32> = Vec::new();
-                times
+                Vec::new()
             };
 
             let keyframes = if let Some(outputs) = reader.read_outputs() {
                 match outputs {
                     gltf::animation::util::ReadOutputs::Translations(translation) => {
-                        let translation_vec = translation
-                            .map(|tr| {
-                                // println!("Translation:");
-                                dbg!(&tr);
-                                let vector: Vec<f32> = tr.into();
-                                vector
-                            })
-                            .collect();
+                        let translation_vec =
+                            translation.map(|tr| tr.into()).collect::<Vec<Vec<f32>>>();
                         model::Keyframes::Translation(translation_vec)
                     }
-                    other => model::Keyframes::Other, // gltf::animation::util::ReadOutputs::Rotations(_) => todo!(),
-                                                      // gltf::animation::util::ReadOutputs::Scales(_) => todo!(),
-                                                      // gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => todo!(),
+                    gltf::animation::util::ReadOutputs::Rotations(rotation) => {
+                        let rotation_vec = rotation
+                            .into_f32()
+                            .map(|rot| rot.into())
+                            .collect::<Vec<Vec<f32>>>();
+                        model::Keyframes::Rotation(rotation_vec)
+                    }
+                    gltf::animation::util::ReadOutputs::Scales(scale) => {
+                        let scale_vec = scale.map(|s| s.into()).collect::<Vec<Vec<f32>>>();
+                        model::Keyframes::Scale(scale_vec)
+                    }
+                    _ => model::Keyframes::Other,
                 }
             } else {
-                println!("We got problems");
                 model::Keyframes::Other
             };
 
@@ -289,7 +287,7 @@ pub(crate) async fn load_model_gltf(
                 name: animation.name().unwrap_or("Default").to_string(),
                 keyframes,
                 timestamps,
-            })
+            });
         }
     }
 

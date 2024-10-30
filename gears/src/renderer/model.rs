@@ -59,6 +59,8 @@ pub(crate) struct Mesh {
 
 pub(crate) enum Keyframes {
     Translation(Vec<Vec<f32>>),
+    Rotation(Vec<Vec<f32>>), // Added Rotation variant
+    Scale(Vec<Vec<f32>>),    // Added Scale variant
     Other,
 }
 

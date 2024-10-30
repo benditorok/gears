@@ -1086,22 +1086,34 @@ impl<'a> State<'a> {
                         info!("Current keyframe index: {}", current_keyframe_index);
 
                         let current_animation = &animation.keyframes;
-                        let mut current_frame: Option<&Vec<f32>> = None;
                         match current_animation {
                             model::Keyframes::Translation(frames) => {
-                                current_frame = Some(&frames[current_keyframe_index])
+                                let current_frame = &frames[current_keyframe_index];
+                                let mut wlock_instance = instance.write().unwrap();
+
+                                wlock_instance.position = cgmath::Vector3::new(
+                                    current_frame[0],
+                                    current_frame[1],
+                                    current_frame[2],
+                                );
                             }
-                            model::Keyframes::Other => (),
-                        }
+                            model::Keyframes::Rotation(vec) => {
+                                let current_frame = &vec[current_keyframe_index];
+                                let mut wlock_instance = instance.write().unwrap();
 
-                        if let Some(current_frame) = current_frame {
-                            let mut wlock_instance = instance.write().unwrap();
-
-                            wlock_instance.position = cgmath::Vector3::new(
-                                current_frame[0],
-                                current_frame[1],
-                                current_frame[2],
-                            );
+                                wlock_instance.rotation = cgmath::Quaternion::new(
+                                    current_frame[0],
+                                    current_frame[1],
+                                    current_frame[2],
+                                    current_frame[3],
+                                );
+                            }
+                            model::Keyframes::Scale(vec) => {
+                                warn!("Scale animations are not supported yet!")
+                            }
+                            model::Keyframes::Other => {
+                                warn!("Other animations are not supported yet!")
+                            }
                         }
                     } else {
                         let mut wlock_instance = instance.write().unwrap();
