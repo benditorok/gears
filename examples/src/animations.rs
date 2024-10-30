@@ -88,16 +88,6 @@ async fn main() -> anyhow::Result<()> {
         },
     );
 
-    // let avo = new_entity!(
-    //     app,
-    //     components::Name("avo"),
-    //     components::model::ModelSource::Gltf("res/animated/avocado/Avocado.gltf"),
-    //     components::model::StaticModel {
-    //         position: cgmath::Vector3::new(0.0, 15.0, 0.0),
-    //         rotation: Quaternion::one(),
-    //     },
-    // );
-
     // ! Custom windows
     // Informations about the renderer
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
