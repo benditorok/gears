@@ -1064,52 +1064,82 @@ impl<'a> State<'a> {
                     let rlock_model = model.read().unwrap();
 
                     if !rlock_model.animations.is_empty() {
-                        info!("Animation found for model: {}", name.read().unwrap().0);
                         let current_time = self.time.elapsed().as_secs_f32();
-
                         let animation = &rlock_model.animations[0];
                         let mut current_keyframe_index = 0;
 
+                        // Find the two keyframes surrounding the current_time
                         for (i, timestamp) in animation.timestamps.iter().enumerate() {
                             if *timestamp > current_time {
+                                current_keyframe_index = i - 1;
                                 break;
                             }
                             current_keyframe_index = i;
                         }
 
                         // Loop the animation
-                        if current_keyframe_index == animation.timestamps.len() - 1 {
+                        if current_keyframe_index >= animation.timestamps.len() - 1 {
                             self.time = Instant::now();
                             current_keyframe_index = 0;
                         }
 
-                        info!("Current keyframe index: {}", current_keyframe_index);
+                        let next_keyframe_index = current_keyframe_index + 1;
+                        let t0 = animation.timestamps[current_keyframe_index];
+                        let t1 = animation.timestamps[next_keyframe_index];
+                        let factor = (current_time - t0) / (t1 - t0);
 
                         let current_animation = &animation.keyframes;
                         match current_animation {
                             model::Keyframes::Translation(frames) => {
-                                let current_frame = &frames[current_keyframe_index];
-                                let mut wlock_instance = instance.write().unwrap();
+                                let start_frame = &frames[current_keyframe_index];
+                                let end_frame = &frames[next_keyframe_index];
 
-                                wlock_instance.position = cgmath::Vector3::new(
-                                    current_frame[0],
-                                    current_frame[1],
-                                    current_frame[2],
-                                );
+                                // Ensure frames have exactly 3 elements
+                                if start_frame.len() == 3 && end_frame.len() == 3 {
+                                    let start = cgmath::Vector3::new(
+                                        start_frame[0],
+                                        start_frame[1],
+                                        start_frame[2],
+                                    );
+                                    let end = cgmath::Vector3::new(
+                                        end_frame[0],
+                                        end_frame[1],
+                                        end_frame[2],
+                                    );
+                                    let interpolated = start.lerp(end, factor);
+                                    let mut wlock_instance = instance.write().unwrap();
+                                    wlock_instance.position = interpolated;
+                                } else {
+                                    warn!("Translation frames do not have exactly 3 elements.");
+                                }
                             }
-                            model::Keyframes::Rotation(vec) => {
-                                let current_frame = &vec[current_keyframe_index];
-                                let mut wlock_instance = instance.write().unwrap();
+                            model::Keyframes::Rotation(quats) => {
+                                let start_quat = &quats[current_keyframe_index];
+                                let end_quat = &quats[next_keyframe_index];
 
-                                wlock_instance.rotation = cgmath::Quaternion::new(
-                                    current_frame[0],
-                                    current_frame[1],
-                                    current_frame[2],
-                                    current_frame[3],
-                                );
+                                // Ensure quaternions have exactly 4 elements
+                                if start_quat.len() == 4 && end_quat.len() == 4 {
+                                    let start = cgmath::Quaternion::new(
+                                        start_quat[0],
+                                        start_quat[1],
+                                        start_quat[2],
+                                        start_quat[3],
+                                    );
+                                    let end = cgmath::Quaternion::new(
+                                        end_quat[0],
+                                        end_quat[1],
+                                        end_quat[2],
+                                        end_quat[3],
+                                    );
+                                    let interpolated = start.slerp(end, factor);
+                                    let mut wlock_instance = instance.write().unwrap();
+                                    wlock_instance.rotation = interpolated;
+                                } else {
+                                    warn!("Rotation quaternions do not have exactly 4 elements.");
+                                }
                             }
-                            model::Keyframes::Scale(vec) => {
-                                warn!("Scale animations are not supported yet!")
+                            model::Keyframes::Scale(_) => {
+                                // Handle scale interpolation if necessary
                             }
                             model::Keyframes::Other => {
                                 warn!("Other animations are not supported yet!")
