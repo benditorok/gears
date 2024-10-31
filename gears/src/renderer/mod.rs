@@ -1059,6 +1059,7 @@ impl<'a> State<'a> {
 
                 // ! Animations testing
                 if let Some(animation_queue) = animation_queue {
+                    // * This will run if an animation is queued
                     if let Some(selected_animation) = animation_queue.write().unwrap().pop() {
                         let rlock_model = model.read().unwrap();
 
@@ -1086,6 +1087,7 @@ impl<'a> State<'a> {
                         let t1 = animation.timestamps[next_keyframe_index];
                         let factor = (current_time - t0) / (t1 - t0);
 
+                        // TODO animations should also take positions into consideration while playing
                         let current_animation = &animation.keyframes;
                         match current_animation {
                             model::Keyframes::Translation(frames) => {
@@ -1144,20 +1146,34 @@ impl<'a> State<'a> {
                             }
                         }
                     } else {
+                        // If the AnimationQueue is emtpy
+                        // ! Do not remove, causes deadlock if the lock is held for more
+                        {
+                            let mut wlock_instance = instance.write().unwrap();
+                            let rlock_static_model = static_model.read().unwrap();
+
+                            wlock_instance.position = rlock_static_model.position;
+                            wlock_instance.rotation = rlock_static_model.rotation;
+                        }
+                    }
+                } else {
+                    // If there is no AnimationQueue
+                    // ! Do not remove, causes deadlock if the lock is held for more
+                    {
                         let mut wlock_instance = instance.write().unwrap();
                         let rlock_static_model = static_model.read().unwrap();
 
                         wlock_instance.position = rlock_static_model.position;
                         wlock_instance.rotation = rlock_static_model.rotation;
                     }
-
-                    let instance_raw = instance.read().unwrap().to_raw();
-                    self.queue.write_buffer(
-                        &buffer.write().unwrap(),
-                        0,
-                        bytemuck::cast_slice(&[instance_raw]),
-                    );
                 }
+
+                let instance_raw = instance.read().unwrap().to_raw();
+                self.queue.write_buffer(
+                    &buffer.write().unwrap(),
+                    0,
+                    bytemuck::cast_slice(&[instance_raw]),
+                );
             }
         }
     }
