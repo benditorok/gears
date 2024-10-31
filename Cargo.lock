@@ -903,6 +903,7 @@ dependencies = [
  "env_logger",
  "fs_extra",
  "futures",
+ "gears_macro",
  "glob",
  "gltf",
  "image",
@@ -911,6 +912,15 @@ dependencies = [
  "tokio",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "gears_macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.82",
 ]
 
 [[package]]

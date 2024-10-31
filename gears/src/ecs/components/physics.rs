@@ -1,15 +1,14 @@
 use crate::ecs::traits::Component;
 use cgmath::{InnerSpace, Rotation3};
+use gears_macro::Component;
 
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct CollisionBox {
     pub min: cgmath::Vector3<f32>,
     pub max: cgmath::Vector3<f32>,
 }
 
-impl Component for CollisionBox {}
-
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct PhysicsBody {
     pub position: cgmath::Vector3<f32>,
     pub rotation: cgmath::Quaternion<f32>,
@@ -19,8 +18,6 @@ pub struct PhysicsBody {
     pub collision_box: CollisionBox,
     pub is_static: bool,
 }
-
-impl Component for PhysicsBody {}
 
 impl Default for PhysicsBody {
     fn default() -> Self {

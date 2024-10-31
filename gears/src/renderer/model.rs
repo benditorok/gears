@@ -76,6 +76,15 @@ pub(crate) struct Model {
     pub animations: Vec<AnimationClip>,
 }
 
+impl Model {
+    pub fn get_animation(&self, name: &str) -> anyhow::Result<&AnimationClip> {
+        self.animations
+            .iter()
+            .find(|clip| clip.name == name)
+            .ok_or_else(|| anyhow::anyhow!("Animation with name {} not found in model", name))
+    }
+}
+
 pub(crate) trait DrawModel<'a> {
     fn draw_mesh(
         &mut self,

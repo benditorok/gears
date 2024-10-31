@@ -1054,14 +1054,16 @@ impl<'a> State<'a> {
                 let model = ecs_lock
                     .get_component_from_entity::<model::Model>(*entity)
                     .unwrap();
+                let animation_queue =
+                    ecs_lock.get_component_from_entity::<components::AnimationQueue>(*entity);
 
-                {
-                    // ! Animations testing
-                    let rlock_model = model.read().unwrap();
+                // ! Animations testing
+                if let Some(animation_queue) = animation_queue {
+                    if let Some(selected_animation) = animation_queue.write().unwrap().pop() {
+                        let rlock_model = model.read().unwrap();
 
-                    if !rlock_model.animations.is_empty() {
                         let current_time = self.time.elapsed().as_secs_f32();
-                        let animation = &rlock_model.animations[0];
+                        let animation = &rlock_model.get_animation(selected_animation).unwrap();
                         let mut current_keyframe_index = 0;
 
                         // Find the two keyframes surrounding the current_time
@@ -1148,14 +1150,14 @@ impl<'a> State<'a> {
                         wlock_instance.position = rlock_static_model.position;
                         wlock_instance.rotation = rlock_static_model.rotation;
                     }
-                }
 
-                let instance_raw = instance.read().unwrap().to_raw();
-                self.queue.write_buffer(
-                    &buffer.write().unwrap(),
-                    0,
-                    bytemuck::cast_slice(&[instance_raw]),
-                );
+                    let instance_raw = instance.read().unwrap().to_raw();
+                    self.queue.write_buffer(
+                        &buffer.write().unwrap(),
+                        0,
+                        bytemuck::cast_slice(&[instance_raw]),
+                    );
+                }
             }
         }
     }

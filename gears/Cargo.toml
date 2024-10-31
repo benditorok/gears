@@ -24,6 +24,7 @@ fs_extra = "1.2"
 glob = "0.3"
 
 [dependencies]
+gears_macro = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 anyhow = { workspace = true }

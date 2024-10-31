@@ -1,7 +1,8 @@
 use crate::ecs::traits::Component;
+use gears_macro::Component;
 
 /// A component that stores the light type.
-#[derive(Debug, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 pub enum Light {
     Point {
         radius: f32,
@@ -29,5 +30,3 @@ pub enum Light {
         intensity: f32,
     },
 }
-
-impl Component for Light {}

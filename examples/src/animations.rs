@@ -45,11 +45,11 @@ async fn main() -> anyhow::Result<()> {
             30.0, 30.0, 30.0,
         )))
         .new_entity() // Add a green light
-        .add_component(components::Name("Green Light"))
+        .add_component(components::Name("White Light"))
         .add_component(components::light::Light::PointColoured {
             radius: 10.0,
-            color: [0.0, 0.8, 0.0],
-            intensity: 0.6,
+            color: [0.6, 0.6, 0.8],
+            intensity: 0.4,
         })
         .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
             -4.0, 4.0, 4.0,
@@ -64,9 +64,10 @@ async fn main() -> anyhow::Result<()> {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::one(),
         },
+        components::AnimationQueue::default(),
     );
 
-    let animated_cube = new_entity!(
+    new_entity!(
         app,
         components::Name("test"),
         components::model::ModelSource::Gltf("res/gltf/helmet/DamagedHelmet.gltf"),
@@ -76,8 +77,7 @@ async fn main() -> anyhow::Result<()> {
         },
     );
 
-    // Add a sphere and get the Entity for reference
-    let sphere_entity = new_entity!(
+    new_entity!(
         app,
         components::Name("Sphere1"),
         components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
@@ -107,10 +107,25 @@ async fn main() -> anyhow::Result<()> {
             });
     }));
 
+    let time_started = std::time::Instant::now();
+
     // Use the update loop to spin the sphere
     app.update_loop(move |ecs, dt| {
         // Send the frame time to the custom window
         w1_frame_tx.send(dt).unwrap();
+
+        if time_started.elapsed().as_secs() % 3 == 0 {
+            let animation_queue = ecs
+                .lock()
+                .unwrap()
+                .get_component_from_entity::<components::AnimationQueue>(animated_cube)
+                .unwrap();
+
+            animation_queue
+                .write()
+                .unwrap()
+                .push("animation_AnimatedCube");
+        }
     })
     .await?;
 

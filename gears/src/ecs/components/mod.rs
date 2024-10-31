@@ -3,16 +3,15 @@ pub mod model;
 pub mod physics;
 pub mod transform;
 
-
 use super::traits::Component;
+use gears_macro::Component;
 
-/// A component that stores the name of an object.
+/// A component that stores the name of an object.ű
+#[derive(Component, Debug, Clone)]
 pub struct Name(pub &'static str);
 
-impl Component for Name {}
-
 /// A component that stores the camera type.
-#[derive(Debug, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 pub enum Camera {
     FPS {
         look_at: cgmath::Point3<f32>,
@@ -24,8 +23,6 @@ pub enum Camera {
         look_at: cgmath::Point3<f32>,
     },
 }
-
-impl Component for Camera {}
 
 #[derive(Debug, Copy, Clone)]
 pub struct CameraKeycodes {
@@ -47,5 +44,30 @@ impl Default for CameraKeycodes {
             up: winit::keyboard::KeyCode::Space,
             down: winit::keyboard::KeyCode::ShiftLeft,
         }
+    }
+}
+
+#[derive(Component, Debug, Clone, Default)]
+pub struct AnimationQueue {
+    animations: Vec<&'static str>,
+    pub(crate) is_current_finished: bool,
+}
+
+impl AnimationQueue {
+    pub fn new(animations: Vec<&'static str>) -> Self {
+        Self {
+            animations,
+            is_current_finished: false,
+        }
+    }
+
+    pub fn push(&mut self, animation: &'static str) {
+        if !self.animations.contains(&animation) {
+            self.animations.push(animation);
+        }
+    }
+
+    pub fn pop(&mut self) -> Option<&'static str> {
+        self.animations.pop()
     }
 }

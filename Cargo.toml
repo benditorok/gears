@@ -2,7 +2,8 @@
 resolver = "2"
 members = [
     "examples",
-    "gears"
+    "gears",
+    "gears_macro"
 ]
 
 [workspace.package]
@@ -25,6 +26,7 @@ opt-level = 3
 rustflags = ["-Z", "threads=8"]
 
 [workspace.dependencies]
+gears_macro = { path = "./gears_macro" }
 tokio = { version = "1.40.0", features = ["full"] }
 futures = "0.3.31"
 anyhow = "1.0.89"

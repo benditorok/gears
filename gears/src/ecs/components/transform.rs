@@ -1,14 +1,13 @@
 use crate::ecs::traits::Component;
 use cgmath::One;
+use gears_macro::Component;
 
 /// A component that stores the position of any object.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
     pub pos: cgmath::Vector3<f32>,
     pub rot: cgmath::Quaternion<f32>,
 }
-
-impl Component for Pos3 {}
 
 impl Pos3 {
     pub fn new(pos: cgmath::Vector3<f32>) -> Self {
@@ -45,20 +44,16 @@ impl Default for Pos3 {
 // }
 
 /// A component that stores the scale of an object.
-#[derive(Debug, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 pub enum Scale {
     Uniform(f32),
     NonUniform { x: f32, y: f32, z: f32 },
 }
 
-impl Component for Scale {}
-
 /// A component that stores the rotation of an object.
-#[derive(Debug, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 pub enum Flip {
     Horizontal,
     Vertical,
     Both,
 }
-
-impl Component for Flip {}
