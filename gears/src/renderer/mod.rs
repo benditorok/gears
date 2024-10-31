@@ -1184,6 +1184,7 @@ impl<'a> State<'a> {
 
         if let Some(physics_entities) = &self.physics_entities {
             for entity in physics_entities {
+                // TODO add an animation queue for physics entities as well
                 let ecs_lock = self.ecs.lock().unwrap();
 
                 let physics_body = ecs_lock
