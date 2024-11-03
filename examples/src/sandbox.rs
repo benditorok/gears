@@ -168,7 +168,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Add 5 spheres in a circle
-    let mut moving_spheres: [ecs::Entity; 5] = [ecs::Entity(0); 5];
+    let mut moving_spheres: [ecs::Entity; 5] = [ecs::Entity::new(0); 5];
     for (i, sphere) in moving_spheres.iter_mut().enumerate() {
         let angle = i as f32 * std::f32::consts::PI * 2.0 / 5.0;
         let x = angle.cos() * 10.0;

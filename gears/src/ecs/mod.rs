@@ -4,15 +4,17 @@ pub mod utils;
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 
+/// The type that represents an entity in the ECS.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Entity(pub u32);
+pub struct Entity(u32);
 
 impl Entity {
-    pub fn id(&self) -> u32 {
-        self.0
+    pub fn new(id: u32) -> Self {
+        Self(id)
     }
 }
 
@@ -22,31 +24,50 @@ impl From<u32> for Entity {
     }
 }
 
+impl Deref for Entity {
+    type Target = u32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 type EntityStore = HashMap<Entity, HashMap<TypeId, Arc<RwLock<dyn Any + Send + Sync>>>>;
 
 // TODO add a world with scenes and scene switching
 
-/// Entity component system manager.
+/// Entity Component System manager.
+/// This is responsible for creating, storing, and managing entities and their components.ű
+/// It is thread-safe and can be shared between threads.
 pub struct Manager {
     entities: RwLock<EntityStore>,
     next_entity: AtomicU32,
 }
 
 impl Default for Manager {
+    /// The default implementation of the Manager struct.
+    ///
+    /// # Returns
+    ///
+    /// A new Manager instance with a default capacity of 20.
     fn default() -> Self {
         Manager {
-            entities: RwLock::new(HashMap::new()),
+            entities: RwLock::new(HashMap::with_capacity(20)),
             next_entity: AtomicU32::new(0),
         }
     }
 }
 
 impl Manager {
-    /// Create a new EntityManager with a specific capacity preallocated.
+    /// Create a new Manager with a specific capacity preallocated.
     ///
     /// # Arguments
     ///
     /// * `capacity` - The preallocated capacity of the EntityManager.
+    ///
+    /// # Returns
+    ///
+    /// A new Manager instance with the specified capacity preallocated.
     pub fn new(capacity: usize) -> Self {
         Manager {
             entities: RwLock::new(HashMap::with_capacity(capacity)),
@@ -54,10 +75,14 @@ impl Manager {
         }
     }
 
-    /// Create a new entity and return it.
+    /// Create a new entity and add it to the Manager's entity store.
+    ///
+    /// # Returns
+    ///
+    /// The newly created entity for querying and adding components to it.
     pub fn create_entity(&self) -> Entity {
         let id = self.next_entity.fetch_add(1, Ordering::SeqCst);
-        let entity = Entity(id);
+        let entity = Entity::new(id);
         self.entities
             .write()
             .unwrap()
@@ -65,7 +90,11 @@ impl Manager {
         entity
     }
 
-    /// Get the last entity created, or `None` if no entities have been created yet.
+    /// Get the last entity created.
+    ///
+    /// # Returns
+    ///
+    /// The last entity created, or `None` if no entities have been created yet.
     pub fn get_last(&self) -> Option<Entity> {
         let current_idx = self.next_entity.load(Ordering::SeqCst);
 
@@ -76,12 +105,21 @@ impl Manager {
         }
     }
 
-    /// Get the number of entities currently in the EntityManager.
+    /// Get the number of entities currently stored in the Manager.
+    ///
+    /// # Returns
+    ///
+    /// The number of entities currently in the Manager.
     pub fn entity_count(&self) -> usize {
         self.entities.read().unwrap().len()
     }
 
     /// Add a component of a specific type to a specific entity.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity which the component will be attached to.
+    /// * `component` - The component which must be thread safe.
     pub fn add_component_to_entity<T: 'static + Send + Sync>(&self, entity: Entity, component: T) {
         let mut entities = self.entities.write().unwrap();
         if let Some(components) = entities.get_mut(&entity) {
@@ -90,6 +128,14 @@ impl Manager {
     }
 
     /// Get a component of a specific type for a specific entity.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to get the component from.
+    ///
+    /// # Returns
+    ///
+    /// The component of type T if it exists, or `None` if it does not.
     pub fn get_component_from_entity<T: 'static + Send + Sync>(
         &self,
         entity: Entity,
@@ -107,7 +153,11 @@ impl Manager {
         })
     }
 
-    /// Get an iterator over the entities currently in the EntityManager.
+    /// Get an iterator over all entities currently in the Manager.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over the entities currently in the Manager.
     pub fn iter_entities(&self) -> impl Iterator<Item = Entity> + '_ {
         self.entities
             .read()
@@ -119,6 +169,10 @@ impl Manager {
     }
 
     /// Get all components of a specific type currently in the EntityManager.
+    ///
+    /// # Returns
+    ///
+    /// A vector of tuples containing the entity and the component of type T.
     pub fn get_all_components_of_type<T: 'static + Send + Sync>(
         &self,
     ) -> Vec<(Entity, Arc<RwLock<T>>)> {
@@ -139,6 +193,10 @@ impl Manager {
     }
 
     /// Get all entities that have a specific component.
+    ///
+    /// # Returns
+    ///
+    /// A vector of entities that have a component of type T.
     pub fn get_entites_with_component<T: 'static + Send + Sync>(&self) -> Vec<Entity> {
         let mut result: Vec<Entity> = Vec::new();
         let entities = self.entities.read().unwrap();
