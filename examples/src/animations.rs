@@ -88,7 +88,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // ! Custom windows
-    // Informations about the renderer
+    // Information about the renderer
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
     app.add_window(Box::new(move |ui| {
         egui::Window::new("Renderer info")

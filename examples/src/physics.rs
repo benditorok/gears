@@ -162,6 +162,38 @@ async fn main() -> anyhow::Result<()> {
         components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
+    // Plane
+    new_entity!(
+        app,
+        components::Name("Plane"),
+        components::physics::PhysicsBody::new_static(
+            cgmath::Vector3::new(0.0, -3.0, 0.0),
+            cgmath::Quaternion::one(),
+            components::physics::CollisionBox {
+                min: cgmath::Vector3::new(-50.0, -1.0, -50.0),
+                max: cgmath::Vector3::new(50.0, 1.0, 50.0),
+            },
+        ),
+        components::model::ModelSource::Obj("res/models/plane/plane.obj"),
+    );
+
+    new_entity!(
+        app,
+        components::Name("Falling sphere"),
+        components::physics::PhysicsBody::new(
+            cgmath::Vector3::new(10.0, 20.0, 20.0),
+            cgmath::Quaternion::one(),
+            0.1,
+            cgmath::Vector3::new(0.0, 0.0, 1.0),
+            cgmath::Vector3::new(0.0, -10.0, 0.0),
+            components::physics::CollisionBox {
+                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+            },
+        ),
+        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
+    );
+
     // Run the application
     app.run().await
 }
