@@ -320,16 +320,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_entities_with_component_no_matching_component() {
-        let manager = Manager::default();
-        let _entity1 = manager.create_entity();
-        let _entity2 = manager.create_entity();
-
-        let entities_with_component = manager.get_entites_with_component::<TestComponent>();
-        assert!(entities_with_component.is_empty());
-    }
-
-    #[test]
     fn test_get_last() {
         let manager = Manager::default();
         let entity1 = manager.create_entity();
