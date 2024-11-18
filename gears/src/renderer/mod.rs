@@ -755,7 +755,7 @@ impl<'a> State<'a> {
     async fn init_physics_models(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
         let physics_entities =
-            ecs_lock.get_entites_with_component::<components::physics::PhysicsBody>();
+            ecs_lock.get_entites_with_component::<components::physics::RigidBody>();
 
         for entity in physics_entities.iter() {
             let name = ecs_lock
@@ -763,7 +763,7 @@ impl<'a> State<'a> {
                 .expect("No name provided for the Model!");
 
             let physics_body = ecs_lock
-                .get_component_from_entity::<components::physics::PhysicsBody>(*entity)
+                .get_component_from_entity::<components::physics::RigidBody>(*entity)
                 .unwrap();
 
             let model_source = ecs_lock
@@ -1188,7 +1188,7 @@ impl<'a> State<'a> {
                 let ecs_lock = self.ecs.lock().unwrap();
 
                 let physics_body = ecs_lock
-                    .get_component_from_entity::<components::physics::PhysicsBody>(*entity)
+                    .get_component_from_entity::<components::physics::RigidBody>(*entity)
                     .unwrap();
 
                 let instance = ecs_lock
@@ -1245,7 +1245,7 @@ impl<'a> State<'a> {
                 let mut physics_body_a = physics_body_a.write().unwrap();
                 let mut physics_body_b = physics_body_b.write().unwrap();
 
-                components::physics::PhysicsBody::check_and_resolve_collision(
+                components::physics::RigidBody::check_and_resolve_collision(
                     &mut physics_body_a,
                     &mut physics_body_b,
                 );

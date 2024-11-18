@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Moving sphere"),
-        components::physics::PhysicsBody::new(
+        components::physics::RigidBody::new(
             cgmath::Vector3::new(40.0, 0.0, 0.0),
             cgmath::Quaternion::one(),
             1.0,
@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Moving sphere"),
-        components::physics::PhysicsBody::new(
+        components::physics::RigidBody::new(
             cgmath::Vector3::new(-50.0, 0.0, 0.0),
             cgmath::Quaternion::one(),
             1.0,
@@ -84,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
         app,
         components::Name("Cube"),
         components::transform::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
-        components::physics::PhysicsBody::new(
+        components::physics::RigidBody::new(
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Quaternion::one(),
             1.0,
@@ -102,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Static cube"),
-        components::physics::PhysicsBody::new_static(
+        components::physics::RigidBody::new_static(
             cgmath::Vector3::new(5.0, 0.0, 20.0),
             cgmath::Quaternion::one(),
             components::physics::CollisionBox {
@@ -116,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Falling sphere"),
-        components::physics::PhysicsBody::new(
+        components::physics::RigidBody::new(
             cgmath::Vector3::new(5.0, 20.0, 20.0),
             cgmath::Quaternion::one(),
             0.1,
@@ -134,7 +134,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Static cube"),
-        components::physics::PhysicsBody::new_static(
+        components::physics::RigidBody::new_static(
             cgmath::Vector3::new(0.0, 0.0, 20.0),
             cgmath::Quaternion::one(),
             components::physics::CollisionBox {
@@ -148,7 +148,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Falling sphere"),
-        components::physics::PhysicsBody::new(
+        components::physics::RigidBody::new(
             cgmath::Vector3::new(0.0, 20.0, 20.0),
             cgmath::Quaternion::one(),
             0.1,
@@ -166,7 +166,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Plane"),
-        components::physics::PhysicsBody::new_static(
+        components::physics::RigidBody::new_static(
             cgmath::Vector3::new(0.0, -3.0, 0.0),
             cgmath::Quaternion::one(),
             components::physics::CollisionBox {
@@ -180,7 +180,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Falling sphere"),
-        components::physics::PhysicsBody::new(
+        components::physics::RigidBody::new(
             cgmath::Vector3::new(10.0, 20.0, 20.0),
             cgmath::Quaternion::one(),
             0.1,

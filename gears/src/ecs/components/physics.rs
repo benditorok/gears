@@ -9,7 +9,7 @@ pub struct CollisionBox {
 }
 
 #[derive(Component, Debug, Clone)]
-pub struct PhysicsBody {
+pub struct RigidBody {
     pub position: cgmath::Vector3<f32>,
     pub rotation: cgmath::Quaternion<f32>,
     pub mass: f32,
@@ -19,7 +19,7 @@ pub struct PhysicsBody {
     pub is_static: bool,
 }
 
-impl Default for PhysicsBody {
+impl Default for RigidBody {
     fn default() -> Self {
         Self {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
@@ -36,7 +36,7 @@ impl Default for PhysicsBody {
     }
 }
 
-impl PhysicsBody {
+impl RigidBody {
     pub fn new(
         position: cgmath::Vector3<f32>,
         rotation: cgmath::Quaternion<f32>,
