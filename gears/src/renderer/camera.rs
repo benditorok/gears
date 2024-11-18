@@ -1,15 +1,12 @@
-use std::time;
-
+use super::{OPENGL_TO_WGPU_MATRIX, SAFE_FRAC_PI_2};
+use crate::ecs::{self, components::CameraKeycodes};
 use cgmath::{perspective, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3};
+use std::time;
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseScrollDelta},
     keyboard::KeyCode,
 };
-
-use crate::ecs::{self, components::CameraKeycodes};
-
-use super::{OPENGL_TO_WGPU_MATRIX, SAFE_FRAC_PI_2};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
