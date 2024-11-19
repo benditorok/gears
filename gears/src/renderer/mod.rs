@@ -380,25 +380,13 @@ impl<'a> State<'a> {
                 label: Some("Collider Shader"),
                 source: wgpu::ShaderSource::Wgsl(include_str!("shader_collider.wgsl").into()),
             };
-            let primitive_state = wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::LineList, // Use LineList for wireframe
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None, // Disable culling for wireframe
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            };
-            let vertex_layouts = &[
-                model::ColliderVertex::desc(),
-                instance::InstanceRaw::desc(), // Add instance buffer layout
-            ];
+
             Self::create_render_pipeline(
                 &device,
                 &layout,
                 config.format,
                 Some(texture::Texture::DEPTH_FORMAT),
-                vertex_layouts,
+                &[model::ColliderVertex::desc(), instance::InstanceRaw::desc()],
                 shader,
                 "Collider Render Pipeline",
             )
@@ -456,9 +444,13 @@ impl<'a> State<'a> {
             [-0.5, 0.5, 0.5],   // 7
         ];
 
+        // Use [1.0, 1.0, 1.0] as default dimensions for the base collision box mesh
         let vertices: Vec<model::ColliderVertex> = vertices
             .iter()
-            .map(|pos| model::ColliderVertex { position: *pos })
+            .map(|pos| model::ColliderVertex {
+                position: *pos,
+                dimensions: [1.0, 1.0, 1.0],
+            })
             .collect();
 
         let indices: Vec<u32> = vec![
@@ -486,24 +478,32 @@ impl<'a> State<'a> {
         device: &wgpu::Device,
         collision_box: &components::physics::CollisionBox,
     ) -> model::WireframeMesh {
-        // Calculate the dimensions from min/max
         let size = collision_box.max - collision_box.min;
-        let half_size = size * 0.5;
+        let dimensions = [size.x, size.y, size.z];
 
         let vertices = [
-            [-half_size.x, -half_size.y, -half_size.z], // 0
-            [half_size.x, -half_size.y, -half_size.z],  // 1
-            [half_size.x, half_size.y, -half_size.z],   // 2
-            [-half_size.x, half_size.y, -half_size.z],  // 3
-            [-half_size.x, -half_size.y, half_size.z],  // 4
-            [half_size.x, -half_size.y, half_size.z],   // 5
-            [half_size.x, half_size.y, half_size.z],    // 6
-            [-half_size.x, half_size.y, half_size.z],   // 7
+            [-0.5, -0.5, -0.5], // 0
+            [0.5, -0.5, -0.5],  // 1
+            [0.5, 0.5, -0.5],   // 2
+            [-0.5, 0.5, -0.5],  // 3
+            [-0.5, -0.5, 0.5],  // 4
+            [0.5, -0.5, 0.5],   // 5
+            [0.5, -0.5, -0.5],  // 1
+            [0.5, 0.5, -0.5],   // 2
+            [-0.5, 0.5, -0.5],  // 3
+            [-0.5, -0.5, 0.5],  // 4
+            [0.5, -0.5, 0.5],   // 5
+            [0.5, 0.5, 0.5],    // 6
+            [-0.5, 0.5, 0.5],   // 7
         ];
 
+        // Create vertices with the dimensions from the collision box
         let vertices: Vec<model::ColliderVertex> = vertices
             .iter()
-            .map(|pos| model::ColliderVertex { position: *pos })
+            .map(|pos| model::ColliderVertex {
+                position: *pos,
+                dimensions,
+            })
             .collect();
 
         let indices: Vec<u32> = vec![
@@ -557,6 +557,8 @@ impl<'a> State<'a> {
     ) -> wgpu::RenderPipeline {
         let shader = device.create_shader_module(shader);
 
+        let is_collider_pipeline = pipeline_label.contains("Collider");
+
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some(pipeline_label),
             layout: Some(layout),
@@ -564,31 +566,52 @@ impl<'a> State<'a> {
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: vertex_layouts,
-                compilation_options: Default::default(),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    ..Default::default()
+                },
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: color_format,
-                    blend: Some(wgpu::BlendState {
-                        alpha: wgpu::BlendComponent::REPLACE,
-                        color: wgpu::BlendComponent::REPLACE,
+                    blend: Some(if is_collider_pipeline {
+                        wgpu::BlendState {
+                            color: wgpu::BlendComponent {
+                                src_factor: wgpu::BlendFactor::SrcAlpha,
+                                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                                operation: wgpu::BlendOperation::Add,
+                            },
+                            alpha: wgpu::BlendComponent {
+                                src_factor: wgpu::BlendFactor::One,
+                                dst_factor: wgpu::BlendFactor::One,
+                                operation: wgpu::BlendOperation::Add,
+                            },
+                        }
+                    } else {
+                        wgpu::BlendState::REPLACE
                     }),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
-                compilation_options: Default::default(),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    ..Default::default()
+                },
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
+                topology: if is_collider_pipeline {
+                    wgpu::PrimitiveTopology::LineList
+                } else {
+                    wgpu::PrimitiveTopology::TriangleList
+                },
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                cull_mode: if is_collider_pipeline {
+                    None
+                } else {
+                    Some(wgpu::Face::Back)
+                },
                 polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
                 unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
             depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
@@ -990,13 +1013,10 @@ impl<'a> State<'a> {
             ecs_lock.add_component_to_entity(*entity, instance_buffer);
 
             // Create collision mesh for this entity
-            let collision_box = {
-                let rlock_physics_body = physics_body.read().unwrap();
-                rlock_physics_body.collision_box.clone()
-            };
-
-            let wireframe_mesh =
-                Self::create_collision_box_mesh_for_entity(&self.device, &collision_box);
+            let wireframe_mesh = Self::create_collision_box_mesh_for_entity(
+                &self.device,
+                *physics_body.read().unwrap(),
+            );
             ecs_lock.add_component_to_entity(*entity, wireframe_mesh);
         }
 
@@ -1501,27 +1521,47 @@ impl<'a> State<'a> {
                         let wireframe = ecs_lock
                             .get_component_from_entity::<model::WireframeMesh>(*entity)
                             .unwrap();
+                        // Use the same instance buffer that's used for the physics body
                         let instance_buffer = ecs_lock
                             .get_component_from_entity::<wgpu::Buffer>(*entity)
                             .unwrap();
+                        let physics_body = ecs_lock
+                            .get_component_from_entity::<components::physics::RigidBody>(*entity)
+                            .unwrap();
 
-                        render_pass.set_vertex_buffer(
-                            0,
-                            wireframe.read().unwrap().vertex_buffer.slice(..),
-                        );
+                        // Lock and read components
+                        let wireframe = wireframe.read().unwrap();
+                        let instance_buffer = instance_buffer.read().unwrap();
+                        // let physics_body = physics_body.read().unwrap();
+
+                        // // Create transform matrix for collider position and scale
+                        // let instance = instance::Instance {
+                        //     position: physics_body.position,
+                        //     rotation: physics_body.rotation,
+                        // };
+                        // let instance_raw = instance.to_raw();
+
+                        // // Update instance buffer with new transform
+                        // self.queue.write_buffer(
+                        //     &instance_buffer,
+                        //     0,
+                        //     bytemuck::cast_slice(&[instance_raw]),
+                        // );
+
+                        render_pass.set_vertex_buffer(0, wireframe.vertex_buffer.slice(..));
                         render_pass.set_index_buffer(
-                            wireframe.read().unwrap().index_buffer.slice(..),
+                            wireframe.index_buffer.slice(..),
                             wgpu::IndexFormat::Uint32,
                         );
-                        render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
-                        render_pass.draw_indexed(0..wireframe.read().unwrap().num_indices, 0, 0..1);
+                        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                        render_pass.draw_indexed(0..wireframe.num_indices, 0, 0..1);
                     }
                 }
             }
         }
 
         // ! Egui render pass for the custom UI windows
-        if !self.egui_windows.is_empty() {
+        if (!self.egui_windows.is_empty()) {
             // * if a custom ui is present
             let screen_descriptor = ScreenDescriptor {
                 size_in_pixels: [self.config.width, self.config.height],
