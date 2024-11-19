@@ -145,18 +145,12 @@ impl WireframeMesh {
             ],
         ];
 
-        // Calculate actual dimensions
-        let dimensions = [
-            (collision_box.max.x - collision_box.min.x).abs().div(2.0),
-            (collision_box.max.y - collision_box.min.y).abs().div(2.0),
-            (collision_box.max.z - collision_box.min.z).abs().div(2.0),
-        ];
-
+        // Pass position without computing dimensions - the shader will use the positions directly
         let vertex_data: Vec<ColliderVertex> = vertices
             .iter()
             .map(|pos| ColliderVertex {
                 position: *pos,
-                dimensions,
+                dimensions: [1.0, 1.0, 1.0], // Use constant dimensions since we're using actual positions
             })
             .collect();
 
