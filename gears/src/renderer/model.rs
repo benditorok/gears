@@ -98,50 +98,49 @@ pub(crate) struct WireframeMesh {
 impl WireframeMesh {
     pub fn new(device: &wgpu::Device, rigid_body: &components::physics::RigidBody) -> Self {
         let collision_box = &rigid_body.collision_box;
-        let position = rigid_body.position;
 
         let vertices = [
             // Front face corners
             [
-                collision_box.min.x + position.x,
-                collision_box.min.y + position.y,
-                collision_box.min.z + position.z,
+                collision_box.min.x,
+                collision_box.min.y,
+                collision_box.min.z,
             ],
             [
-                collision_box.max.x + position.x,
-                collision_box.min.y + position.y,
-                collision_box.min.z + position.z,
+                collision_box.max.x,
+                collision_box.min.y,
+                collision_box.min.z,
             ],
             [
-                collision_box.max.x + position.x,
-                collision_box.max.y + position.y,
-                collision_box.min.z + position.z,
+                collision_box.max.x,
+                collision_box.max.y,
+                collision_box.min.z,
             ],
             [
-                collision_box.min.x + position.x,
-                collision_box.max.y + position.y,
-                collision_box.min.z + position.z,
+                collision_box.min.x,
+                collision_box.max.y,
+                collision_box.min.z,
             ],
             // Back face corners
             [
-                collision_box.min.x + position.x,
-                collision_box.min.y + position.y,
-                collision_box.max.z + position.z,
+                collision_box.min.x,
+                collision_box.min.y,
+                collision_box.max.z,
             ],
             [
-                collision_box.max.x + position.x,
-                collision_box.min.y + position.y,
-                collision_box.max.z + position.z,
+                collision_box.max.x,
+                collision_box.min.y,
+                collision_box.max.z,
             ],
             [
-                collision_box.max.x + position.x,
-                collision_box.max.y + position.y,
-                collision_box.max.z + position.z,
+                collision_box.max.x,
+                collision_box.max.y,
+                collision_box.max.z,
             ],
             [
-                collision_box.min.x + position.x,
-                collision_box.max.y + position.y,
-                collision_box.max.z + position.z,
+                collision_box.min.x,
+                collision_box.max.y,
+                collision_box.max.z,
             ],
         ];
 
