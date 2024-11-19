@@ -51,3 +51,7 @@ path = "src/animations.rs"
 [[bin]]
 name = "light-showcase"
 path = "src/light_showcase.rs"
+
+[[bin]]
+name = "aim"
+path = "src/aim.rs"
