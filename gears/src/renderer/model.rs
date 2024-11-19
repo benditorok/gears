@@ -90,6 +90,19 @@ pub(crate) struct WireframeMesh {
 impl WireframeMesh {
     pub fn new(device: &wgpu::Device, rigid_body: &components::physics::RigidBody) -> Self {
         let collision_box = &rigid_body.collision_box;
+        // New indices to include diagonals of each face and through the cube
+        let indices: Vec<u32> = vec![
+            // Front face edges
+            0, 1, 1, 2, 2, 3, 3, 0, // Back face edges
+            4, 5, 5, 6, 6, 7, 7, 4, // Connecting edges
+            0, 4, 1, 5, 2, 6, 3, 7, // Front face diagonal
+            0, 2, // Back face diagonal
+            4, 6, // Top face diagonal
+            2, 7, // Bottom face diagonal
+            0, 5, // Left face diagonal
+            0, 7, // Right face diagonal
+            1, 6, // Front face edges
+        ];
 
         // Define vertices at their actual positions relative to the origin
         let vertices = [
@@ -142,14 +155,6 @@ impl WireframeMesh {
             .iter()
             .map(|pos| ColliderVertex { position: *pos })
             .collect();
-
-        // Indices for drawing lines between corners (12 lines = 24 indices)
-        let indices: Vec<u32> = vec![
-            // Front face
-            0, 1, 1, 2, 2, 3, 3, 0, // Back face
-            4, 5, 5, 6, 6, 7, 7, 4, // Connecting lines
-            0, 4, 1, 5, 2, 6, 3, 7,
-        ];
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Wireframe Vertex Buffer"),
