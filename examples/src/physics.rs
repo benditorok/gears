@@ -119,9 +119,9 @@ async fn main() -> anyhow::Result<()> {
         components::physics::RigidBody::new(
             cgmath::Vector3::new(5.0, 20.0, 20.0),
             cgmath::Quaternion::one(),
-            0.1,
+            1.0, // Increased mass from 0.1 to 1.0
             cgmath::Vector3::new(0.0, 0.0, 0.0),
-            cgmath::Vector3::new(0.0, -10.0, 0.0),
+            cgmath::Vector3::new(0.0, -5.0, 0.0), // Reduced acceleration
             components::physics::CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
@@ -170,8 +170,8 @@ async fn main() -> anyhow::Result<()> {
             cgmath::Vector3::new(0.0, -3.0, 0.0),
             cgmath::Quaternion::one(),
             components::physics::CollisionBox {
-                min: cgmath::Vector3::new(-50.0, -1.0, -50.0),
-                max: cgmath::Vector3::new(50.0, 1.0, 50.0),
+                min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
+                max: cgmath::Vector3::new(50.0, 0.1, 50.0),
             },
         ),
         components::model::ModelSource::Obj("res/models/plane/plane.obj"),
@@ -184,7 +184,7 @@ async fn main() -> anyhow::Result<()> {
             cgmath::Vector3::new(10.0, 20.0, 20.0),
             cgmath::Quaternion::one(),
             0.1,
-            cgmath::Vector3::new(0.0, 0.0, 1.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
             components::physics::CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
