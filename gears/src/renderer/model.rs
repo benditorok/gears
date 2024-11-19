@@ -3,7 +3,7 @@ use wgpu::util::DeviceExt;
 use crate::ecs::components;
 
 use super::texture;
-use std::ops::Range;
+use std::ops::{Div, Range};
 
 pub(crate) trait Vertex {
     fn desc() -> wgpu::VertexBufferLayout<'static>;
@@ -99,6 +99,7 @@ impl WireframeMesh {
     pub fn new(device: &wgpu::Device, rigid_body: &components::physics::RigidBody) -> Self {
         let collision_box = &rigid_body.collision_box;
 
+        // Define vertices at their actual positions relative to the origin
         let vertices = [
             // Front face corners
             [
@@ -144,11 +145,11 @@ impl WireframeMesh {
             ],
         ];
 
-        // Calculate dimensions for the shader
+        // Calculate actual dimensions
         let dimensions = [
-            collision_box.max.x - collision_box.min.x,
-            collision_box.max.y - collision_box.min.y,
-            collision_box.max.z - collision_box.min.z,
+            (collision_box.max.x - collision_box.min.x).abs().div(2.0),
+            (collision_box.max.y - collision_box.min.y).abs().div(2.0),
+            (collision_box.max.z - collision_box.min.z).abs().div(2.0),
         ];
 
         let vertex_data: Vec<ColliderVertex> = vertices
