@@ -45,8 +45,5 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Optional: Add distance-based transparency
-    let distance = length(camera.view_pos.xyz - in.world_position);
-    let alpha = clamp(1.0 - (distance / 20.0), 0.2, 0.5); // Adjust constants for desired effect
-    return vec4<f32>(1.0, 0.0, 0.0, alpha);
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0); // Red
 }

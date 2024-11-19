@@ -180,9 +180,6 @@ struct State<'a> {
     is_state_paused: AtomicBool,
     time: Instant,
     collider_render_pipeline: wgpu::RenderPipeline,
-    collider_vertices: wgpu::Buffer,
-    collider_indices: wgpu::Buffer,
-    num_collider_indices: u32,
 }
 
 impl<'a> State<'a> {
@@ -392,10 +389,6 @@ impl<'a> State<'a> {
             )
         };
 
-        // Create collision box vertices and indices
-        let (collider_vertices, collider_indices, num_collider_indices) =
-            Self::create_collision_box_mesh(&device);
-
         Self {
             surface,
             device,
@@ -426,108 +419,6 @@ impl<'a> State<'a> {
             is_state_paused: AtomicBool::new(false),
             time: time::Instant::now(),
             collider_render_pipeline,
-            collider_vertices,
-            collider_indices,
-            num_collider_indices,
-        }
-    }
-
-    fn create_collision_box_mesh(device: &wgpu::Device) -> (wgpu::Buffer, wgpu::Buffer, u32) {
-        let vertices = [
-            [-0.5, -0.5, -0.5], // 0
-            [0.5, -0.5, -0.5],  // 1
-            [0.5, 0.5, -0.5],   // 2
-            [-0.5, 0.5, -0.5],  // 3
-            [-0.5, -0.5, 0.5],  // 4
-            [0.5, -0.5, 0.5],   // 5
-            [0.5, 0.5, 0.5],    // 6
-            [-0.5, 0.5, 0.5],   // 7
-        ];
-
-        // Use [1.0, 1.0, 1.0] as default dimensions for the base collision box mesh
-        let vertices: Vec<model::ColliderVertex> = vertices
-            .iter()
-            .map(|pos| model::ColliderVertex {
-                position: *pos,
-                dimensions: [1.0, 1.0, 1.0],
-            })
-            .collect();
-
-        let indices: Vec<u32> = vec![
-            0, 1, 1, 2, 2, 3, 3, 0, // front face
-            4, 5, 5, 6, 6, 7, 7, 4, // back face
-            0, 4, 1, 5, 2, 6, 3, 7, // connecting edges
-        ];
-
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Collider Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Collider Index Buffer"),
-            contents: bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        (vertex_buffer, index_buffer, indices.len() as u32)
-    }
-
-    fn create_collision_box_mesh_for_entity(
-        device: &wgpu::Device,
-        collision_box: &components::physics::CollisionBox,
-    ) -> model::WireframeMesh {
-        let size = collision_box.max - collision_box.min;
-        let dimensions = [size.x, size.y, size.z];
-
-        let vertices = [
-            [-0.5, -0.5, -0.5], // 0
-            [0.5, -0.5, -0.5],  // 1
-            [0.5, 0.5, -0.5],   // 2
-            [-0.5, 0.5, -0.5],  // 3
-            [-0.5, -0.5, 0.5],  // 4
-            [0.5, -0.5, 0.5],   // 5
-            [0.5, -0.5, -0.5],  // 1
-            [0.5, 0.5, -0.5],   // 2
-            [-0.5, 0.5, -0.5],  // 3
-            [-0.5, -0.5, 0.5],  // 4
-            [0.5, -0.5, 0.5],   // 5
-            [0.5, 0.5, 0.5],    // 6
-            [-0.5, 0.5, 0.5],   // 7
-        ];
-
-        // Create vertices with the dimensions from the collision box
-        let vertices: Vec<model::ColliderVertex> = vertices
-            .iter()
-            .map(|pos| model::ColliderVertex {
-                position: *pos,
-                dimensions,
-            })
-            .collect();
-
-        let indices: Vec<u32> = vec![
-            0, 1, 1, 2, 2, 3, 3, 0, // front face
-            4, 5, 5, 6, 6, 7, 7, 4, // back face
-            0, 4, 1, 5, 2, 6, 3, 7, // connecting edges
-        ];
-
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Collider Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Collider Index Buffer"),
-            contents: bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        model::WireframeMesh {
-            vertex_buffer,
-            index_buffer,
-            num_indices: indices.len() as u32,
         }
     }
 
@@ -1012,12 +903,9 @@ impl<'a> State<'a> {
             ecs_lock.add_component_to_entity(*entity, instance);
             ecs_lock.add_component_to_entity(*entity, instance_buffer);
 
-            // Create collision mesh for this entity
-            let wireframe_mesh = Self::create_collision_box_mesh_for_entity(
-                &self.device,
-                *physics_body.read().unwrap(),
-            );
-            ecs_lock.add_component_to_entity(*entity, wireframe_mesh);
+            // Create a wireframe collider from the RigidBody's data
+            let wireframe = model::WireframeMesh::new(&self.device, &physics_body.read().unwrap());
+            ecs_lock.add_component_to_entity(*entity, wireframe);
         }
 
         self.physics_entities = Some(physics_entities);

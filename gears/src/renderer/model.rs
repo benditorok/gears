@@ -1,3 +1,7 @@
+use wgpu::util::DeviceExt;
+
+use crate::ecs::components;
+
 use super::texture;
 use std::ops::Range;
 
@@ -89,6 +93,99 @@ pub(crate) struct WireframeMesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_indices: u32,
+}
+
+impl WireframeMesh {
+    pub fn new(device: &wgpu::Device, rigid_body: &components::physics::RigidBody) -> Self {
+        let collision_box = &rigid_body.collision_box;
+        let position = rigid_body.position;
+
+        let vertices = [
+            // Front face corners
+            [
+                collision_box.min.x + position.x,
+                collision_box.min.y + position.y,
+                collision_box.min.z + position.z,
+            ],
+            [
+                collision_box.max.x + position.x,
+                collision_box.min.y + position.y,
+                collision_box.min.z + position.z,
+            ],
+            [
+                collision_box.max.x + position.x,
+                collision_box.max.y + position.y,
+                collision_box.min.z + position.z,
+            ],
+            [
+                collision_box.min.x + position.x,
+                collision_box.max.y + position.y,
+                collision_box.min.z + position.z,
+            ],
+            // Back face corners
+            [
+                collision_box.min.x + position.x,
+                collision_box.min.y + position.y,
+                collision_box.max.z + position.z,
+            ],
+            [
+                collision_box.max.x + position.x,
+                collision_box.min.y + position.y,
+                collision_box.max.z + position.z,
+            ],
+            [
+                collision_box.max.x + position.x,
+                collision_box.max.y + position.y,
+                collision_box.max.z + position.z,
+            ],
+            [
+                collision_box.min.x + position.x,
+                collision_box.max.y + position.y,
+                collision_box.max.z + position.z,
+            ],
+        ];
+
+        // Calculate dimensions for the shader
+        let dimensions = [
+            collision_box.max.x - collision_box.min.x,
+            collision_box.max.y - collision_box.min.y,
+            collision_box.max.z - collision_box.min.z,
+        ];
+
+        let vertex_data: Vec<ColliderVertex> = vertices
+            .iter()
+            .map(|pos| ColliderVertex {
+                position: *pos,
+                dimensions,
+            })
+            .collect();
+
+        // Indices for drawing lines between corners (12 lines = 24 indices)
+        let indices: Vec<u32> = vec![
+            // Front face
+            0, 1, 1, 2, 2, 3, 3, 0, // Back face
+            4, 5, 5, 6, 6, 7, 7, 4, // Connecting lines
+            0, 4, 1, 5, 2, 6, 3, 7,
+        ];
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Wireframe Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertex_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Wireframe Index Buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        Self {
+            vertex_buffer,
+            index_buffer,
+            num_indices: indices.len() as u32,
+        }
+    }
 }
 
 pub(crate) enum Keyframes {
