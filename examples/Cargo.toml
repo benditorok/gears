@@ -47,3 +47,7 @@ path = "src/physics.rs"
 [[bin]]
 name = "animations"
 path = "src/animations.rs"
+
+[[bin]]
+name = "light-showcase"
+path = "src/light_showcase.rs"

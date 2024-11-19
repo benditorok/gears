@@ -179,6 +179,10 @@ struct State<'a> {
     egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
     is_state_paused: AtomicBool,
     time: Instant,
+    collider_render_pipeline: wgpu::RenderPipeline,
+    collider_vertices: wgpu::Buffer,
+    collider_indices: wgpu::Buffer,
+    num_collider_indices: u32,
 }
 
 impl<'a> State<'a> {
@@ -338,7 +342,7 @@ impl<'a> State<'a> {
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
         let render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
+                label: Some("Main Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
                     &camera_bind_group_layout,
@@ -347,7 +351,7 @@ impl<'a> State<'a> {
                 push_constant_ranges: &[],
             });
             let shader = wgpu::ShaderModuleDescriptor {
-                label: Some("Normal Shader"),
+                label: Some("Main Shader"),
                 source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
             };
             Self::create_render_pipeline(
@@ -357,12 +361,52 @@ impl<'a> State<'a> {
                 Some(texture::Texture::DEPTH_FORMAT),
                 &[model::ModelVertex::desc(), instance::InstanceRaw::desc()],
                 shader,
+                "Main Render Pipeline",
             )
         };
 
         // * Initializing the egui renderer
         let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, window);
         let egui_windows = vec![];
+
+        // Create wireframe pipeline
+        let collider_render_pipeline = {
+            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Collider Pipeline Layout"),
+                bind_group_layouts: &[&camera_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+            let shader = wgpu::ShaderModuleDescriptor {
+                label: Some("Collider Shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("shader_collider.wgsl").into()),
+            };
+            let primitive_state = wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::LineList, // Use LineList for wireframe
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None, // Disable culling for wireframe
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            };
+            let vertex_layouts = &[
+                model::ColliderVertex::desc(),
+                instance::InstanceRaw::desc(), // Add instance buffer layout
+            ];
+            Self::create_render_pipeline(
+                &device,
+                &layout,
+                config.format,
+                Some(texture::Texture::DEPTH_FORMAT),
+                vertex_layouts,
+                shader,
+                "Collider Render Pipeline",
+            )
+        };
+
+        // Create collision box vertices and indices
+        let (collider_vertices, collider_indices, num_collider_indices) =
+            Self::create_collision_box_mesh(&device);
 
         Self {
             surface,
@@ -393,6 +437,97 @@ impl<'a> State<'a> {
             egui_windows,
             is_state_paused: AtomicBool::new(false),
             time: time::Instant::now(),
+            collider_render_pipeline,
+            collider_vertices,
+            collider_indices,
+            num_collider_indices,
+        }
+    }
+
+    fn create_collision_box_mesh(device: &wgpu::Device) -> (wgpu::Buffer, wgpu::Buffer, u32) {
+        let vertices = [
+            [-0.5, -0.5, -0.5], // 0
+            [0.5, -0.5, -0.5],  // 1
+            [0.5, 0.5, -0.5],   // 2
+            [-0.5, 0.5, -0.5],  // 3
+            [-0.5, -0.5, 0.5],  // 4
+            [0.5, -0.5, 0.5],   // 5
+            [0.5, 0.5, 0.5],    // 6
+            [-0.5, 0.5, 0.5],   // 7
+        ];
+
+        let vertices: Vec<model::ColliderVertex> = vertices
+            .iter()
+            .map(|pos| model::ColliderVertex { position: *pos })
+            .collect();
+
+        let indices: Vec<u32> = vec![
+            0, 1, 1, 2, 2, 3, 3, 0, // front face
+            4, 5, 5, 6, 6, 7, 7, 4, // back face
+            0, 4, 1, 5, 2, 6, 3, 7, // connecting edges
+        ];
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Collider Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Collider Index Buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        (vertex_buffer, index_buffer, indices.len() as u32)
+    }
+
+    fn create_collision_box_mesh_for_entity(
+        device: &wgpu::Device,
+        collision_box: &components::physics::CollisionBox,
+    ) -> model::WireframeMesh {
+        // Calculate the dimensions from min/max
+        let size = collision_box.max - collision_box.min;
+        let half_size = size * 0.5;
+
+        let vertices = [
+            [-half_size.x, -half_size.y, -half_size.z], // 0
+            [half_size.x, -half_size.y, -half_size.z],  // 1
+            [half_size.x, half_size.y, -half_size.z],   // 2
+            [-half_size.x, half_size.y, -half_size.z],  // 3
+            [-half_size.x, -half_size.y, half_size.z],  // 4
+            [half_size.x, -half_size.y, half_size.z],   // 5
+            [half_size.x, half_size.y, half_size.z],    // 6
+            [-half_size.x, half_size.y, half_size.z],   // 7
+        ];
+
+        let vertices: Vec<model::ColliderVertex> = vertices
+            .iter()
+            .map(|pos| model::ColliderVertex { position: *pos })
+            .collect();
+
+        let indices: Vec<u32> = vec![
+            0, 1, 1, 2, 2, 3, 3, 0, // front face
+            4, 5, 5, 6, 6, 7, 7, 4, // back face
+            0, 4, 1, 5, 2, 6, 3, 7, // connecting edges
+        ];
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Collider Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Collider Index Buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        model::WireframeMesh {
+            vertex_buffer,
+            index_buffer,
+            num_indices: indices.len() as u32,
         }
     }
 
@@ -418,11 +553,12 @@ impl<'a> State<'a> {
         depth_format: Option<wgpu::TextureFormat>,
         vertex_layouts: &[wgpu::VertexBufferLayout],
         shader: wgpu::ShaderModuleDescriptor,
+        pipeline_label: &'static str,
     ) -> wgpu::RenderPipeline {
         let shader = device.create_shader_module(shader);
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some(pipeline_label),
             layout: Some(layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -852,6 +988,16 @@ impl<'a> State<'a> {
                     });
             ecs_lock.add_component_to_entity(*entity, instance);
             ecs_lock.add_component_to_entity(*entity, instance_buffer);
+
+            // Create collision mesh for this entity
+            let collision_box = {
+                let rlock_physics_body = physics_body.read().unwrap();
+                rlock_physics_body.collision_box.clone()
+            };
+
+            let wireframe_mesh =
+                Self::create_collision_box_mesh_for_entity(&self.device, &collision_box);
+            ecs_lock.add_component_to_entity(*entity, wireframe_mesh);
         }
 
         self.physics_entities = Some(physics_entities);
@@ -1340,6 +1486,36 @@ impl<'a> State<'a> {
 
                     // Draw model
                     render_pass.draw_model(model, &self.camera_bind_group, &self.light_bind_group);
+                }
+            }
+
+            // Render collision boxes if enabled
+            if self.draw_colliders {
+                if let Some(physics_entities) = &self.physics_entities {
+                    render_pass.set_pipeline(&self.collider_render_pipeline);
+                    render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
+                    for entity in physics_entities {
+                        let ecs_lock = self.ecs.lock().unwrap();
+
+                        let wireframe = ecs_lock
+                            .get_component_from_entity::<model::WireframeMesh>(*entity)
+                            .unwrap();
+                        let instance_buffer = ecs_lock
+                            .get_component_from_entity::<wgpu::Buffer>(*entity)
+                            .unwrap();
+
+                        render_pass.set_vertex_buffer(
+                            0,
+                            wireframe.read().unwrap().vertex_buffer.slice(..),
+                        );
+                        render_pass.set_index_buffer(
+                            wireframe.read().unwrap().index_buffer.slice(..),
+                            wgpu::IndexFormat::Uint32,
+                        );
+                        render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
+                        render_pass.draw_indexed(0..wireframe.read().unwrap().num_indices, 0, 0..1);
+                    }
                 }
             }
         }

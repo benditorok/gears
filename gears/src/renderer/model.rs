@@ -40,6 +40,26 @@ impl Vertex for ModelVertex {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ColliderVertex {
+    pub position: [f32; 3],
+}
+
+impl Vertex for ColliderVertex {
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<ColliderVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 0,
+                format: wgpu::VertexFormat::Float32x3,
+            }],
+        }
+    }
+}
+
 pub(crate) struct Material {
     #[allow(unused)]
     pub name: String,
@@ -55,6 +75,12 @@ pub(crate) struct Mesh {
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
     pub material: usize,
+}
+
+pub(crate) struct WireframeMesh {
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub num_indices: u32,
 }
 
 pub(crate) enum Keyframes {

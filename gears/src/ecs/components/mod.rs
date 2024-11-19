@@ -1,6 +1,7 @@
 pub mod light;
 pub mod model;
 pub mod physics;
+pub mod prefabs;
 pub mod transform;
 
 use super::traits::Component;
