@@ -7,7 +7,6 @@ var<uniform> camera: Camera;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) dimensions: vec3<f32>,
 }
 
 struct InstanceInput {
@@ -34,8 +33,7 @@ fn vs_main(
         instance.model_matrix_3,
     );
 
-    let scaled_position = model.position * model.dimensions;
-    let world_position = (model_matrix * vec4<f32>(scaled_position, 1.0)).xyz;
+    let world_position = (model_matrix * vec4<f32>(model.position, 1.0)).xyz;
     
     var out: VertexOutput;
     out.clip_position = camera.view_proj * vec4<f32>(world_position, 1.0);

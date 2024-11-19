@@ -48,7 +48,6 @@ impl Vertex for ModelVertex {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ColliderVertex {
     pub position: [f32; 3],
-    pub dimensions: [f32; 3],
 }
 
 impl Vertex for ColliderVertex {
@@ -56,18 +55,11 @@ impl Vertex for ColliderVertex {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<ColliderVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ],
+            attributes: &[wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 0,
+                format: wgpu::VertexFormat::Float32x3,
+            }],
         }
     }
 }
@@ -148,10 +140,7 @@ impl WireframeMesh {
         // Pass position without computing dimensions - the shader will use the positions directly
         let vertex_data: Vec<ColliderVertex> = vertices
             .iter()
-            .map(|pos| ColliderVertex {
-                position: *pos,
-                dimensions: [1.0, 1.0, 1.0], // Use constant dimensions since we're using actual positions
-            })
+            .map(|pos| ColliderVertex { position: *pos })
             .collect();
 
         // Indices for drawing lines between corners (12 lines = 24 indices)
