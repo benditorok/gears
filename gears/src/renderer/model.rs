@@ -176,6 +176,34 @@ impl WireframeMesh {
     }
 }
 
+pub(crate) trait DrawWireframeMesh {
+    fn set_wireframe_pipeline(
+        &mut self,
+        pipeline: &wgpu::RenderPipeline,
+        camera_bind_group: &wgpu::BindGroup,
+    );
+
+    fn draw_wireframe_mesh(&mut self, mesh: &WireframeMesh, instance_buffer: &wgpu::Buffer);
+}
+
+impl DrawWireframeMesh for wgpu::RenderPass<'_> {
+    fn set_wireframe_pipeline(
+        &mut self,
+        pipeline: &wgpu::RenderPipeline,
+        camera_bind_group: &wgpu::BindGroup,
+    ) {
+        self.set_pipeline(pipeline);
+        self.set_bind_group(0, camera_bind_group, &[]);
+    }
+
+    fn draw_wireframe_mesh(&mut self, mesh: &WireframeMesh, instance_buffer: &wgpu::Buffer) {
+        self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+        self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        self.set_vertex_buffer(1, instance_buffer.slice(..));
+        self.draw_indexed(0..mesh.num_indices, 0, 0..1);
+    }
+}
+
 pub(crate) enum Keyframes {
     Translation(Vec<Vec<f32>>),
     Rotation(Vec<Vec<f32>>), // Added Rotation variant

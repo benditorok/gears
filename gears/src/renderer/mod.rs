@@ -12,7 +12,7 @@ use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
 use log::warn;
-use model::{DrawModel, Vertex};
+use model::{DrawModel, DrawWireframeMesh, Vertex};
 use std::f32::consts::FRAC_PI_2;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -574,7 +574,7 @@ impl<'a> State<'a> {
         let camera = camera.read().unwrap();
 
         match *camera {
-            components::Camera::FPS {
+            components::Camera::Dynamic {
                 look_at,
                 speed,
                 sensitivity,
@@ -594,6 +594,14 @@ impl<'a> State<'a> {
                 let controller = camera::CameraController::new(0.0, 0.0, None);
 
                 (camera, controller)
+            }
+            components::Camera::Player {
+                position: _,
+                y_offset: _,
+                sensitivity: _,
+                keycodes: _,
+            } => {
+                panic!("Player camera should be handled elsewhere!");
             }
         }
     }
@@ -1400,8 +1408,10 @@ impl<'a> State<'a> {
             // Render collision boxes if enabled
             if self.draw_colliders {
                 if let Some(physics_entities) = &self.physics_entities {
-                    render_pass.set_pipeline(&self.collider_render_pipeline);
-                    render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                    render_pass.set_wireframe_pipeline(
+                        &self.collider_render_pipeline,
+                        &self.camera_bind_group,
+                    );
 
                     for entity in physics_entities {
                         let ecs_lock = self.ecs.lock().unwrap();
@@ -1420,29 +1430,8 @@ impl<'a> State<'a> {
                         // Lock and read components
                         let wireframe = wireframe.read().unwrap();
                         let instance_buffer = instance_buffer.read().unwrap();
-                        // let physics_body = physics_body.read().unwrap();
 
-                        // // Create transform matrix for collider position and scale
-                        // let instance = instance::Instance {
-                        //     position: physics_body.position,
-                        //     rotation: physics_body.rotation,
-                        // };
-                        // let instance_raw = instance.to_raw();
-
-                        // // Update instance buffer with new transform
-                        // self.queue.write_buffer(
-                        //     &instance_buffer,
-                        //     0,
-                        //     bytemuck::cast_slice(&[instance_raw]),
-                        // );
-
-                        render_pass.set_vertex_buffer(0, wireframe.vertex_buffer.slice(..));
-                        render_pass.set_index_buffer(
-                            wireframe.index_buffer.slice(..),
-                            wgpu::IndexFormat::Uint32,
-                        );
-                        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-                        render_pass.draw_indexed(0..wireframe.num_indices, 0, 0..1);
+                        render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
                     }
                 }
             }
