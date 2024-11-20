@@ -1,6 +1,6 @@
 use super::Entity;
 
-/// A component that can be attached to an entity.
+/// A component marker that can be attached to an entity.
 pub trait Component: 'static + Send + Sync {}
 
 pub trait EntityBuilder {
