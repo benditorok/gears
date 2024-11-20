@@ -12,12 +12,13 @@ async fn main() -> anyhow::Result<()> {
 
     let mut app = GearsApp::default();
 
+    // * REGION setup
     // Add FPS camera
     new_entity!(
         app,
         components::Name("FPS Camera"),
         components::transform::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
-        components::Camera::FPS {
+        components::Camera::Dynamic {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
             speed: 10.0,
             sensitivity: 0.5,
@@ -57,6 +58,19 @@ async fn main() -> anyhow::Result<()> {
             },
         ),
         components::model::ModelSource::Obj("res/models/plane/plane.obj"),
+    );
+    // * ENDREGION
+
+    // * Player
+    let player = new_entity!(
+        app,
+        components::Name("Player"),
+        components::prefabs::Player::new(
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            Some(cgmath::Point3::new(0.0, 0.0, 1.0))
+        )
+        .with_stats(100.0, 100.0)
+        .with_movement(5.0, 10.0),
     );
 
     // Run the application

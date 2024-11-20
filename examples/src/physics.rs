@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
         app,
         components::Name("FPS Camera"),
         components::transform::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
-        components::Camera::FPS {
+        components::Camera::Dynamic {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
             speed: 10.0,
             sensitivity: 0.5,
@@ -44,6 +44,7 @@ async fn main() -> anyhow::Result<()> {
         components::transform::Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
     );
 
+    // * START moving objects
     // Physics Body 1
     new_entity!(
         app,
@@ -53,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
             cgmath::Quaternion::one(),
             1.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
-            cgmath::Vector3::new(-15.0, 0.0, 0.0), // * Constant acceleration
+            cgmath::Vector3::new(-15.0, -10.0, 0.0), // * Constant acceleration
             components::physics::CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
@@ -71,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
             cgmath::Quaternion::one(),
             1.0,
             cgmath::Vector3::new(100.0, 0.0, 0.0),
-            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, -10.0, 0.0),
             components::physics::CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
@@ -87,9 +88,9 @@ async fn main() -> anyhow::Result<()> {
         components::physics::RigidBody::new(
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Quaternion::one(),
-            1.0,
+            10.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
-            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, -10.0, 0.0),
             components::physics::CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
@@ -97,7 +98,7 @@ async fn main() -> anyhow::Result<()> {
         ),
         components::model::ModelSource::Obj("res/models/cube/cube.obj"),
     );
-
+    // * END moving objects
     // Bouncing sphere
     new_entity!(
         app,

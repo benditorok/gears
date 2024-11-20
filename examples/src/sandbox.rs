@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
         app,
         components::Name("FPS Camera"),
         components::transform::Pos3::new(cgmath::Vector3::new(20.0, 10.0, 20.0,)),
-        components::Camera::FPS {
+        components::Camera::Dynamic {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
             speed: 10.0,
             sensitivity: 0.5,

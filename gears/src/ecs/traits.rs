@@ -1,3 +1,5 @@
+use std::time;
+
 use super::Entity;
 
 /// A component marker that can be attached to an entity.
@@ -16,4 +18,8 @@ pub(crate) trait Pos {
 pub(crate) trait Collider {
     fn intersects(&self, other: &Self) -> bool;
     fn move_to(&mut self, pos: impl Pos);
+}
+
+pub trait Tick {
+    fn on_tick(&mut self, delta_time: time::Duration);
 }

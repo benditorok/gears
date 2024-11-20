@@ -7,6 +7,8 @@ pub mod texture;
 pub mod traits;
 
 use crate::core::Dt;
+use crate::ecs::components::prefabs::Player;
+use crate::ecs::traits::Tick;
 use crate::ecs::{self, components};
 use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
@@ -180,6 +182,7 @@ struct State<'a> {
     is_state_paused: AtomicBool,
     time: Instant,
     collider_render_pipeline: wgpu::RenderPipeline,
+    player_entity: Option<ecs::Entity>,
 }
 
 impl<'a> State<'a> {
@@ -419,6 +422,7 @@ impl<'a> State<'a> {
             is_state_paused: AtomicBool::new(false),
             time: time::Instant::now(),
             collider_render_pipeline,
+            player_entity: None,
         }
     }
 
@@ -541,7 +545,47 @@ impl<'a> State<'a> {
     ///
     /// A tuple containing the camera and the camera controller.
     fn init_camera(ecs: Arc<Mutex<ecs::Manager>>) -> (camera::Camera, camera::CameraController) {
+        // If a player is present get a camera from the player
         let ecs_lock = ecs.lock().unwrap();
+        let player_entity = ecs_lock.get_entites_with_component::<components::prefabs::Player>();
+        assert!(
+            player_entity.len() <= 1,
+            "There should be only one player entity"
+        );
+
+        if !player_entity.is_empty() {
+            let player_entity = player_entity[0];
+            let player = ecs_lock
+                .get_component_from_entity::<components::prefabs::Player>(player_entity)
+                .unwrap();
+            let player = player.read().unwrap();
+
+            let (camera, controller) = match player.camera {
+                components::Camera::Player {
+                    position,
+                    look_at,
+                    y_offset,
+                    speed,
+                    sensitivity,
+                    keycodes,
+                } => {
+                    let camera = camera::Camera::new_look_at(
+                        (position.x, position.y + y_offset, position.z),
+                        look_at.into(),
+                    );
+                    let controller =
+                        camera::CameraController::new(speed, sensitivity, Some(keycodes));
+
+                    (camera, controller)
+                }
+                _ => {
+                    panic!("This should be a Camera::Player variant!");
+                }
+            };
+
+            return (camera, controller);
+        }
+
         let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
         assert!(
             camera_entity.len() <= 1,
@@ -595,13 +639,8 @@ impl<'a> State<'a> {
 
                 (camera, controller)
             }
-            components::Camera::Player {
-                position: _,
-                y_offset: _,
-                sensitivity: _,
-                keycodes: _,
-            } => {
-                panic!("Player camera should be handled elsewhere!");
+            _ => {
+                panic!("No other camera type is supported here!");
             }
         }
     }
@@ -1030,6 +1069,15 @@ impl<'a> State<'a> {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
+        if let Some(player) = self.player_entity {
+            let ecs_lock = self.ecs.lock().unwrap();
+            let player = ecs_lock
+                .get_component_from_entity::<components::prefabs::Player>(player)
+                .unwrap();
+            let mut wlock_player = player.write().unwrap();
+            wlock_player.on_tick(dt);
+        }
+
         self.update_physics_system(dt);
         self.update_lights();
         self.update_models();
@@ -1241,6 +1289,15 @@ impl<'a> State<'a> {
     }
 
     fn update_physics_system(&mut self, dt: time::Duration) {
+        if let Some(player) = self.player_entity {
+            let ecs_lock = self.ecs.lock().unwrap();
+            let player = ecs_lock
+                .get_component_from_entity::<components::prefabs::Player>(player)
+                .unwrap();
+            let mut wlock_player = player.write().unwrap();
+            wlock_player.on_tick(dt);
+        }
+
         let dt = dt.as_secs_f32();
         let mut physics_bodies = Vec::new();
 

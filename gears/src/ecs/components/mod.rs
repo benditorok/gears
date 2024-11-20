@@ -6,15 +6,23 @@ pub mod transform;
 
 use super::traits::Component;
 use gears_macro::Component;
+use std::sync::Arc;
+
+pub enum Marker {
+    PlayableCharacter,
+    Character,
+    Teammate,
+    Enemy,
+}
 
 /// A component that stores the name of an object.ű
 #[derive(Component, Debug, Clone)]
 pub struct Name(pub &'static str);
 
 /// A component that stores the camera type.
-#[derive(Component, Debug, Copy, Clone)]
+#[derive(Component, Debug, Clone)]
 pub enum Camera {
-    FPS {
+    Dynamic {
         look_at: cgmath::Point3<f32>,
         speed: f32,
         sensitivity: f32,
@@ -22,6 +30,14 @@ pub enum Camera {
     },
     Fixed {
         look_at: cgmath::Point3<f32>,
+    },
+    Player {
+        position: cgmath::Vector3<f32>,
+        look_at: cgmath::Point3<f32>,
+        y_offset: f32,
+        speed: f32,
+        sensitivity: f32,
+        keycodes: CameraKeycodes,
     },
 }
 
@@ -70,5 +86,41 @@ impl AnimationQueue {
 
     pub fn pop(&mut self) -> Option<&'static str> {
         self.animations.pop()
+    }
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct PlayerMovement {
+    pub move_speed: f32,
+    pub jump_force: f32,
+    pub can_jump: bool,
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct PlayerStats {
+    pub health: f32,
+    pub max_health: f32,
+    pub stamina: f32,
+    pub max_stamina: f32,
+}
+
+impl Default for PlayerMovement {
+    fn default() -> Self {
+        Self {
+            move_speed: 5.0,
+            jump_force: 8.0,
+            can_jump: true,
+        }
+    }
+}
+
+impl Default for PlayerStats {
+    fn default() -> Self {
+        Self {
+            health: 100.0,
+            max_health: 100.0,
+            stamina: 100.0,
+            max_stamina: 100.0,
+        }
     }
 }

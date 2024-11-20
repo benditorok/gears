@@ -1,6 +1,5 @@
-use gears_macro::Component;
-
 use crate::ecs::traits::Component;
+use gears_macro::Component;
 
 /// A drawable model component. Does not have any physics properties nor collision.
 #[derive(Component, Debug, Clone)]

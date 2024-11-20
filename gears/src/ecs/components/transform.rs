@@ -37,6 +37,8 @@ impl Default for Pos3 {
     }
 }
 
+pub struct MovementController {}
+
 // impl From<Pos3> for cgmath::Point3<f32> {
 //     fn from(val: Pos3) -> Self {
 //         cgmath::Point3::new(val.x, val.y, val.z)
