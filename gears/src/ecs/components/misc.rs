@@ -1,31 +1,48 @@
-use std::default;
-
-use crate::ecs::traits::Component;
+use crate::ecs::traits::{Component, Marker};
 use gears_macro::Component;
 
 #[derive(Component, Debug, Clone, Copy)]
-pub enum Marker {
-    Player,
-    StaticCamera,
-    DynamicCamera,
-    RigidBody,
-    Light,
-}
-// TODO include the name &str in the Marker enum
+pub struct PlayerMarker;
 
-impl Marker {
-    pub fn requirements(&self) -> &'static str {
-        match self {
-            Marker::Player => {
-                "Required components: Pos3, ModelSource, MovementController, ViewController"
-            }
-            Marker::StaticCamera => "Required components: Camera, Pos3",
-            Marker::DynamicCamera => {
-                "Required components: Camera, Pos3, MovementController, ViewController"
-            }
-            Marker::RigidBody => "Required components: Pos3, RigidBody, ModelSource",
-            Marker::Light => "Required components: Pos3, Light",
-        }
+impl Marker for PlayerMarker {
+    fn describe() -> &'static str {
+        "Required components: Pos3, ModelSource, MovementController, ViewController"
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct DynamicCameraMarker;
+
+impl Marker for DynamicCameraMarker {
+    fn describe() -> &'static str {
+        "Required components: Camera, Pos3, MovementController, ViewController"
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct StaticCameraMarker;
+
+impl Marker for StaticCameraMarker {
+    fn describe() -> &'static str {
+        "Required components: Camera, Pos3"
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct RigidBodyMarker;
+
+impl Marker for RigidBodyMarker {
+    fn describe() -> &'static str {
+        "Required components: Pos3, RigidBody, ModelSource"
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct LightMarker;
+
+impl Marker for LightMarker {
+    fn describe() -> &'static str {
+        "Required components: Pos3, Light"
     }
 }
 

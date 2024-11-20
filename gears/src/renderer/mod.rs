@@ -8,7 +8,7 @@ pub mod traits;
 
 use crate::core::Dt;
 use crate::ecs::components::prefabs::Player;
-use crate::ecs::traits::Tick;
+use crate::ecs::traits::{Marker, Tick};
 use crate::ecs::{self, components};
 use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
@@ -544,9 +544,26 @@ impl<'a> State<'a> {
     ///
     /// A tuple containing the camera and the camera controller.
     fn init_camera(ecs: Arc<Mutex<ecs::Manager>>) -> (camera::Camera, camera::CameraController) {
-        // If a player is present get a camera from the player
+        let ecs_lock = ecs.lock().unwrap();
 
-        let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
+        // * Look for a player first and retrieve it's camera
+        let player_entity = ecs_lock.get_entites_with_component::<components::misc::PlayerMarker>();
+
+        if (!player_entity.is_empty()) {
+            let player_entity = player_entity.pop().unwrap();
+            let camera = ecs_lock
+                .get_component_from_entity::<components::misc::Camera>(player_entity)
+                .expect(components::misc::PlayerMarker::describe());
+
+            let camera = player.camera;
+            let controller = player.camera_controller;
+
+            return (camera, controller);
+        }
+
+        let ecs_lock = ecs.lock().unwrap();
+        let mut static_camera_entity =
+            ecs_lock.get_entites_with_component::<components::misc::StaticCameraMarker>();
         assert!(
             camera_entity.len() <= 1,
             "There should be only one camera entity"

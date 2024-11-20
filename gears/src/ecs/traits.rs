@@ -27,3 +27,7 @@ pub trait Tick {
 pub trait Prefab {
     fn unpack_prefab(&mut self) -> Vec<Box<dyn Component>>;
 }
+
+pub trait Marker {
+    fn describe() -> &'static str;
+}

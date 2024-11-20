@@ -1,4 +1,4 @@
-use crate::ecs::{components::misc::Marker, traits::Prefab};
+use crate::ecs::{components::misc::PlayerMarker, traits::Prefab};
 
 use super::{
     controllers::{MovementController, ViewController},
@@ -30,7 +30,7 @@ impl Default for Player {
 impl Prefab for Player {
     fn unpack_prefab(&mut self) -> Vec<Box<dyn crate::prelude::Component>> {
         vec![
-            Box::new(Marker::Player),
+            Box::new(PlayerMarker),
             Box::new(self.pos3.take().unwrap()),
             Box::new(self.model_source.take().unwrap()),
             Box::new(self.movement_controller.take().unwrap()),

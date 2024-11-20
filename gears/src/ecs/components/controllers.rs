@@ -1,7 +1,7 @@
 use std::time;
 
 use crate::{ecs::traits::Tick, prelude::Component, SAFE_FRAC_PI_2};
-use cgmath::{InnerSpace, Rotation3};
+use cgmath::{InnerSpace, Point3, Rotation3};
 use gears_macro::Component;
 use winit::{event::ElementState, keyboard::KeyCode};
 
@@ -9,8 +9,8 @@ use super::transforms::Pos3;
 
 #[derive(Component, Debug, Clone)]
 pub struct MovementController {
-    pub speed: f32,
-    pub keycodes: MovementKeycodes,
+    pub(crate) speed: f32,
+    pub(crate) keycodes: MovementKeycodes,
     amount_left: f32,
     amount_right: f32,
     amount_forward: f32,
@@ -35,6 +35,19 @@ impl Default for MovementController {
 }
 
 impl MovementController {
+    pub fn new(speed: f32, keycodes: MovementKeycodes) -> Self {
+        Self {
+            speed,
+            keycodes,
+            amount_left: 0.0,
+            amount_right: 0.0,
+            amount_forward: 0.0,
+            amount_backward: 0.0,
+            amount_up: 0.0,
+            amount_down: 0.0,
+        }
+    }
+
     pub fn process_keyboard(&mut self, key: KeyCode, state: ElementState) -> bool {
         let amount = if state == ElementState::Pressed {
             1.0
@@ -75,10 +88,10 @@ impl MovementController {
 #[derive(Component, Debug, Clone)]
 pub struct ViewController {
     pub sensitivity: f32,
-    rotate_horizontal: f32,
-    rotate_vertical: f32,
-    yaw: cgmath::Rad<f32>,
-    pitch: cgmath::Rad<f32>,
+    pub(crate) rotate_horizontal: f32,
+    pub(crate) rotate_vertical: f32,
+    pub(crate) yaw: cgmath::Rad<f32>,
+    pub(crate) pitch: cgmath::Rad<f32>,
 }
 
 impl Default for ViewController {
@@ -94,6 +107,22 @@ impl Default for ViewController {
 }
 
 impl ViewController {
+    pub fn new<V: Into<Point3<f32>>>(position: V, target: V) -> Self {
+        let position = position.into();
+        let target = target.into();
+        let direction = (target - position).normalize();
+        let pitch = direction.y.asin();
+        let yaw = direction.z.atan2(direction.x);
+
+        Self {
+            sensitivity: 1.0,
+            rotate_horizontal: 0.0,
+            rotate_vertical: 0.0,
+            yaw: cgmath::Rad(yaw),
+            pitch: cgmath::Rad(pitch),
+        }
+    }
+
     pub fn process_mouse(&mut self, dx: f32, dy: f32) {
         self.rotate_horizontal += dx * self.sensitivity;
         self.rotate_vertical += dy * self.sensitivity;
