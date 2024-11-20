@@ -1,5 +1,5 @@
 use super::{OPENGL_TO_WGPU_MATRIX, SAFE_FRAC_PI_2};
-use crate::ecs::{self, components::CameraKeycodes};
+use crate::ecs::{self, components::MovementKeycodes};
 use cgmath::{perspective, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3};
 use std::time;
 use winit::{
@@ -114,11 +114,11 @@ pub(crate) struct CameraController {
     scroll: f32,
     speed: f32,
     sensitivity: f32,
-    keycodes: ecs::components::CameraKeycodes,
+    keycodes: ecs::components::MovementKeycodes,
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32, keycodes: Option<CameraKeycodes>) -> Self {
+    pub fn new(speed: f32, sensitivity: f32, keycodes: Option<MovementKeycodes>) -> Self {
         Self {
             amount_left: 0.0,
             amount_right: 0.0,

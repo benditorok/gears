@@ -17,7 +17,7 @@ impl Pos3 {
         }
     }
 
-    pub fn with_rot(pos: cgmath::Vector3<f32>, rot: cgmath::Quaternion<f32>) -> Self {
+    pub fn new_with_rot(pos: cgmath::Vector3<f32>, rot: cgmath::Quaternion<f32>) -> Self {
         Self { pos, rot }
     }
 }
@@ -36,8 +36,6 @@ impl Default for Pos3 {
         }
     }
 }
-
-pub struct MovementController {}
 
 // impl From<Pos3> for cgmath::Point3<f32> {
 //     fn from(val: Pos3) -> Self {

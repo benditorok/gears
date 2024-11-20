@@ -1,78 +1,40 @@
-use crate::ecs::components::{self, PlayerMovement, PlayerStats};
-use crate::ecs::traits::{Component, Tick};
-use cgmath::One;
-use gears_macro::Component;
-use std::sync::Arc;
-use std::time;
+use crate::ecs::{components::misc::Marker, traits::Prefab};
 
-use super::Camera;
+use super::{
+    controllers::{MovementController, ViewController},
+    models::ModelSource,
+    physics::RigidBody,
+    transforms::Pos3,
+};
 
-#[derive(Component, Debug, Clone)]
 pub struct Player {
-    pub camera: components::Camera,
-    pub body: components::physics::RigidBody,
-    pub movement: PlayerMovement,
-    pub stats: PlayerStats,
+    pub pos3: Option<Pos3>,
+    pub model_source: Option<ModelSource>,
+    pub movement_controller: Option<MovementController>,
+    pub view_controller: Option<ViewController>,
+    pub rigidbody: Option<RigidBody>,
 }
 
-impl Player {
-    pub fn new(position: cgmath::Vector3<f32>, look_at: Option<cgmath::Point3<f32>>) -> Self {
-        let body = components::physics::RigidBody {
-            position,
-            collision_box: components::physics::CollisionBox {
-                min: cgmath::Vector3::new(-0.4, 0.0, -0.4),
-                max: cgmath::Vector3::new(0.4, 1.8, 0.4),
-            },
-            mass: 70.0, // typical human mass
-            acceleration: cgmath::Vector3::new(0.0, -10.0, 0.0),
-            ..Default::default()
-        };
-
-        let look_at = look_at.unwrap_or_else(|| cgmath::Point3::new(0.0, 0.0, 1.0));
-
-        let camera = components::Camera::Player {
-            position: body.position,
-            look_at,
-            y_offset: 1.6, // typical eye height
-            speed: 5.0,
-            sensitivity: 1.0,
-            keycodes: components::CameraKeycodes::default(),
-        };
-
+impl Default for Player {
+    fn default() -> Self {
         Self {
-            camera,
-            body,
-            movement: PlayerMovement::default(),
-            stats: PlayerStats::default(),
+            pos3: Some(Pos3::default()),
+            model_source: Some(ModelSource::Obj("res/models/sphere/sphere.obj")),
+            movement_controller: Some(MovementController::default()),
+            view_controller: Some(ViewController::default()),
+            rigidbody: Some(RigidBody::default()),
         }
-    }
-
-    pub fn with_stats(mut self, health: f32, stamina: f32) -> Self {
-        self.stats = PlayerStats {
-            health,
-            max_health: health,
-            stamina,
-            max_stamina: stamina,
-        };
-        self
-    }
-
-    pub fn with_movement(mut self, move_speed: f32, jump_force: f32) -> Self {
-        self.movement = PlayerMovement {
-            move_speed,
-            jump_force,
-            can_jump: true,
-        };
-        self
     }
 }
 
-impl Tick for Player {
-    fn on_tick(&mut self, dt: time::Duration) {
-        // Update the body position from the camera position
-        if let components::Camera::Player { position, .. } = &self.camera {
-            let pos = self.body.position + cgmath::Vector3::new(0.0, -1.6, 0.0) * dt.as_secs_f32();
-            self.body.position = pos;
-        }
+impl Prefab for Player {
+    fn unpack_prefab(&mut self) -> Vec<Box<dyn crate::prelude::Component>> {
+        vec![
+            Box::new(Marker::Player),
+            Box::new(self.pos3.take().unwrap()),
+            Box::new(self.model_source.take().unwrap()),
+            Box::new(self.movement_controller.take().unwrap()),
+            Box::new(self.view_controller.take().unwrap()),
+        ]
     }
 }

@@ -1,4 +1,5 @@
 use cgmath::One;
+use ecs::traits::Prefab;
 use gears::prelude::*;
 use log::LevelFilter;
 
@@ -17,12 +18,12 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("FPS Camera"),
-        components::transform::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+        components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
         components::Camera::Dynamic {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
             speed: 10.0,
             sensitivity: 0.5,
-            keycodes: components::CameraKeycodes::default(),
+            keycodes: components::MovementKeycodes::default(),
         }
     );
 
@@ -30,48 +31,39 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Ambient Light"),
-        components::light::Light::Ambient { intensity: 0.05 },
-        components::transform::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0))
+        components::lights::Light::Ambient { intensity: 0.05 },
+        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0))
     );
 
     // Add directional light
     new_entity!(
         app,
         components::Name("Directional Light"),
-        components::light::Light::Directional {
+        components::lights::Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.4,
         },
-        components::transform::Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
+        components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
     );
 
     // Plane
     new_entity!(
         app,
         components::Name("Plane"),
-        components::physics::RigidBody::new_static(
-            cgmath::Vector3::new(0.0, -3.0, 0.0),
-            cgmath::Quaternion::one(),
-            components::physics::CollisionBox {
-                min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
-                max: cgmath::Vector3::new(50.0, 0.1, 50.0),
-            },
-        ),
-        components::model::ModelSource::Obj("res/models/plane/plane.obj"),
+        components::Marker::RigidBody,
+        components::physics::RigidBody::new_static(components::physics::CollisionBox {
+            min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
+            max: cgmath::Vector3::new(50.0, 0.1, 50.0),
+        }),
+        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, -1.0, 0.0)),
+        components::models::ModelSource::Obj("res/models/plane/plane.obj"),
     );
     // * ENDREGION
 
     // * Player
-    let player = new_entity!(
-        app,
-        components::Name("Player"),
-        components::prefabs::Player::new(
-            cgmath::Vector3::new(0.0, 0.0, 0.0),
-            Some(cgmath::Point3::new(0.0, 0.0, 1.0))
-        )
-        .with_stats(100.0, 100.0)
-        .with_movement(5.0, 10.0),
-    );
+    let player_prefab = components::prefabs::Player::default();
+    let player_components = player_prefab.unpack_prefab();
+    let player = new_entity!(app, player_components);
 
     // Run the application
     app.run().await

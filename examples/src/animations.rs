@@ -19,39 +19,39 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("FPS Camera"),
-        components::transform::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+        components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
         components::Camera::Dynamic {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
             speed: 10.0,
             sensitivity: 0.5,
-            keycodes: components::CameraKeycodes::default(),
+            keycodes: components::MovementKeycodes::default(),
         }
     );
 
     // Use the entity builder
     app.new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))
-        .add_component(components::light::Light::Ambient { intensity: 0.05 })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::lights::Light::Ambient { intensity: 0.05 })
+        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
             0.0, 50.0, 0.0,
         )))
         .new_entity() // Add directional light
         .add_component(components::Name("Directional Light"))
-        .add_component(components::light::Light::Directional {
+        .add_component(components::lights::Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.3,
         })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
             30.0, 30.0, 30.0,
         )))
         .new_entity() // Add a green light
         .add_component(components::Name("White Light"))
-        .add_component(components::light::Light::PointColoured {
+        .add_component(components::lights::Light::PointColoured {
             radius: 10.0,
             color: [0.6, 0.6, 0.8],
             intensity: 0.4,
         })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
             -4.0, 4.0, 4.0,
         )))
         .build();
@@ -59,8 +59,8 @@ async fn main() -> anyhow::Result<()> {
     let animated_cube = new_entity!(
         app,
         components::Name("test"),
-        components::model::ModelSource::Gltf("res/gltf/cube/AnimatedCube.gltf"),
-        components::model::StaticModel {
+        components::models::ModelSource::Gltf("res/gltf/cube/AnimatedCube.gltf"),
+        components::models::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::one(),
         },
@@ -70,8 +70,8 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("test"),
-        components::model::ModelSource::Gltf("res/gltf/helmet/DamagedHelmet.gltf"),
-        components::model::StaticModel {
+        components::models::ModelSource::Gltf("res/gltf/helmet/DamagedHelmet.gltf"),
+        components::models::StaticModel {
             position: cgmath::Vector3::new(0.0, 5.0, 0.0),
             rotation: Quaternion::from_angle_x(cgmath::Rad(90.0)),
         },
@@ -80,8 +80,8 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Sphere1"),
-        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
-        components::model::StaticModel {
+        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        components::models::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 5.0),
             rotation: Quaternion::one(),
         },

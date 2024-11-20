@@ -23,3 +23,7 @@ pub(crate) trait Collider {
 pub trait Tick {
     fn on_tick(&mut self, delta_time: time::Duration);
 }
+
+pub trait Prefab {
+    fn unpack_prefab(&mut self) -> Vec<Box<dyn Component>>;
+}

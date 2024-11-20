@@ -20,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Fixed Camera"),
-        components::transform::Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
+        components::transforms::Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
         components::Camera::Fixed {
             look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
         }
@@ -29,27 +29,27 @@ async fn main() -> anyhow::Result<()> {
     // Use the entity builder
     app.new_entity() // Add ambient light
         .add_component(components::Name("Ambient Light"))
-        .add_component(components::light::Light::Ambient { intensity: 0.05 })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::lights::Light::Ambient { intensity: 0.05 })
+        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
             0.0, 50.0, 0.0,
         )))
         .new_entity() // Add directional light
         .add_component(components::Name("Directional Light"))
-        .add_component(components::light::Light::Directional {
+        .add_component(components::lights::Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.3,
         })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
             30.0, 30.0, 30.0,
         )))
         .new_entity() // Add a green light
         .add_component(components::Name("Green Light"))
-        .add_component(components::light::Light::PointColoured {
+        .add_component(components::lights::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.8, 0.0],
             intensity: 0.6,
         })
-        .add_component(components::transform::Pos3::new(cgmath::Vector3::new(
+        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
             -4.0, 4.0, 4.0,
         )))
         .build();
@@ -58,8 +58,8 @@ async fn main() -> anyhow::Result<()> {
     let sphere_entity = new_entity!(
         app,
         components::Name("Sphere1"),
-        components::model::ModelSource::Obj("res/models/sphere/sphere.obj"),
-        components::model::StaticModel {
+        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        components::models::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::one(),
         },
@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(sphere) = cw_ecs
                     .lock()
                     .unwrap()
-                    .get_component_from_entity::<components::model::StaticModel>(sphere_entity)
+                    .get_component_from_entity::<components::models::StaticModel>(sphere_entity)
                 {
                     let mut wlock_sphere = sphere.write().unwrap();
                     ui.label("Position");
@@ -153,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
         let spin_speed = 0.5f32;
 
         if let Some(static_model) =
-            ecs.get_component_from_entity::<components::model::StaticModel>(sphere_entity)
+            ecs.get_component_from_entity::<components::models::StaticModel>(sphere_entity)
         {
             let mut wlock_static_model = static_model.write().unwrap();
 
