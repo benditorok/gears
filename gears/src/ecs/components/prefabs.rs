@@ -26,7 +26,7 @@ impl Default for Player {
             is_static: false,
         };
 
-        let view_controller = ViewController::new(0.8, 1.8);
+        let view_controller = ViewController::new(0.2, 1.8);
 
         Self {
             pos3: Some(Pos3::default()),

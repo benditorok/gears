@@ -175,8 +175,8 @@ impl ViewController {
             self.yaw.0, self.pitch.0
         );
         // Rotate
-        self.yaw += cgmath::Rad(self.rotate_horizontal) * self.sensitivity * dt;
-        self.pitch += cgmath::Rad(-self.rotate_vertical) * self.sensitivity * dt;
+        self.yaw += cgmath::Rad(self.rotate_horizontal) * dt;
+        self.pitch += cgmath::Rad(-self.rotate_vertical) * dt;
 
         // Update the rotation quaternion
         pos3.rot = cgmath::Quaternion::from_angle_y(self.yaw)

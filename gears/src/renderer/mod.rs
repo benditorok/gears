@@ -1063,6 +1063,9 @@ impl<'a> State<'a> {
                 bytemuck::cast_slice(&[self.camera_uniform]),
             );
 
+            // TODO ha van rigidbody akkor ez player -> Option<RB> movement ctrlbe,
+            // gravitacio, stb, stb,  ha Some(RB) akkor ne repuljon
+
             if let Some(movement_controller) = &self.movement_controller {
                 let rlock_movement_controller = movement_controller.read().unwrap();
                 rlock_movement_controller.update_pos(
