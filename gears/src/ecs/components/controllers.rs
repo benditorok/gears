@@ -108,7 +108,7 @@ pub struct ViewController {
 impl Default for ViewController {
     fn default() -> Self {
         Self {
-            sensitivity: 1.0,
+            sensitivity: 0.8,
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             yaw: cgmath::Rad(0.0),
