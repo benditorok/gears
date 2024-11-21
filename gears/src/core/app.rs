@@ -260,7 +260,6 @@ mod tests {
     #[test]
     fn test_new_entity_macro() {
         let mut app = crate::core::app::GearsApp::default();
-
         let entity = new_entity!(app, TestComponent { value: 10 });
 
         let ecs = app.ecs.lock().unwrap();

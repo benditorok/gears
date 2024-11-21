@@ -17,7 +17,7 @@ impl Pos3 {
         }
     }
 
-    pub fn with_rot(pos: cgmath::Vector3<f32>, rot: cgmath::Quaternion<f32>) -> Self {
+    pub fn new_with_rot(pos: cgmath::Vector3<f32>, rot: cgmath::Quaternion<f32>) -> Self {
         Self { pos, rot }
     }
 }

@@ -1,7 +1,9 @@
+use std::time;
+
 use super::Entity;
 
-/// A component that can be attached to an entity.
-pub trait Component: 'static + Send + Sync {}
+/// A component marker that can be attached to an entity.
+pub trait Component: Sized + 'static + Send + Sync {}
 
 pub trait EntityBuilder {
     fn new_entity(&mut self) -> &mut Self;
@@ -16,4 +18,16 @@ pub(crate) trait Pos {
 pub(crate) trait Collider {
     fn intersects(&self, other: &Self) -> bool;
     fn move_to(&mut self, pos: impl Pos);
+}
+
+pub trait Tick {
+    fn on_tick(&mut self, delta_time: time::Duration);
+}
+
+pub trait Prefab {
+    fn unpack_prefab(&mut self) -> Vec<Box<impl Component>>;
+}
+
+pub trait Marker {
+    fn describe() -> &'static str;
 }

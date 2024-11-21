@@ -5,4 +5,6 @@ pub mod macros;
 pub mod prelude;
 pub mod renderer;
 
-pub use gears_macro::Component;
+use std::f32::consts::FRAC_PI_2;
+
+const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;

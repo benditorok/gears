@@ -7,16 +7,19 @@ pub mod texture;
 pub mod traits;
 
 use crate::core::Dt;
+use crate::ecs::components::controllers;
+use crate::ecs::components::prefabs::Player;
+use crate::ecs::traits::{Marker, Tick};
 use crate::ecs::{self, components};
 use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
-use log::warn;
+use log::{info, warn};
 use model::{DrawModel, DrawWireframeMesh, Vertex};
 use std::f32::consts::FRAC_PI_2;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{self, Instant};
 use tokio::sync::broadcast;
 use wgpu::util::DeviceExt;
@@ -35,7 +38,6 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 0.5,
     0.0, 0.0, 0.0, 1.0,
 );
-const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 /// The main event loop of the application
 ///
@@ -84,7 +86,10 @@ pub async fn run(
                 } => {
                     // Handle the mouse motion for the camera if the state is NOT in a paused state
                     if !state.is_state_paused.load(Ordering::Relaxed) {
-                        state.camera_controller.process_mouse(delta.0, delta.1);
+                        if let Some(view_controller) = &state.view_controller {
+                            let mut wlock_view_controller = view_controller.write().unwrap();
+                            wlock_view_controller.process_mouse(delta.0, delta.1);
+                        }
                     }
                 }
                 Event::WindowEvent {
@@ -157,9 +162,11 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    camera: camera::Camera,
+    movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
+    view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
+    player_entity: Option<ecs::Entity>,
+    camera_owner_entity: Option<ecs::Entity>,
     camera_projection: camera::Projection,
-    camera_controller: camera::CameraController,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
@@ -299,9 +306,6 @@ impl<'a> State<'a> {
             });
 
         // * Initializing the camera
-        // * Camera component is initialized here because there can be only one
-        // * camera entity in the scene and the state needs constant access to it
-        let (state_camera, state_camera_controller) = Self::init_camera(Arc::clone(&ecs));
         let camera_projection =
             camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
         let camera_uniform = camera::CameraUniform::new();
@@ -366,7 +370,7 @@ impl<'a> State<'a> {
         let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, window);
         let egui_windows = vec![];
 
-        // Create wireframe pipeline
+        // * Wireframe render pipeline
         let collider_render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Collider Pipeline Layout"),
@@ -396,10 +400,11 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            camera: state_camera,
+            movement_controller: None,
+            view_controller: None,
+            camera_owner_entity: None,
             camera_projection,
             texture_bind_group_layout,
-            camera_controller: state_camera_controller,
             camera_buffer,
             camera_bind_group,
             camera_uniform,
@@ -419,6 +424,7 @@ impl<'a> State<'a> {
             is_state_paused: AtomicBool::new(false),
             time: time::Instant::now(),
             collider_render_pipeline,
+            player_entity: None,
         }
     }
 
@@ -524,6 +530,10 @@ impl<'a> State<'a> {
 
     /// Initialize the components which can be rendered.
     async fn init_components(&mut self) -> anyhow::Result<()> {
+        if !self.init_player() {
+            self.init_camera();
+        }
+
         self.init_lights().await;
         self.init_models().await;
         self.init_physics_models().await;
@@ -531,79 +541,81 @@ impl<'a> State<'a> {
         Ok(())
     }
 
-    /// Initialize the camera component.
-    ///
-    /// # Arguments
-    ///
-    /// * `ecs` - The ECS manager.
+    /// Initialie the player component.
     ///
     /// # Returns
     ///
-    /// A tuple containing the camera and the camera controller.
-    fn init_camera(ecs: Arc<Mutex<ecs::Manager>>) -> (camera::Camera, camera::CameraController) {
-        let ecs_lock = ecs.lock().unwrap();
-        let mut camera_entity = ecs_lock.get_entites_with_component::<components::Camera>();
-        assert!(
-            camera_entity.len() <= 1,
-            "There should be only one camera entity"
-        );
+    /// A boolean indicating whether the player was found.
+    fn init_player(&mut self) -> bool {
+        let ecs_lock = self.ecs.lock().unwrap();
 
-        // If there is no camera entity provide a default implementation
-        if camera_entity.is_empty() {
-            let camera =
-                camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
-            let controller = camera::CameraController::new(
-                0.5,
-                0.2,
-                Some(components::CameraKeycodes::default()),
-            );
+        // * Look for a player first and retrieve it's camera
+        let mut player_entity =
+            ecs_lock.get_entites_with_component::<components::misc::PlayerMarker>();
 
-            return (camera, controller);
+        if !player_entity.is_empty() {
+            let player_entity = player_entity.pop().unwrap();
+            self.player_entity = Some(player_entity);
+            self.camera_owner_entity = Some(player_entity);
+            //self.camera_type = ecs::components::misc::CameraType::Player;
+
+            let view_controller = ecs_lock
+                .get_component_from_entity::<components::controllers::ViewController>(player_entity)
+                .expect(components::misc::PlayerMarker::describe());
+            self.view_controller = Some(Arc::clone(&view_controller));
+
+            let movement_controller = ecs_lock
+                .get_component_from_entity::<components::controllers::MovementController>(
+                    player_entity,
+                )
+                .expect(components::misc::PlayerMarker::describe());
+            self.movement_controller = Some(Arc::clone(&movement_controller));
+
+            return true;
         }
 
-        let camera_entity = camera_entity.pop().unwrap();
+        false
+    }
 
-        let camera_pos = ecs_lock
-            .get_component_from_entity::<components::transform::Pos3>(camera_entity)
-            .expect("No position provided for the camera!");
-        let camera = ecs_lock
-            .get_component_from_entity::<components::Camera>(camera_entity)
-            .expect("No camera component provided for the camera!");
+    /// Initialize the camera component.
+    fn init_camera(&mut self) {
+        let ecs_lock = self.ecs.lock().unwrap();
 
-        let camera_pos = camera_pos.read().unwrap();
-        let camera = camera.read().unwrap();
+        let mut static_camera_entity =
+            ecs_lock.get_entites_with_component::<components::misc::StaticCameraMarker>();
 
-        match *camera {
-            components::Camera::Dynamic {
-                look_at,
-                speed,
-                sensitivity,
-                keycodes,
-            } => {
-                let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
-                let look_at_point = look_at;
-                let camera = camera::Camera::new_look_at(pos_point, look_at_point);
-                let controller = camera::CameraController::new(speed, sensitivity, Some(keycodes));
+        if !static_camera_entity.is_empty() {
+            let static_camera_entity = static_camera_entity.pop().unwrap();
+            self.camera_owner_entity = Some(static_camera_entity);
+            //self.camera_type = ecs::components::misc::CameraType::Static;
 
-                (camera, controller)
-            }
-            components::Camera::Fixed { look_at } => {
-                let pos_point = cgmath::Point3::from_vec(camera_pos.pos);
-                let look_at_point = look_at;
-                let camera = camera::Camera::new_look_at(pos_point, look_at_point);
-                let controller = camera::CameraController::new(0.0, 0.0, None);
-
-                (camera, controller)
-            }
-            components::Camera::Player {
-                position: _,
-                y_offset: _,
-                sensitivity: _,
-                keycodes: _,
-            } => {
-                panic!("Player camera should be handled elsewhere!");
-            }
+            let controller = ecs_lock
+                .get_component_from_entity::<components::controllers::ViewController>(
+                    static_camera_entity,
+                )
+                .expect(components::misc::PlayerMarker::describe());
+            self.view_controller = Some(Arc::clone(&controller));
+            return;
         }
+
+        let mut dynamic_camera_entity =
+            ecs_lock.get_entites_with_component::<components::misc::DynamicCameraMarker>();
+
+        if !dynamic_camera_entity.is_empty() {
+            let dynamic_camera_entity = dynamic_camera_entity.pop().unwrap();
+            self.camera_owner_entity = Some(dynamic_camera_entity);
+            //self.camera_type = ecs::components::misc::CameraType::Dynamic;
+
+            let controller = ecs_lock
+                .get_component_from_entity::<components::controllers::ViewController>(
+                    dynamic_camera_entity,
+                )
+                .expect(components::misc::PlayerMarker::describe());
+            self.view_controller = Some(Arc::clone(&controller));
+            return;
+        }
+
+        panic!("No camera found in the ECS!");
     }
 
     /// Initialize the light components.
@@ -613,23 +625,23 @@ impl<'a> State<'a> {
     /// A future which can be awaited.
     async fn init_lights(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
-        let light_entities = ecs_lock.get_entites_with_component::<components::light::Light>();
+        let light_entities = ecs_lock.get_entites_with_component::<components::misc::LightMarker>();
 
         for entity in light_entities.iter() {
             let pos = ecs_lock
-                .get_component_from_entity::<components::transform::Pos3>(*entity)
-                .expect("No position provided for the light!");
+                .get_component_from_entity::<components::transforms::Pos3>(*entity)
+                .expect(components::misc::LightMarker::describe());
 
             let light = ecs_lock
-                .get_component_from_entity::<components::light::Light>(*entity)
-                .unwrap();
+                .get_component_from_entity::<components::lights::Light>(*entity)
+                .expect(components::misc::LightMarker::describe());
 
             let light_uniform = {
                 let rlock_pos = pos.read().unwrap();
                 let rlock_light = light.read().unwrap();
 
                 match *rlock_light {
-                    components::light::Light::Point { radius, intensity } => light::LightUniform {
+                    components::lights::Light::Point { radius, intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Point as u32,
                         color: [1.0, 1.0, 1.0],
@@ -637,7 +649,7 @@ impl<'a> State<'a> {
                         direction: [0.0; 3],
                         intensity,
                     },
-                    components::light::Light::PointColoured {
+                    components::lights::Light::PointColoured {
                         radius,
                         color,
                         intensity,
@@ -649,7 +661,7 @@ impl<'a> State<'a> {
                         direction: [0.0; 3],
                         intensity,
                     },
-                    components::light::Light::Ambient { intensity } => light::LightUniform {
+                    components::lights::Light::Ambient { intensity } => light::LightUniform {
                         position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                         light_type: light::LightType::Ambient as u32,
                         color: [1.0, 1.0, 1.0],
@@ -657,7 +669,7 @@ impl<'a> State<'a> {
                         direction: [0.0; 3],
                         intensity,
                     },
-                    components::light::Light::AmbientColoured { color, intensity } => {
+                    components::lights::Light::AmbientColoured { color, intensity } => {
                         light::LightUniform {
                             position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
                             light_type: light::LightType::Ambient as u32,
@@ -667,7 +679,7 @@ impl<'a> State<'a> {
                             intensity,
                         }
                     }
-                    components::light::Light::Directional {
+                    components::lights::Light::Directional {
                         direction,
                         intensity,
                     } => light::LightUniform {
@@ -678,7 +690,7 @@ impl<'a> State<'a> {
                         direction,
                         intensity,
                     },
-                    components::light::Light::DirectionalColoured {
+                    components::lights::Light::DirectionalColoured {
                         direction,
                         color,
                         intensity,
@@ -710,28 +722,29 @@ impl<'a> State<'a> {
     async fn init_models(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
         let model_entities =
-            ecs_lock.get_entites_with_component::<components::model::StaticModel>();
+            ecs_lock.get_entites_with_component::<components::misc::StaticModelMarker>();
 
         for entity in model_entities.iter() {
             let name = ecs_lock
-                .get_component_from_entity::<components::Name>(*entity)
-                .expect("No name provided for the Model!");
-            let static_model = ecs_lock
-                .get_component_from_entity::<components::model::StaticModel>(*entity)
-                .unwrap();
+                .get_component_from_entity::<components::misc::Name>(*entity)
+                .expect(components::misc::StaticModelMarker::describe());
+            let pos3 = ecs_lock
+                .get_component_from_entity::<components::transforms::Pos3>(*entity)
+                .expect(components::misc::StaticModelMarker::describe());
             let model_source = ecs_lock
-                .get_component_from_entity::<components::model::ModelSource>(*entity)
-                .expect("No source provided for the Model!");
+                .get_component_from_entity::<components::models::ModelSource>(*entity)
+                .expect(components::misc::StaticModelMarker::describe());
 
-            let flip = ecs_lock.get_component_from_entity::<components::transform::Flip>(*entity);
+            let flip = ecs_lock.get_component_from_entity::<components::transforms::Flip>(*entity);
 
-            let scale = ecs_lock.get_component_from_entity::<components::transform::Scale>(*entity);
+            let scale =
+                ecs_lock.get_component_from_entity::<components::transforms::Scale>(*entity);
 
             let obj_model = {
                 let rlock_model_source = model_source.read().unwrap();
 
                 match *rlock_model_source {
-                    components::model::ModelSource::Obj(path) => resources::load_model_obj(
+                    components::models::ModelSource::Obj(path) => resources::load_model_obj(
                         path,
                         &self.device,
                         &self.queue,
@@ -739,7 +752,7 @@ impl<'a> State<'a> {
                     )
                     .await
                     .unwrap(),
-                    components::model::ModelSource::Gltf(path) => resources::load_model_gltf(
+                    components::models::ModelSource::Gltf(path) => resources::load_model_gltf(
                         path,
                         &self.device,
                         &self.queue,
@@ -753,10 +766,10 @@ impl<'a> State<'a> {
 
             // TODO rename instance to model::ModelUniform
             let mut instance = {
-                let rlock_static_model = static_model.read().unwrap();
+                let rlock_pos3 = pos3.read().unwrap();
                 instance::Instance {
-                    position: rlock_static_model.position,
-                    rotation: rlock_static_model.rotation,
+                    position: rlock_pos3.pos,
+                    rotation: rlock_pos3.rot,
                 }
             };
 
@@ -764,15 +777,15 @@ impl<'a> State<'a> {
                 let rlock_flip = flip.read().unwrap();
 
                 match *rlock_flip {
-                    components::transform::Flip::Horizontal => {
+                    components::transforms::Flip::Horizontal => {
                         instance.rotation =
                             cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
                     }
-                    components::transform::Flip::Vertical => {
+                    components::transforms::Flip::Vertical => {
                         instance.rotation =
                             cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
                     }
-                    components::transform::Flip::Both => {
+                    components::transforms::Flip::Both => {
                         instance.rotation =
                             cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
                         instance.rotation =
@@ -813,30 +826,33 @@ impl<'a> State<'a> {
     async fn init_physics_models(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
         let physics_entities =
-            ecs_lock.get_entites_with_component::<components::physics::RigidBody>();
+            ecs_lock.get_entites_with_component::<components::misc::RigidBodyMarker>();
 
         for entity in physics_entities.iter() {
             let name = ecs_lock
-                .get_component_from_entity::<components::Name>(*entity)
+                .get_component_from_entity::<components::misc::Name>(*entity)
                 .expect("No name provided for the Model!");
 
             let physics_body = ecs_lock
                 .get_component_from_entity::<components::physics::RigidBody>(*entity)
-                .unwrap();
-
+                .expect(components::misc::RigidBodyMarker::describe());
             let model_source = ecs_lock
-                .get_component_from_entity::<components::model::ModelSource>(*entity)
-                .expect("PhysicsBodies must have a model component!");
+                .get_component_from_entity::<components::models::ModelSource>(*entity)
+                .expect(components::misc::RigidBodyMarker::describe());
+            let pos3 = ecs_lock
+                .get_component_from_entity::<components::transforms::Pos3>(*entity)
+                .expect(components::misc::RigidBodyMarker::describe());
 
-            let flip = ecs_lock.get_component_from_entity::<components::transform::Flip>(*entity);
+            let flip = ecs_lock.get_component_from_entity::<components::transforms::Flip>(*entity);
 
-            let scale = ecs_lock.get_component_from_entity::<components::transform::Scale>(*entity);
+            let scale =
+                ecs_lock.get_component_from_entity::<components::transforms::Scale>(*entity);
 
             let obj_model = {
                 let rlock_model_source = model_source.read().unwrap();
 
                 match *rlock_model_source {
-                    components::model::ModelSource::Obj(path) => resources::load_model_obj(
+                    components::models::ModelSource::Obj(path) => resources::load_model_obj(
                         path,
                         &self.device,
                         &self.queue,
@@ -844,7 +860,7 @@ impl<'a> State<'a> {
                     )
                     .await
                     .unwrap(),
-                    components::model::ModelSource::Gltf(path) => resources::load_model_gltf(
+                    components::models::ModelSource::Gltf(path) => resources::load_model_gltf(
                         path,
                         &self.device,
                         &self.queue,
@@ -859,9 +875,10 @@ impl<'a> State<'a> {
             // TODO rename instance to model::ModelUniform
             let mut instance = {
                 let rlock_physics_body = physics_body.read().unwrap();
+                let rlock_pos3 = pos3.read().unwrap();
                 instance::Instance {
-                    position: rlock_physics_body.position,
-                    rotation: rlock_physics_body.rotation,
+                    position: rlock_pos3.pos,
+                    rotation: rlock_pos3.rot,
                 }
             };
 
@@ -869,15 +886,15 @@ impl<'a> State<'a> {
                 let rlock_flip = flip.read().unwrap();
 
                 match *rlock_flip {
-                    components::transform::Flip::Horizontal => {
+                    components::transforms::Flip::Horizontal => {
                         instance.rotation =
                             cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
                     }
-                    components::transform::Flip::Vertical => {
+                    components::transforms::Flip::Vertical => {
                         instance.rotation =
                             cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
                     }
-                    components::transform::Flip::Both => {
+                    components::transforms::Flip::Both => {
                         instance.rotation =
                             cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
                         instance.rotation =
@@ -991,11 +1008,18 @@ impl<'a> State<'a> {
                         ..
                     },
                 ..
-            } => self.camera_controller.process_keyboard(*key, *state),
-            WindowEvent::MouseWheel { delta, .. } => {
-                self.camera_controller.process_scroll(delta);
+            } => {
+                if let Some(movement_controller) = &self.movement_controller {
+                    let mut wlock_movement_controller = movement_controller.write().unwrap();
+                    wlock_movement_controller.process_keyboard(*key, *state);
+                }
+
                 true
             }
+            // WindowEvent::MouseWheel { delta, .. } => {
+            //     self.view_controller.process_scroll(delta);
+            //     true
+            // }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
@@ -1019,16 +1043,44 @@ impl<'a> State<'a> {
     ///
     /// A future which can be awaited.
     async fn update(&mut self, dt: time::Duration) {
-        // Update camera
-        self.camera_controller.update_camera(&mut self.camera, dt);
-        self.camera_uniform
-            .update_view_proj(&self.camera, &self.camera_projection);
+        if let Some(view_controller) = &self.view_controller {
+            let ecs_lock = self.ecs.lock().unwrap();
+            let camera_entity = self.camera_owner_entity.unwrap();
+            let pos3 = ecs_lock.get_component_from_entity(camera_entity).unwrap();
+            let mut wlock_pos3 = pos3.write().unwrap();
+            let mut wlock_view_controller = view_controller.write().unwrap();
+            wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
 
-        self.queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[self.camera_uniform]),
-        );
+            self.camera_uniform.update_view_proj(
+                &wlock_pos3,
+                &wlock_view_controller,
+                &self.camera_projection,
+            );
+
+            self.queue.write_buffer(
+                &self.camera_buffer,
+                0,
+                bytemuck::cast_slice(&[self.camera_uniform]),
+            );
+
+            if let Some(movement_controller) = &self.movement_controller {
+                let rlock_movement_controller = movement_controller.read().unwrap();
+                rlock_movement_controller.update_pos(
+                    &wlock_view_controller,
+                    &mut wlock_pos3,
+                    dt.as_secs_f32(),
+                );
+            }
+        }
+
+        // if let Some(player) = self.player_entity {
+        //     let ecs_lock = self.ecs.lock().unwrap();
+        //     let player = ecs_lock
+        //         .get_component_from_entity::<components::prefabs::Player>(player)
+        //         .unwrap();
+        //     let mut wlock_player = player.write().unwrap();
+        //     wlock_player.on_tick(dt);
+        // }
 
         self.update_physics_system(dt);
         self.update_lights();
@@ -1048,13 +1100,13 @@ impl<'a> State<'a> {
                 let ecs_lock = self.ecs.lock().unwrap();
 
                 let pos = ecs_lock
-                    .get_component_from_entity::<components::transform::Pos3>(*entity)
+                    .get_component_from_entity::<components::transforms::Pos3>(*entity)
                     .unwrap();
                 let light_uniform = ecs_lock
                     .get_component_from_entity::<light::LightUniform>(*entity)
                     .unwrap();
                 let light = ecs_lock
-                    .get_component_from_entity::<components::light::Light>(*entity)
+                    .get_component_from_entity::<components::lights::Light>(*entity)
                     .unwrap();
 
                 {
@@ -1102,14 +1154,14 @@ impl<'a> State<'a> {
                 let ecs_lock = self.ecs.lock().unwrap();
 
                 let name = ecs_lock
-                    .get_component_from_entity::<components::Name>(*entity)
-                    .unwrap();
-                let static_model = ecs_lock
-                    .get_component_from_entity::<components::model::StaticModel>(*entity)
-                    .unwrap();
+                    .get_component_from_entity::<components::misc::Name>(*entity)
+                    .expect(components::misc::StaticModelMarker::describe());
+                let pos3 = ecs_lock
+                    .get_component_from_entity::<components::transforms::Pos3>(*entity)
+                    .expect(components::misc::StaticModelMarker::describe());
                 let instance = ecs_lock
                     .get_component_from_entity::<instance::Instance>(*entity)
-                    .unwrap();
+                    .expect(components::misc::StaticModelMarker::describe());
                 let buffer = ecs_lock
                     .get_component_from_entity::<wgpu::Buffer>(*entity)
                     .unwrap();
@@ -1117,7 +1169,7 @@ impl<'a> State<'a> {
                     .get_component_from_entity::<model::Model>(*entity)
                     .unwrap();
                 let animation_queue =
-                    ecs_lock.get_component_from_entity::<components::AnimationQueue>(*entity);
+                    ecs_lock.get_component_from_entity::<components::misc::AnimationQueue>(*entity);
 
                 // ! Animations testing
                 if let Some(animation_queue) = animation_queue {
@@ -1212,10 +1264,10 @@ impl<'a> State<'a> {
                         // ! Do not remove, causes deadlock if the lock is held for more
                         {
                             let mut wlock_instance = instance.write().unwrap();
-                            let rlock_static_model = static_model.read().unwrap();
+                            let rlock_pos3 = pos3.read().unwrap();
 
-                            wlock_instance.position = rlock_static_model.position;
-                            wlock_instance.rotation = rlock_static_model.rotation;
+                            wlock_instance.position = rlock_pos3.pos;
+                            wlock_instance.rotation = rlock_pos3.rot;
                         }
                     }
                 } else {
@@ -1223,10 +1275,10 @@ impl<'a> State<'a> {
                     // ! Do not remove, causes deadlock if the lock is held for more
                     {
                         let mut wlock_instance = instance.write().unwrap();
-                        let rlock_static_model = static_model.read().unwrap();
+                        let rlock_pos3 = pos3.read().unwrap();
 
-                        wlock_instance.position = rlock_static_model.position;
-                        wlock_instance.rotation = rlock_static_model.rotation;
+                        wlock_instance.position = rlock_pos3.pos;
+                        wlock_instance.rotation = rlock_pos3.rot;
                     }
                 }
 
@@ -1244,6 +1296,19 @@ impl<'a> State<'a> {
         let dt = dt.as_secs_f32();
         let mut physics_bodies = Vec::new();
 
+        if let Some(player) = self.player_entity {
+            let ecs_lock = self.ecs.lock().unwrap();
+            physics_bodies.push((
+                player,
+                ecs_lock
+                    .get_component_from_entity::<components::physics::RigidBody>(player)
+                    .unwrap(),
+                ecs_lock
+                    .get_component_from_entity::<components::transforms::Pos3>(player)
+                    .unwrap(),
+            ));
+        }
+
         if let Some(physics_entities) = &self.physics_entities {
             for entity in physics_entities {
                 // TODO add an animation queue for physics entities as well
@@ -1259,13 +1324,16 @@ impl<'a> State<'a> {
                 let buffer = ecs_lock
                     .get_component_from_entity::<wgpu::Buffer>(*entity)
                     .unwrap();
+                let pos3 = ecs_lock
+                    .get_component_from_entity::<components::transforms::Pos3>(*entity)
+                    .unwrap();
 
                 {
                     let mut wlock_instance = instance.write().unwrap();
-                    let rlock_physics_body = physics_body.read().unwrap();
+                    let mut rlock_pos3 = pos3.read().unwrap();
 
-                    wlock_instance.position = rlock_physics_body.position;
-                    wlock_instance.rotation = rlock_physics_body.rotation
+                    wlock_instance.position = rlock_pos3.pos;
+                    wlock_instance.rotation = rlock_pos3.rot
                 }
 
                 let instance_raw = instance.read().unwrap().to_raw();
@@ -1275,7 +1343,7 @@ impl<'a> State<'a> {
                     bytemuck::cast_slice(&[instance_raw]),
                 );
 
-                physics_bodies.push((entity, physics_body));
+                physics_bodies.push((*entity, physics_body, pos3));
             }
         }
 
@@ -1283,33 +1351,38 @@ impl<'a> State<'a> {
         let damping_factor = (-damping_coefficient * dt).exp();
 
         // Update positions and velocities based on acceleration
-        for (entity, physics_body) in &physics_bodies {
-            let mut physics_body = physics_body.write().unwrap();
+        for (entity, physics_body, pos3) in &physics_bodies {
+            let mut wlock_physics_body = physics_body.write().unwrap();
+            let mut wlock_pos3 = pos3.write().unwrap();
 
             // Update velocity based on acceleration
-            let acceleration = physics_body.acceleration;
-            physics_body.velocity += acceleration * dt;
+            let acceleration = wlock_physics_body.acceleration;
+            wlock_physics_body.velocity += acceleration * dt;
 
             // Apply damping to velocity
-            physics_body.velocity *= damping_factor;
+            wlock_physics_body.velocity *= damping_factor;
 
             // Update position based on velocity
-            let velocity = physics_body.velocity;
-            physics_body.position += velocity * dt;
+            let velocity = wlock_physics_body.velocity;
+            wlock_pos3.pos += velocity * dt;
         }
 
         // Check for collisions and resolve them
         for i in 0..physics_bodies.len() {
             for j in (i + 1)..physics_bodies.len() {
-                let (_entity_a, physics_body_a) = &physics_bodies[i];
-                let (_entity_b, physics_body_b) = &physics_bodies[j];
+                let (_entity_a, physics_body_a, pos3_a) = &physics_bodies[i];
+                let (_entity_b, physics_body_b, pos3_b) = &physics_bodies[j];
 
-                let mut physics_body_a = physics_body_a.write().unwrap();
-                let mut physics_body_b = physics_body_b.write().unwrap();
+                let mut wlock_physics_body_a = physics_body_a.write().unwrap();
+                let mut wlock_physics_body_b = physics_body_b.write().unwrap();
+                let mut wlock_pos3_a = pos3_a.write().unwrap();
+                let mut wlock_pos3_b = pos3_b.write().unwrap();
 
                 components::physics::RigidBody::check_and_resolve_collision(
-                    &mut physics_body_a,
-                    &mut physics_body_b,
+                    &mut wlock_physics_body_a,
+                    &mut wlock_pos3_a,
+                    &mut wlock_physics_body_b,
+                    &mut wlock_pos3_b,
                 );
             }
         }
