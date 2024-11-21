@@ -44,8 +44,12 @@ impl CameraUniform {
         let (sin_pitch, cos_pitch) = controller.pitch.0.sin_cos();
         let (sin_yaw, cos_yaw) = controller.yaw.0.sin_cos();
 
+        // Add the head offset to the position only for the view calculation
+        let view_position =
+            Point3::new(pos3.pos.x, pos3.pos.y + controller.head_offset, pos3.pos.z);
+
         Matrix4::look_to_rh(
-            Point3::from_vec(pos3.pos),
+            view_position,
             Vector3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
             Vector3::unit_y(),
         )

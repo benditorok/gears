@@ -23,7 +23,7 @@ pub struct MovementController {
 impl Default for MovementController {
     fn default() -> Self {
         Self {
-            speed: 5.0,
+            speed: 10.0,
             keycodes: MovementKeycodes::default(),
             amount_left: 0.0,
             amount_right: 0.0,
@@ -108,6 +108,7 @@ impl MovementController {
 #[derive(Component, Debug, Clone)]
 pub struct ViewController {
     pub sensitivity: f32,
+    pub head_offset: f32,
     pub(crate) rotate_horizontal: f32,
     pub(crate) rotate_vertical: f32,
     pub(crate) yaw: cgmath::Rad<f32>,
@@ -118,6 +119,7 @@ impl Default for ViewController {
     fn default() -> Self {
         Self {
             sensitivity: 0.8,
+            head_offset: 0.0,
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             yaw: cgmath::Rad(0.0),
@@ -127,7 +129,23 @@ impl Default for ViewController {
 }
 
 impl ViewController {
-    pub fn new<V: Into<Point3<f32>>>(position: V, target: V) -> Self {
+    pub fn new(sensitivity: f32, head_offset: f32) -> Self {
+        Self {
+            sensitivity,
+            head_offset,
+            rotate_horizontal: 0.0,
+            rotate_vertical: 0.0,
+            yaw: cgmath::Rad(0.0),
+            pitch: cgmath::Rad(0.0),
+        }
+    }
+
+    pub fn new_look_at<V: Into<Point3<f32>>>(
+        position: V,
+        target: V,
+        sensitivity: f32,
+        head_offset: f32,
+    ) -> Self {
         let position = position.into();
         let target = target.into();
         let direction = (target - position).normalize();
@@ -135,7 +153,8 @@ impl ViewController {
         let yaw = direction.z.atan2(direction.x);
 
         Self {
-            sensitivity: 1.0,
+            sensitivity,
+            head_offset,
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             yaw: cgmath::Rad(yaw),
