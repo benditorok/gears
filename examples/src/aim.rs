@@ -1,9 +1,10 @@
-use std::f32::consts::PI;
-
 use cgmath::{One, Rotation3};
 use ecs::traits::Prefab;
+use egui::Align2;
 use gears::prelude::*;
 use log::LevelFilter;
+use std::f32::consts::PI;
+use std::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -15,14 +16,25 @@ async fn main() -> anyhow::Result<()> {
 
     let mut app = GearsApp::default();
 
-    // * REGION setup
-    // // Add FPS camera
-    // new_entity!(
-    //     app,
-    //     components::misc::Name("FPS Camera"),
-    //     components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
-    //     components::controllers::ViewController::default()
-    // );
+    // ! Custom windows
+    // Informations about the renderer
+    let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
+    app.add_window(Box::new(move |ui| {
+        egui::Window::new("Renderer info")
+            .default_open(true)
+            .max_width(1000.0)
+            .max_height(800.0)
+            .default_width(800.0)
+            .resizable(true)
+            .anchor(Align2::RIGHT_TOP, [0.0, 0.0])
+            .show(ui, |ui| {
+                if let Ok(dt) = w1_frame_rx.try_recv() {
+                    ui.label(format!("Frame time: {:.2} ms", dt.as_secs_f32() * 1000.0));
+                    ui.label(format!("FPS: {:.0}", 1.0 / dt.as_secs_f32()));
+                }
+                ui.end_row();
+            });
+    }));
 
     // Add ambient light
     new_entity!(
@@ -119,6 +131,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Update loop
     app.update_loop(move |ecs, dt| {
+        // Send the frame time to the custom window
+        w1_frame_tx.send(dt).unwrap();
+
         // ! Here we are inside a loop, so this has to lock on all iterations.
         let ecs = ecs.lock().unwrap();
         let circle_speed = 8.0f32;
