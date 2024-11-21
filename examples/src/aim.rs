@@ -14,23 +14,19 @@ async fn main() -> anyhow::Result<()> {
     let mut app = GearsApp::default();
 
     // * REGION setup
-    // Add FPS camera
-    new_entity!(
-        app,
-        components::Name("FPS Camera"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
-        components::Camera::Dynamic {
-            look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
-            speed: 10.0,
-            sensitivity: 0.5,
-            keycodes: components::MovementKeycodes::default(),
-        }
-    );
+    // // Add FPS camera
+    // new_entity!(
+    //     app,
+    //     components::misc::Name("FPS Camera"),
+    //     components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+    //     components::controllers::ViewController::default()
+    // );
 
     // Add ambient light
     new_entity!(
         app,
-        components::Name("Ambient Light"),
+        components::misc::LightMarker,
+        components::misc::Name("Ambient Light"),
         components::lights::Light::Ambient { intensity: 0.05 },
         components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0))
     );
@@ -38,7 +34,8 @@ async fn main() -> anyhow::Result<()> {
     // Add directional light
     new_entity!(
         app,
-        components::Name("Directional Light"),
+        components::misc::LightMarker,
+        components::misc::Name("Directional Light"),
         components::lights::Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.4,
@@ -49,8 +46,8 @@ async fn main() -> anyhow::Result<()> {
     // Plane
     new_entity!(
         app,
-        components::Name("Plane"),
-        components::Marker::RigidBody,
+        components::misc::RigidBodyMarker,
+        components::misc::Name("Plane"),
         components::physics::RigidBody::new_static(components::physics::CollisionBox {
             min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
             max: cgmath::Vector3::new(50.0, 0.1, 50.0),
@@ -61,9 +58,23 @@ async fn main() -> anyhow::Result<()> {
     // * ENDREGION
 
     // * Player
-    let player_prefab = components::prefabs::Player::default();
-    let player_components = player_prefab.unpack_prefab();
-    let player = new_entity!(app, player_components);
+    let mut player_prefab = components::prefabs::Player::default();
+    app.new_entity();
+    /*
+       pub pos3: Option<Pos3>,
+       pub model_source: Option<ModelSource>,
+       pub movement_controller: Option<MovementController>,
+       pub view_controller: Option<ViewController>,
+       pub rigidbody: Option<RigidBody>,
+    */
+    app.add_component(components::misc::PlayerMarker);
+    app.add_component(player_prefab.pos3.take().unwrap());
+    app.add_component(player_prefab.model_source.take().unwrap());
+    app.add_component(player_prefab.movement_controller.take().unwrap());
+    app.add_component(player_prefab.view_controller.take().unwrap());
+    app.add_component(player_prefab.rigidbody.take().unwrap());
+
+    app.build();
 
     // Run the application
     app.run().await

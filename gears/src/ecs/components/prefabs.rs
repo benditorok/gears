@@ -27,14 +27,14 @@ impl Default for Player {
     }
 }
 
-impl Prefab for Player {
-    fn unpack_prefab(&mut self) -> Vec<Box<dyn crate::prelude::Component>> {
-        vec![
-            Box::new(PlayerMarker),
-            Box::new(self.pos3.take().unwrap()),
-            Box::new(self.model_source.take().unwrap()),
-            Box::new(self.movement_controller.take().unwrap()),
-            Box::new(self.view_controller.take().unwrap()),
-        ]
-    }
-}
+// impl Prefab for Player {
+//     fn unpack_prefab(&mut self) -> Vec<Box<impl crate::prelude::Component>> {
+//         vec![
+//             Box::new(PlayerMarker),
+//             Box::new(self.pos3.take().unwrap()),
+//             Box::new(self.model_source.take().unwrap()),
+//             Box::new(self.movement_controller.take().unwrap()),
+//             Box::new(self.view_controller.take().unwrap()),
+//         ]
+//     }
+// }

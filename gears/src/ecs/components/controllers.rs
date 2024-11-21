@@ -123,9 +123,9 @@ impl ViewController {
         }
     }
 
-    pub fn process_mouse(&mut self, dx: f32, dy: f32) {
-        self.rotate_horizontal += dx * self.sensitivity;
-        self.rotate_vertical += dy * self.sensitivity;
+    pub fn process_mouse(&mut self, dx: f64, dy: f64) {
+        self.rotate_horizontal += (dx as f32) * self.sensitivity;
+        self.rotate_vertical += (dy as f32) * self.sensitivity;
     }
 
     pub fn update_rot(&mut self, pos3: &mut Pos3, dt: f32) {

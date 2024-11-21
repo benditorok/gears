@@ -212,7 +212,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(pos) = ecs.get_component_from_entity::<components::transforms::Pos3>(red_light) {
+        if let Some(pos) = ecs.get_component_from_entity::<components::transforms::Pos3>(red_light)
+        {
             let mut pos3 = pos.write().unwrap();
 
             pos3.pos = cgmath::Quaternion::from_axis_angle(

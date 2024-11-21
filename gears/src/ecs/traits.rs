@@ -3,7 +3,7 @@ use std::time;
 use super::Entity;
 
 /// A component marker that can be attached to an entity.
-pub trait Component: 'static + Send + Sync {}
+pub trait Component: Sized + 'static + Send + Sync {}
 
 pub trait EntityBuilder {
     fn new_entity(&mut self) -> &mut Self;
@@ -25,7 +25,7 @@ pub trait Tick {
 }
 
 pub trait Prefab {
-    fn unpack_prefab(&mut self) -> Vec<Box<dyn Component>>;
+    fn unpack_prefab(&mut self) -> Vec<Box<impl Component>>;
 }
 
 pub trait Marker {
