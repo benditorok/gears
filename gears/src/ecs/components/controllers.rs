@@ -12,6 +12,7 @@ use super::transforms::Pos3;
 pub struct MovementController {
     pub(crate) speed: f32,
     pub(crate) keycodes: MovementKeycodes,
+    // TODO flight enabled -> jump,...
     amount_left: f32,
     amount_right: f32,
     amount_forward: f32,
