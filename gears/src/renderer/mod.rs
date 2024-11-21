@@ -1065,7 +1065,11 @@ impl<'a> State<'a> {
 
             if let Some(movement_controller) = &self.movement_controller {
                 let rlock_movement_controller = movement_controller.read().unwrap();
-                rlock_movement_controller.update_pos(&mut wlock_pos3, dt.as_secs_f32());
+                rlock_movement_controller.update_pos(
+                    &wlock_view_controller,
+                    &mut wlock_pos3,
+                    dt.as_secs_f32(),
+                );
             }
         }
 

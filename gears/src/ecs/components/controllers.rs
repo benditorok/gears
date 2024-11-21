@@ -1,7 +1,7 @@
 use std::time;
 
 use crate::{ecs::traits::Tick, prelude::Component, SAFE_FRAC_PI_2};
-use cgmath::{InnerSpace, Point3, Rotation3};
+use cgmath::{InnerSpace, Point3, Rotation3, Vector3};
 use gears_macro::Component;
 use log::info;
 use winit::{event::ElementState, keyboard::KeyCode};
@@ -80,7 +80,7 @@ impl MovementController {
         }
     }
 
-    pub fn update_pos(&self, pos3: &mut Pos3, dt: f32) {
+    pub fn update_pos(&self, view_controller: &ViewController, pos3: &mut Pos3, dt: f32) {
         info!(
             "Updating position: left: {}, right: {}, up: {}, down: {}, forward: {}, backward: {}",
             self.amount_left,
@@ -90,9 +90,18 @@ impl MovementController {
             self.amount_forward,
             self.amount_backward
         );
-        pos3.pos.x += (self.amount_right - self.amount_left) * self.speed * dt;
-        pos3.pos.y += (self.amount_up - self.amount_down) * self.speed * dt;
-        pos3.pos.z += (self.amount_forward - self.amount_backward) * self.speed * dt;
+
+        // Calculate forward and right vectors from yaw
+        let (sin_yaw, cos_yaw) = view_controller.yaw.0.sin_cos();
+        let forward = Vector3::new(cos_yaw, 0.0, sin_yaw);
+        let right = Vector3::new(-sin_yaw, 0.0, cos_yaw);
+        let up = Vector3::new(0.0, 1.0, 0.0);
+
+        let movement = forward * (self.amount_forward - self.amount_backward) * self.speed * dt
+            + right * (self.amount_right - self.amount_left) * self.speed * dt
+            + up * (self.amount_up - self.amount_down) * self.speed * dt;
+
+        pos3.pos += movement;
     }
 }
 
