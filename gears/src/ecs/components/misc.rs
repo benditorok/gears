@@ -46,6 +46,15 @@ impl Marker for LightMarker {
     }
 }
 
+#[derive(Component, Debug, Clone, Copy)]
+pub struct StaticModelMarker;
+
+impl Marker for StaticModelMarker {
+    fn describe() -> &'static str {
+        "Required components: Name, Pos3, ModelSource"
+    }
+}
+
 /// A component that stores the name of an object.ű
 #[derive(Component, Debug, Clone)]
 pub struct Name(pub &'static str);

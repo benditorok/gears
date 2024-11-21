@@ -722,18 +722,18 @@ impl<'a> State<'a> {
     async fn init_models(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
         let model_entities =
-            ecs_lock.get_entites_with_component::<components::models::StaticModel>();
+            ecs_lock.get_entites_with_component::<components::misc::StaticModelMarker>();
 
         for entity in model_entities.iter() {
             let name = ecs_lock
                 .get_component_from_entity::<components::misc::Name>(*entity)
-                .expect("No name provided for the Model!");
-            let static_model = ecs_lock
-                .get_component_from_entity::<components::models::StaticModel>(*entity)
-                .unwrap();
+                .expect(components::misc::StaticModelMarker::describe());
+            let pos3 = ecs_lock
+                .get_component_from_entity::<components::transforms::Pos3>(*entity)
+                .expect(components::misc::StaticModelMarker::describe());
             let model_source = ecs_lock
                 .get_component_from_entity::<components::models::ModelSource>(*entity)
-                .expect("No source provided for the Model!");
+                .expect(components::misc::StaticModelMarker::describe());
 
             let flip = ecs_lock.get_component_from_entity::<components::transforms::Flip>(*entity);
 
@@ -766,10 +766,10 @@ impl<'a> State<'a> {
 
             // TODO rename instance to model::ModelUniform
             let mut instance = {
-                let rlock_static_model = static_model.read().unwrap();
+                let rlock_pos3 = pos3.read().unwrap();
                 instance::Instance {
-                    position: rlock_static_model.position,
-                    rotation: rlock_static_model.rotation,
+                    position: rlock_pos3.pos,
+                    rotation: rlock_pos3.rot,
                 }
             };
 
@@ -1155,13 +1155,13 @@ impl<'a> State<'a> {
 
                 let name = ecs_lock
                     .get_component_from_entity::<components::misc::Name>(*entity)
-                    .unwrap();
-                let static_model = ecs_lock
-                    .get_component_from_entity::<components::models::StaticModel>(*entity)
-                    .unwrap();
+                    .expect(components::misc::StaticModelMarker::describe());
+                let pos3 = ecs_lock
+                    .get_component_from_entity::<components::transforms::Pos3>(*entity)
+                    .expect(components::misc::StaticModelMarker::describe());
                 let instance = ecs_lock
                     .get_component_from_entity::<instance::Instance>(*entity)
-                    .unwrap();
+                    .expect(components::misc::StaticModelMarker::describe());
                 let buffer = ecs_lock
                     .get_component_from_entity::<wgpu::Buffer>(*entity)
                     .unwrap();
@@ -1264,10 +1264,10 @@ impl<'a> State<'a> {
                         // ! Do not remove, causes deadlock if the lock is held for more
                         {
                             let mut wlock_instance = instance.write().unwrap();
-                            let rlock_static_model = static_model.read().unwrap();
+                            let rlock_pos3 = pos3.read().unwrap();
 
-                            wlock_instance.position = rlock_static_model.position;
-                            wlock_instance.rotation = rlock_static_model.rotation;
+                            wlock_instance.position = rlock_pos3.pos;
+                            wlock_instance.rotation = rlock_pos3.rot;
                         }
                     }
                 } else {
@@ -1275,10 +1275,10 @@ impl<'a> State<'a> {
                     // ! Do not remove, causes deadlock if the lock is held for more
                     {
                         let mut wlock_instance = instance.write().unwrap();
-                        let rlock_static_model = static_model.read().unwrap();
+                        let rlock_pos3 = pos3.read().unwrap();
 
-                        wlock_instance.position = rlock_static_model.position;
-                        wlock_instance.rotation = rlock_static_model.rotation;
+                        wlock_instance.position = rlock_pos3.pos;
+                        wlock_instance.rotation = rlock_pos3.rot;
                     }
                 }
 
