@@ -1,5 +1,3 @@
-use crate::ecs::{components::misc::PlayerMarker, traits::Prefab};
-
 use super::{
     controllers::{MovementController, ViewController},
     models::ModelSource,
@@ -17,12 +15,23 @@ pub struct Player {
 
 impl Default for Player {
     fn default() -> Self {
+        let rigid_body = RigidBody {
+            mass: 80.0, // Average human mass in kg
+            velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            collision_box: super::physics::CollisionBox {
+                min: cgmath::Vector3::new(-0.3, -0.9, -0.3), // Roughly human proportions
+                max: cgmath::Vector3::new(0.3, 0.9, 0.3),    // ~1.8m tall, 0.6m wide
+            },
+            is_static: false,
+        };
+
         Self {
             pos3: Some(Pos3::default()),
             model_source: Some(ModelSource::Obj("res/models/sphere/sphere.obj")),
             movement_controller: Some(MovementController::default()),
             view_controller: Some(ViewController::default()),
-            rigidbody: Some(RigidBody::default()),
+            rigidbody: Some(rigid_body),
         }
     }
 }
