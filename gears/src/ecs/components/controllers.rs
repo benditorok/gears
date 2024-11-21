@@ -3,6 +3,7 @@ use std::time;
 use crate::{ecs::traits::Tick, prelude::Component, SAFE_FRAC_PI_2};
 use cgmath::{InnerSpace, Point3, Rotation3};
 use gears_macro::Component;
+use log::info;
 use winit::{event::ElementState, keyboard::KeyCode};
 
 use super::transforms::Pos3;
@@ -49,6 +50,7 @@ impl MovementController {
     }
 
     pub fn process_keyboard(&mut self, key: KeyCode, state: ElementState) -> bool {
+        info!("Processing keyboard input: {:?}, {:?}", key, state);
         let amount = if state == ElementState::Pressed {
             1.0
         } else {
@@ -79,6 +81,15 @@ impl MovementController {
     }
 
     pub fn update_pos(&self, pos3: &mut Pos3, dt: f32) {
+        info!(
+            "Updating position: left: {}, right: {}, up: {}, down: {}, forward: {}, backward: {}",
+            self.amount_left,
+            self.amount_right,
+            self.amount_up,
+            self.amount_down,
+            self.amount_forward,
+            self.amount_backward
+        );
         pos3.pos.x += (self.amount_right - self.amount_left) * self.speed * dt;
         pos3.pos.y += (self.amount_up - self.amount_down) * self.speed * dt;
         pos3.pos.z += (self.amount_forward - self.amount_backward) * self.speed * dt;
@@ -124,11 +135,16 @@ impl ViewController {
     }
 
     pub fn process_mouse(&mut self, dx: f64, dy: f64) {
+        info!("Processing mouse motion: ({}, {})", dx, dy);
         self.rotate_horizontal += (dx as f32) * self.sensitivity;
         self.rotate_vertical += (dy as f32) * self.sensitivity;
     }
 
     pub fn update_rot(&mut self, pos3: &mut Pos3, dt: f32) {
+        info!(
+            "Updating rotation: yaw: {}, pitch: {}",
+            self.yaw.0, self.pitch.0
+        );
         // Rotate
         self.yaw += cgmath::Rad(self.rotate_horizontal) * self.sensitivity * dt;
         self.pitch += cgmath::Rad(-self.rotate_vertical) * self.sensitivity * dt;

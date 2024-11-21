@@ -14,7 +14,7 @@ use crate::ecs::{self, components};
 use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
-use log::warn;
+use log::{info, warn};
 use model::{DrawModel, DrawWireframeMesh, Vertex};
 use std::f32::consts::FRAC_PI_2;
 use std::iter;
@@ -1049,7 +1049,13 @@ impl<'a> State<'a> {
             let pos3 = ecs_lock.get_component_from_entity(camera_entity).unwrap();
             let mut wlock_pos3 = pos3.write().unwrap();
             let mut wlock_view_controller = view_controller.write().unwrap();
-            wlock_view_controller.update_rot(&mut *wlock_pos3, dt.as_secs_f32());
+            wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
+
+            self.camera_uniform.update_view_proj(
+                &wlock_pos3,
+                &wlock_view_controller,
+                &self.camera_projection,
+            );
 
             self.queue.write_buffer(
                 &self.camera_buffer,
@@ -1059,7 +1065,7 @@ impl<'a> State<'a> {
 
             if let Some(movement_controller) = &self.movement_controller {
                 let rlock_movement_controller = movement_controller.read().unwrap();
-                rlock_movement_controller.update_pos(&mut *wlock_pos3, dt.as_secs_f32());
+                rlock_movement_controller.update_pos(&mut wlock_pos3, dt.as_secs_f32());
             }
         }
 
