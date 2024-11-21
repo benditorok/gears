@@ -20,17 +20,19 @@ impl Default for Player {
             velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
             acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
             collision_box: super::physics::CollisionBox {
-                min: cgmath::Vector3::new(-0.3, -0.9, -0.3), // Roughly human proportions
-                max: cgmath::Vector3::new(0.3, 0.9, 0.3),    // ~1.8m tall, 0.6m wide
+                min: cgmath::Vector3::new(-0.5, -2.0, -0.5),
+                max: cgmath::Vector3::new(0.5, 2.0, 0.5),
             },
             is_static: false,
         };
+
+        let view_controller = ViewController::new(0.8, 1.8);
 
         Self {
             pos3: Some(Pos3::default()),
             model_source: Some(ModelSource::Obj("res/models/sphere/sphere.obj")),
             movement_controller: Some(MovementController::default()),
-            view_controller: Some(ViewController::default()),
+            view_controller: Some(view_controller),
             rigidbody: Some(rigid_body),
         }
     }
