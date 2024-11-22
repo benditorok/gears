@@ -1068,11 +1068,25 @@ impl<'a> State<'a> {
 
             if let Some(movement_controller) = &self.movement_controller {
                 let rlock_movement_controller = movement_controller.read().unwrap();
-                rlock_movement_controller.update_pos(
-                    &wlock_view_controller,
-                    &mut wlock_pos3,
-                    dt.as_secs_f32(),
-                );
+                if let Some(rigid_body) = ecs_lock
+                    .get_component_from_entity::<components::physics::RigidBody>(camera_entity)
+                {
+                    let mut wlock_rigid_body = rigid_body.write().unwrap();
+
+                    rlock_movement_controller.update_pos(
+                        &wlock_view_controller,
+                        &mut wlock_pos3,
+                        dt.as_secs_f32(),
+                        Some(&mut wlock_rigid_body),
+                    );
+                } else {
+                    rlock_movement_controller.update_pos(
+                        &wlock_view_controller,
+                        &mut wlock_pos3,
+                        dt.as_secs_f32(),
+                        None,
+                    );
+                }
             }
         }
 

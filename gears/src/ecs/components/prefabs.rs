@@ -18,7 +18,7 @@ impl Default for Player {
         let rigid_body = RigidBody {
             mass: 80.0, // Average human mass in kg
             velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
-            acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            acceleration: cgmath::Vector3::new(0.0, -10.0, 0.0),
             collision_box: super::physics::CollisionBox {
                 min: cgmath::Vector3::new(-0.5, -2.0, -0.5),
                 max: cgmath::Vector3::new(0.5, 2.0, 0.5),

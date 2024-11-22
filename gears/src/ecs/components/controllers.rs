@@ -6,13 +6,17 @@ use gears_macro::Component;
 use log::info;
 use winit::{event::ElementState, keyboard::KeyCode};
 
-use super::transforms::Pos3;
+use super::{physics::RigidBody, transforms::Pos3};
+
+const MOVE_ACCELERATION: f32 = 15.0; // Reduced from 50.0
+const JUMP_FORCE: f32 = 5.0; // Reduced from 10.0
+const GROUND_CHECK_DISTANCE: f32 = 0.1;
+const AIR_CONTROL_FACTOR: f32 = 0.2; // Reduced from 0.3
 
 #[derive(Component, Debug, Clone)]
 pub struct MovementController {
     pub(crate) speed: f32,
     pub(crate) keycodes: MovementKeycodes,
-    // TODO flight enabled -> jump,...
     amount_left: f32,
     amount_right: f32,
     amount_forward: f32,
@@ -81,7 +85,13 @@ impl MovementController {
         }
     }
 
-    pub fn update_pos(&self, view_controller: &ViewController, pos3: &mut Pos3, dt: f32) {
+    pub fn update_pos(
+        &self,
+        view_controller: &ViewController,
+        pos3: &mut Pos3,
+        dt: f32,
+        rigid_body: Option<&mut RigidBody>,
+    ) {
         info!(
             "Updating position: left: {}, right: {}, up: {}, down: {}, forward: {}, backward: {}",
             self.amount_left,
@@ -98,11 +108,37 @@ impl MovementController {
         let right = Vector3::new(-sin_yaw, 0.0, cos_yaw);
         let up = Vector3::new(0.0, 1.0, 0.0);
 
-        let movement = forward * (self.amount_forward - self.amount_backward) * self.speed * dt
-            + right * (self.amount_right - self.amount_left) * self.speed * dt
-            + up * (self.amount_up - self.amount_down) * self.speed * dt;
+        if let Some(rb) = rigid_body {
+            // Physics-based movement
+            let mut movement = forward * (self.amount_forward - self.amount_backward)
+                + right * (self.amount_right - self.amount_left);
 
-        pos3.pos += movement;
+            if movement.magnitude() > 0.0 {
+                movement = movement.normalize();
+            }
+
+            // Check if on ground (simple ray cast down)
+            let is_grounded = rb.velocity.y.abs() < 0.1 && rb.velocity.y <= 0.0;
+
+            // Apply movement force
+            let movement_factor = if is_grounded { 1.0 } else { AIR_CONTROL_FACTOR };
+            rb.acceleration += movement * MOVE_ACCELERATION * movement_factor;
+
+            // Handle jumping
+            if is_grounded && self.amount_up > 0.0 {
+                rb.velocity.y = JUMP_FORCE;
+            }
+
+            // Cap velocity after applying forces
+            rb.cap_velocity();
+        } else {
+            // Flying movement (original behavior)
+            let movement = forward * (self.amount_forward - self.amount_backward) * self.speed * dt
+                + right * (self.amount_right - self.amount_left) * self.speed * dt
+                + up * (self.amount_up - self.amount_down) * self.speed * dt;
+
+            pos3.pos += movement;
+        }
     }
 }
 

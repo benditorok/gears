@@ -1,8 +1,10 @@
+use super::transforms::Pos3;
 use crate::ecs::traits::Component;
 use cgmath::{InnerSpace, Rotation3};
 use gears_macro::Component;
 
-use super::transforms::Pos3;
+const MAX_HORIZONTAL_VELOCITY: f32 = 10.0;
+const MAX_VERTICAL_VELOCITY: f32 = 15.0;
 
 #[derive(Component, Debug, Clone)]
 pub struct CollisionBox {
@@ -172,5 +174,21 @@ impl RigidBody {
                 }
             }
         }
+    }
+
+    pub fn cap_velocity(&mut self) {
+        // Cap horizontal velocity (x and z)
+        let horizontal_velocity = cgmath::Vector3::new(self.velocity.x, 0.0, self.velocity.z);
+        if horizontal_velocity.magnitude() > MAX_HORIZONTAL_VELOCITY {
+            let normalized = horizontal_velocity.normalize();
+            self.velocity.x = normalized.x * MAX_HORIZONTAL_VELOCITY;
+            self.velocity.z = normalized.z * MAX_HORIZONTAL_VELOCITY;
+        }
+
+        // Cap vertical velocity (y)
+        self.velocity.y = self
+            .velocity
+            .y
+            .clamp(-MAX_VERTICAL_VELOCITY, MAX_VERTICAL_VELOCITY);
     }
 }

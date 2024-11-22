@@ -8,6 +8,15 @@ use std::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    std::panic::set_hook(Box::new(|info| {
+        eprintln!("{}", info);
+        println!("Press Enter to close...");
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+    }));
+
+    // TODO Model locations should be relative to the exe in a released build
+
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);
