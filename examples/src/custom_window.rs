@@ -19,22 +19,28 @@ async fn main() -> anyhow::Result<()> {
     // Add fixed camera
     new_entity!(
         app,
-        components::Name("Fixed Camera"),
+        components::misc::StaticCameraMarker,
+        components::misc::Name("Fixed Camera"),
         components::transforms::Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
-        components::Camera::Fixed {
-            look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
-        }
+        components::controllers::ViewController::new_look_at(
+            cgmath::Point3::new(3.0, 2.0, 3.0),
+            cgmath::Point3::new(0.0, 0.0, 0.0),
+            0.0,
+            0.0
+        )
     );
 
     // Use the entity builder
     app.new_entity() // Add ambient light
-        .add_component(components::Name("Ambient Light"))
+        .add_component(components::misc::LightMarker)
+        .add_component(components::misc::Name("Ambient Light"))
         .add_component(components::lights::Light::Ambient { intensity: 0.05 })
         .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
             0.0, 50.0, 0.0,
         )))
         .new_entity() // Add directional light
-        .add_component(components::Name("Directional Light"))
+        .add_component(components::misc::LightMarker)
+        .add_component(components::misc::Name("Directional Light"))
         .add_component(components::lights::Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.3,
@@ -43,7 +49,8 @@ async fn main() -> anyhow::Result<()> {
             30.0, 30.0, 30.0,
         )))
         .new_entity() // Add a green light
-        .add_component(components::Name("Green Light"))
+        .add_component(components::misc::LightMarker)
+        .add_component(components::misc::Name("Green Light"))
         .add_component(components::lights::Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.8, 0.0],
@@ -57,12 +64,10 @@ async fn main() -> anyhow::Result<()> {
     // Add a sphere and get the Entity for reference
     let sphere_entity = new_entity!(
         app,
-        components::Name("Sphere1"),
+        components::misc::StaticModelMarker,
+        components::misc::Name("Sphere1"),
         components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
-        components::models::StaticModel {
-            position: cgmath::Vector3::new(0.0, 0.0, 0.0),
-            rotation: Quaternion::one(),
-        },
+        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
     );
 
     // ! Custom windows
@@ -99,24 +104,15 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(sphere) = cw_ecs
                     .lock()
                     .unwrap()
-                    .get_component_from_entity::<components::models::StaticModel>(sphere_entity)
+                    .get_component_from_entity::<components::transforms::Pos3>(sphere_entity)
                 {
                     let mut wlock_sphere = sphere.write().unwrap();
                     ui.label("Position");
-                    ui.add(egui::Slider::new(
-                        &mut wlock_sphere.position.x,
-                        -10.0..=10.0,
-                    ));
-                    ui.add(egui::Slider::new(
-                        &mut wlock_sphere.position.y,
-                        -10.0..=10.0,
-                    ));
-                    ui.add(egui::Slider::new(
-                        &mut wlock_sphere.position.z,
-                        -10.0..=10.0,
-                    ));
+                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.x, -10.0..=10.0));
+                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.y, -10.0..=10.0));
+                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.z, -10.0..=10.0));
                     ui.label("Rotation");
-                    let euler = Euler::from(wlock_sphere.rotation);
+                    let euler = Euler::from(wlock_sphere.rot);
                     let mut pitch = euler.x.0;
                     let mut yaw = euler.y.0;
                     let mut roll = euler.z.0;
@@ -134,7 +130,7 @@ async fn main() -> anyhow::Result<()> {
                             .text("Roll"),
                     );
 
-                    wlock_sphere.rotation = Quaternion::from(Euler {
+                    wlock_sphere.rot = Quaternion::from(Euler {
                         x: Rad(pitch),
                         y: Rad(yaw),
                         z: Rad(roll),
@@ -153,12 +149,12 @@ async fn main() -> anyhow::Result<()> {
         let spin_speed = 0.5f32;
 
         if let Some(static_model) =
-            ecs.get_component_from_entity::<components::models::StaticModel>(sphere_entity)
+            ecs.get_component_from_entity::<components::transforms::Pos3>(sphere_entity)
         {
             let mut wlock_static_model = static_model.write().unwrap();
 
-            let rotation = wlock_static_model.rotation;
-            wlock_static_model.rotation =
+            let rotation = wlock_static_model.rot;
+            wlock_static_model.rot =
                 Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
         }
     })

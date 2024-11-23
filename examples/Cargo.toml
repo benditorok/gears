@@ -36,9 +36,9 @@ debug = true
 # name = "sandbox"
 # path = "src/sandbox.rs"
 
-# [[bin]]
-# name = "custom_window"
-# path = "src/custom_window.rs"
+[[bin]]
+name = "custom_window"
+path = "src/custom_window.rs"
 
 # [[bin]]
 # name = "physics"
