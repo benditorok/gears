@@ -28,8 +28,10 @@ impl Default for Player {
 
         let view_controller = ViewController::new(0.2, 1.8);
 
+        let pos3 = Pos3::new(cgmath::Vector3::new(0.0, 1.0, 0.0));
+
         Self {
-            pos3: Some(Pos3::default()),
+            pos3: Some(pos3),
             model_source: Some(ModelSource::Obj("res/models/sphere/sphere.obj")),
             movement_controller: Some(MovementController::default()),
             view_controller: Some(view_controller),
