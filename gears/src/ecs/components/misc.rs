@@ -56,22 +56,8 @@ impl Marker for StaticModelMarker {
 }
 
 /// A component that stores the name of an object.ű
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct Name(pub &'static str);
-
-/// A component that stores the camera type.
-#[derive(Component, Debug, Clone)]
-pub struct Camera {
-    pub look_at: cgmath::Point3<f32>,
-}
-
-impl Default for Camera {
-    fn default() -> Self {
-        Self {
-            look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
-        }
-    }
-}
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct AnimationQueue {
