@@ -205,7 +205,7 @@ impl<'a> State<'a> {
         // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
+            backends: wgpu::Backends::VULKAN,
             ..Default::default()
         });
         let surface = instance.create_surface(window).unwrap();
@@ -1061,18 +1061,6 @@ impl<'a> State<'a> {
             let mut wlock_view_controller = view_controller.write().unwrap();
             wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
 
-            self.camera_uniform.update_view_proj(
-                &wlock_pos3,
-                &wlock_view_controller,
-                &self.camera_projection,
-            );
-
-            self.queue.write_buffer(
-                &self.camera_buffer,
-                0,
-                bytemuck::cast_slice(&[self.camera_uniform]),
-            );
-
             if let Some(movement_controller) = &self.movement_controller {
                 let rlock_movement_controller = movement_controller.read().unwrap();
                 if let Some(rigid_body) = ecs_lock
@@ -1095,6 +1083,18 @@ impl<'a> State<'a> {
                     );
                 }
             }
+
+            self.camera_uniform.update_view_proj(
+                &wlock_pos3,
+                &wlock_view_controller,
+                &self.camera_projection,
+            );
+
+            self.queue.write_buffer(
+                &self.camera_buffer,
+                0,
+                bytemuck::cast_slice(&[self.camera_uniform]),
+            );
         }
 
         self.update_physics_system(dt);
