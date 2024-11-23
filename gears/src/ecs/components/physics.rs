@@ -68,14 +68,41 @@ impl RigidBody {
 
     pub fn update_pos(&mut self, pos3: &mut Pos3, dt: f32) {
         if !self.is_static {
-            let damping_coefficient = 1.0;
+            let acceleration_threshold = 0.01;
+            let is_accelerating = self.acceleration.magnitude() > acceleration_threshold;
+
+            // Use different damping coefficients based on acceleration state
+            let damping_coefficient = if is_accelerating {
+                2.0 // Normal damping when accelerating
+            } else {
+                6.0 // Strong damping when no acceleration
+            };
+
             let damping_factor = (-damping_coefficient * dt).exp();
+            let min_velocity = 0.01;
 
             // Update velocity based on acceleration
             self.velocity += self.acceleration * dt;
 
             // Apply damping to velocity
             self.velocity *= damping_factor;
+
+            // Set velocity to zero if it's below the minimum threshold
+            if self.velocity.magnitude() < min_velocity {
+                self.velocity = cgmath::Vector3::new(0.0, 0.0, 0.0);
+            }
+
+            // Print debug information
+            println!(
+                "Velocity: ({:.2}, {:.2}, {:.2}), Acceleration: ({:.2}, {:.2}, {:.2}), Is Accelerating: {}",
+                self.velocity.x,
+                self.velocity.y,
+                self.velocity.z,
+                self.acceleration.x,
+                self.acceleration.y,
+                self.acceleration.z,
+                is_accelerating
+            );
 
             // Update position based on velocity
             pos3.pos += self.velocity * dt;

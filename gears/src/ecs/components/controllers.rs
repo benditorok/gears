@@ -119,16 +119,20 @@ impl MovementController {
             // Check if on ground (simple ray cast down)
             let is_grounded = rb.velocity.y.abs() < GROUND_CHECK_DISTANCE && rb.velocity.y <= 0.0;
 
-            // Apply movement force
+            // Apply movement directly to velocity instead of acceleration
             let movement_factor = if is_grounded { 1.0 } else { AIR_CONTROL_FACTOR };
-            rb.acceleration += movement * MOVE_ACCELERATION * movement_factor;
+            let target_velocity = movement * MOVE_ACCELERATION;
+
+            // Only modify horizontal velocity (x and z components)
+            rb.velocity.x = target_velocity.x * movement_factor;
+            rb.velocity.z = target_velocity.z * movement_factor;
 
             // Handle jumping
             if is_grounded && self.amount_up > 0.0 {
                 rb.velocity.y = JUMP_FORCE;
             }
 
-            // Cap velocity after applying forces
+            // Cap velocity after applying changes
             rb.cap_velocity();
         } else {
             // Flying movement (original behavior)

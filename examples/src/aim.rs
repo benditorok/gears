@@ -139,6 +139,54 @@ async fn main() -> anyhow::Result<()> {
         *sphere = sphere_entity;
     }
 
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Static cube"),
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 20.0)),
+        RigidBody::new_static(CollisionBox {
+            min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+            max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+        },),
+        ModelSource::Obj("res/models/cube/cube.obj"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Static cube"),
+        Pos3::new(cgmath::Vector3::new(20.0, 0.0, 20.0)),
+        RigidBody::new_static(CollisionBox {
+            min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+            max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+        },),
+        ModelSource::Obj("res/models/cube/cube.obj"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Static cube"),
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, -20.0)),
+        RigidBody::new_static(CollisionBox {
+            min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+            max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+        },),
+        ModelSource::Obj("res/models/cube/cube.obj"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Static cube"),
+        Pos3::new(cgmath::Vector3::new(-20.0, 0.0, -20.0)),
+        RigidBody::new_static(CollisionBox {
+            min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+            max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+        },),
+        ModelSource::Obj("res/models/cube/cube.obj"),
+    );
+
     // Update loop
     app.update_loop(move |ecs, dt| {
         // Send the frame time to the custom window
