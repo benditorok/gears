@@ -1,9 +1,8 @@
-use std::sync::mpsc;
-
 use cgmath::{Euler, One, Quaternion, Rad, Rotation3};
 use egui::Align2;
 use gears::prelude::*;
 use log::LevelFilter;
+use std::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -19,10 +18,10 @@ async fn main() -> anyhow::Result<()> {
     // Add fixed camera
     new_entity!(
         app,
-        components::misc::StaticCameraMarker,
-        components::misc::Name("Fixed Camera"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
-        components::controllers::ViewController::new_look_at(
+        StaticCameraMarker,
+        Name("Fixed Camera"),
+        Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
+        ViewController::new_look_at(
             cgmath::Point3::new(3.0, 2.0, 3.0),
             cgmath::Point3::new(0.0, 0.0, 0.0),
             0.0,
@@ -32,42 +31,36 @@ async fn main() -> anyhow::Result<()> {
 
     // Use the entity builder
     app.new_entity() // Add ambient light
-        .add_component(components::misc::LightMarker)
-        .add_component(components::misc::Name("Ambient Light"))
-        .add_component(components::lights::Light::Ambient { intensity: 0.05 })
-        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
-            0.0, 50.0, 0.0,
-        )))
+        .add_component(LightMarker)
+        .add_component(Name("Ambient Light"))
+        .add_component(Light::Ambient { intensity: 0.05 })
+        .add_component(Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
         .new_entity() // Add directional light
-        .add_component(components::misc::LightMarker)
-        .add_component(components::misc::Name("Directional Light"))
-        .add_component(components::lights::Light::Directional {
+        .add_component(LightMarker)
+        .add_component(Name("Directional Light"))
+        .add_component(Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.3,
         })
-        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
-            30.0, 30.0, 30.0,
-        )))
+        .add_component(Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0)))
         .new_entity() // Add a green light
-        .add_component(components::misc::LightMarker)
-        .add_component(components::misc::Name("Green Light"))
-        .add_component(components::lights::Light::PointColoured {
+        .add_component(LightMarker)
+        .add_component(Name("Green Light"))
+        .add_component(Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.8, 0.0],
             intensity: 0.6,
         })
-        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
-            -4.0, 4.0, 4.0,
-        )))
+        .add_component(Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
         .build();
 
     // Add a sphere and get the Entity for reference
     let sphere_entity = new_entity!(
         app,
-        components::misc::StaticModelMarker,
-        components::misc::Name("Sphere1"),
-        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        StaticModelMarker,
+        Name("Sphere1"),
+        ModelSource::Obj("res/models/sphere/sphere.obj"),
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
     );
 
     // ! Custom windows
@@ -148,9 +141,7 @@ async fn main() -> anyhow::Result<()> {
         let ecs = ecs.lock().unwrap();
         let spin_speed = 0.5f32;
 
-        if let Some(static_model) =
-            ecs.get_component_from_entity::<components::transforms::Pos3>(sphere_entity)
-        {
+        if let Some(static_model) = ecs.get_component_from_entity::<Pos3>(sphere_entity) {
             let mut wlock_static_model = static_model.write().unwrap();
 
             let rotation = wlock_static_model.rot;

@@ -48,68 +48,68 @@ async fn main() -> anyhow::Result<()> {
     // Add ambient light
     new_entity!(
         app,
-        components::misc::LightMarker,
-        components::misc::Name("Ambient Light"),
-        components::lights::Light::Ambient { intensity: 0.05 },
-        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0))
+        LightMarker,
+        Name("Ambient Light"),
+        Light::Ambient { intensity: 0.05 },
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0))
     );
 
     // Add directional light
     new_entity!(
         app,
-        components::misc::LightMarker,
-        components::misc::Name("Directional Light"),
-        components::lights::Light::Directional {
+        LightMarker,
+        Name("Directional Light"),
+        Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.4,
         },
-        components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
+        Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
     );
 
     // * Add moving red light
     let red_light = new_entity!(
         app,
-        components::misc::LightMarker,
-        components::misc::Name("Red Light"),
-        components::lights::Light::PointColoured {
+        LightMarker,
+        Name("Red Light"),
+        Light::PointColoured {
             radius: 10.0,
             color: [0.8, 0.0, 0.0],
             intensity: 1.0,
         },
-        components::transforms::Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0))
+        Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0))
     );
 
     // * Add moving blue light
     let blue_light = new_entity!(
         app,
-        components::misc::LightMarker,
-        components::misc::Name("Blue Light"),
-        components::lights::Light::PointColoured {
+        LightMarker,
+        Name("Blue Light"),
+        Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.0, 0.8],
             intensity: 1.0,
         },
-        components::transforms::Pos3::new(cgmath::Vector3::new(-15.0, 5.0, 0.0))
+        Pos3::new(cgmath::Vector3::new(-15.0, 5.0, 0.0))
     );
 
     // Plane
     new_entity!(
         app,
-        components::misc::RigidBodyMarker,
-        components::misc::Name("Plane"),
-        components::physics::RigidBody::new_static(components::physics::CollisionBox {
+        RigidBodyMarker,
+        Name("Plane"),
+        RigidBody::new_static(CollisionBox {
             min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
             max: cgmath::Vector3::new(50.0, 0.1, 50.0),
         }),
-        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, -1.0, 0.0)),
-        components::models::ModelSource::Obj("res/models/plane/plane.obj"),
+        Pos3::new(cgmath::Vector3::new(0.0, -1.0, 0.0)),
+        ModelSource::Obj("res/models/plane/plane.obj"),
     );
     // * ENDREGION
 
     // * Player
-    let mut player_prefab = components::prefabs::Player::default();
+    let mut player_prefab = prefabs::Player::default();
     app.new_entity();
-    app.add_component(components::misc::PlayerMarker);
+    app.add_component(PlayerMarker);
     app.add_component(player_prefab.pos3.take().unwrap());
     app.add_component(player_prefab.model_source.take().unwrap());
     app.add_component(player_prefab.movement_controller.take().unwrap());
@@ -129,10 +129,10 @@ async fn main() -> anyhow::Result<()> {
 
         let sphere_entity = new_entity!(
             app,
-            components::misc::StaticModelMarker,
-            components::misc::Name(Box::leak(name.into_boxed_str())),
-            components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
-            components::transforms::Pos3::new(cgmath::Vector3::new(x, 1.0, z)),
+            StaticModelMarker,
+            Name(Box::leak(name.into_boxed_str())),
+            ModelSource::Obj("res/models/sphere/sphere.obj"),
+            Pos3::new(cgmath::Vector3::new(x, 1.0, z)),
         );
 
         *sphere = sphere_entity;
@@ -150,9 +150,7 @@ async fn main() -> anyhow::Result<()> {
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(pos3) =
-                ecs.get_component_from_entity::<components::transforms::Pos3>(*sphere)
-            {
+            if let Some(pos3) = ecs.get_component_from_entity::<Pos3>(*sphere) {
                 let mut wlock_pos3 = pos3.write().unwrap();
 
                 let position = wlock_pos3.pos;
@@ -164,8 +162,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(pos) = ecs.get_component_from_entity::<components::transforms::Pos3>(red_light)
-        {
+        if let Some(pos) = ecs.get_component_from_entity::<Pos3>(red_light) {
             let mut pos3 = pos.write().unwrap();
 
             pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -174,8 +171,7 @@ async fn main() -> anyhow::Result<()> {
             ) * pos3.pos;
         }
 
-        if let Some(pos) = ecs.get_component_from_entity::<components::transforms::Pos3>(blue_light)
-        {
+        if let Some(pos) = ecs.get_component_from_entity::<Pos3>(blue_light) {
             let mut pos3 = pos.write().unwrap();
 
             pos3.pos = cgmath::Quaternion::from_axis_angle(
