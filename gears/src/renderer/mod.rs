@@ -1052,6 +1052,7 @@ impl<'a> State<'a> {
     ///
     /// A future which can be awaited.
     async fn update(&mut self, dt: time::Duration) {
+        // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {
             let ecs_lock = self.ecs.lock().unwrap();
             let camera_entity = self.camera_owner_entity.unwrap();
@@ -1071,9 +1072,6 @@ impl<'a> State<'a> {
                 0,
                 bytemuck::cast_slice(&[self.camera_uniform]),
             );
-
-            // TODO ha van rigidbody akkor ez player -> Option<RB> movement ctrlbe,
-            // gravitacio, stb, stb,  ha Some(RB) akkor ne repuljon
 
             if let Some(movement_controller) = &self.movement_controller {
                 let rlock_movement_controller = movement_controller.read().unwrap();
@@ -1098,15 +1096,6 @@ impl<'a> State<'a> {
                 }
             }
         }
-
-        // if let Some(player) = self.player_entity {
-        //     let ecs_lock = self.ecs.lock().unwrap();
-        //     let player = ecs_lock
-        //         .get_component_from_entity::<components::prefabs::Player>(player)
-        //         .unwrap();
-        //     let mut wlock_player = player.write().unwrap();
-        //     wlock_player.on_tick(dt);
-        // }
 
         self.update_physics_system(dt);
         self.update_lights();
@@ -1373,24 +1362,12 @@ impl<'a> State<'a> {
             }
         }
 
-        let damping_coefficient = 1.0;
-        let damping_factor = (-damping_coefficient * dt).exp();
-
         // Update positions and velocities based on acceleration
         for (entity, physics_body, pos3) in &physics_bodies {
             let mut wlock_physics_body = physics_body.write().unwrap();
             let mut wlock_pos3 = pos3.write().unwrap();
 
-            // Update velocity based on acceleration
-            let acceleration = wlock_physics_body.acceleration;
-            wlock_physics_body.velocity += acceleration * dt;
-
-            // Apply damping to velocity
-            wlock_physics_body.velocity *= damping_factor;
-
-            // Update position based on velocity
-            let velocity = wlock_physics_body.velocity;
-            wlock_pos3.pos += velocity * dt;
+            wlock_physics_body.update_pos(&mut wlock_pos3, dt);
         }
 
         // Check for collisions and resolve them

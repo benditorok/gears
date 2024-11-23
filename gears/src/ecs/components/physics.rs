@@ -17,8 +17,8 @@ pub struct RigidBody {
     pub mass: f32,
     pub velocity: cgmath::Vector3<f32>,
     pub acceleration: cgmath::Vector3<f32>,
-    pub collision_box: CollisionBox,
-    pub is_static: bool,
+    pub(crate) collision_box: CollisionBox,
+    pub(crate) is_static: bool,
 }
 
 impl Default for RigidBody {
@@ -64,6 +64,22 @@ impl RigidBody {
 
     pub fn is_static(&self) -> bool {
         self.is_static
+    }
+
+    pub fn update_pos(&mut self, pos3: &mut Pos3, dt: f32) {
+        if !self.is_static {
+            let damping_coefficient = 1.0;
+            let damping_factor = (-damping_coefficient * dt).exp();
+
+            // Update velocity based on acceleration
+            self.velocity += self.acceleration * dt;
+
+            // Apply damping to velocity
+            self.velocity *= damping_factor;
+
+            // Update position based on velocity
+            pos3.pos += self.velocity * dt;
+        }
     }
 
     pub fn check_and_resolve_collision(
