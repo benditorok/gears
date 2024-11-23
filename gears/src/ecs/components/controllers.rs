@@ -1,9 +1,8 @@
-use std::time;
-
 use crate::{ecs::traits::Tick, prelude::Component, SAFE_FRAC_PI_2};
 use cgmath::{InnerSpace, Point3, Rotation3, Vector3};
 use gears_macro::Component;
 use log::info;
+use std::time;
 use winit::{event::ElementState, keyboard::KeyCode};
 
 use super::{physics::RigidBody, transforms::Pos3};
@@ -89,8 +88,8 @@ impl MovementController {
         &self,
         view_controller: &ViewController,
         pos3: &mut Pos3,
-        dt: f32,
         rigid_body: Option<&mut RigidBody>,
+        dt: f32,
     ) {
         info!(
             "Updating position: left: {}, right: {}, up: {}, down: {}, forward: {}, backward: {}",
@@ -118,7 +117,7 @@ impl MovementController {
             }
 
             // Check if on ground (simple ray cast down)
-            let is_grounded = rb.velocity.y.abs() < 0.1 && rb.velocity.y <= 0.0;
+            let is_grounded = rb.velocity.y.abs() < GROUND_CHECK_DISTANCE && rb.velocity.y <= 0.0;
 
             // Apply movement force
             let movement_factor = if is_grounded { 1.0 } else { AIR_CONTROL_FACTOR };
