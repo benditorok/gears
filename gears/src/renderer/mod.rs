@@ -110,6 +110,12 @@ pub async fn run(
                             let dt = now - last_render_time;
                             last_render_time = now;
 
+                            // If the state is paused, busy wait
+                            if state.is_state_paused.load(Ordering::Relaxed) {
+                                std::thread::sleep(std::time::Duration::from_millis(16)); // ~60 fps
+                                return;
+                            }
+
                             // * Log FPS
                             // info!(
                             //     "FPS: {:.0}, frame time: {} ms",
