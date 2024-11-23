@@ -27,7 +27,7 @@ pub struct MovementController {
 impl Default for MovementController {
     fn default() -> Self {
         Self {
-            speed: 10.0,
+            speed: 20.0,
             keycodes: MovementKeycodes::default(),
             amount_left: 0.0,
             amount_right: 0.0,

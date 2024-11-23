@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
     // Add FPS camera
     new_entity!(
         app,
-        DynamicCameraMarker,
+        CameraMarker,
         Name("FPS Camera"),
         Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
         ViewController::new_look_at(
@@ -24,6 +24,7 @@ async fn main() -> anyhow::Result<()> {
             0.8,
             0.0,
         ),
+        MovementController::default(),
     );
 
     // Add ambient light

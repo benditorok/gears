@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
     // Add fixed camera
     new_entity!(
         app,
-        StaticCameraMarker,
+        CameraMarker,
         Name("Fixed Camera"),
         Pos3::new(cgmath::Vector3::new(3.0, 2.0, 3.0)),
         ViewController::new_look_at(

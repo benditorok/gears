@@ -11,20 +11,11 @@ impl Marker for PlayerMarker {
 }
 
 #[derive(Component, Debug, Clone, Copy)]
-pub struct DynamicCameraMarker;
+pub struct CameraMarker;
 
-impl Marker for DynamicCameraMarker {
+impl Marker for CameraMarker {
     fn describe() -> &'static str {
-        "Required components: Camera, Pos3, MovementController, ViewController"
-    }
-}
-
-#[derive(Component, Debug, Clone, Copy)]
-pub struct StaticCameraMarker;
-
-impl Marker for StaticCameraMarker {
-    fn describe() -> &'static str {
-        "Required components: Camera, Pos3"
+        "Required components: Pos3, ViewController"
     }
 }
 

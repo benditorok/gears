@@ -592,36 +592,27 @@ impl<'a> State<'a> {
         let ecs_lock = self.ecs.lock().unwrap();
 
         let mut static_camera_entity =
-            ecs_lock.get_entites_with_component::<components::misc::StaticCameraMarker>();
+            ecs_lock.get_entites_with_component::<components::misc::CameraMarker>();
 
         if !static_camera_entity.is_empty() {
             let static_camera_entity = static_camera_entity.pop().unwrap();
             self.camera_owner_entity = Some(static_camera_entity);
             //self.camera_type = ecs::components::misc::CameraType::Static;
 
-            let controller = ecs_lock
+            let view_controller = ecs_lock
                 .get_component_from_entity::<components::controllers::ViewController>(
                     static_camera_entity,
                 )
-                .expect(components::misc::PlayerMarker::describe());
-            self.view_controller = Some(Arc::clone(&controller));
-            return;
-        }
+                .expect(components::misc::CameraMarker::describe());
+            self.view_controller = Some(Arc::clone(&view_controller));
 
-        let mut dynamic_camera_entity =
-            ecs_lock.get_entites_with_component::<components::misc::DynamicCameraMarker>();
-
-        if !dynamic_camera_entity.is_empty() {
-            let dynamic_camera_entity = dynamic_camera_entity.pop().unwrap();
-            self.camera_owner_entity = Some(dynamic_camera_entity);
-            //self.camera_type = ecs::components::misc::CameraType::Dynamic;
-
-            let controller = ecs_lock
-                .get_component_from_entity::<components::controllers::ViewController>(
-                    dynamic_camera_entity,
-                )
-                .expect(components::misc::PlayerMarker::describe());
-            self.view_controller = Some(Arc::clone(&controller));
+            let movement_controller = ecs_lock
+                .get_component_from_entity::<components::controllers::MovementController>(
+                    static_camera_entity,
+                );
+            if let Some(movement_controller) = movement_controller {
+                self.movement_controller = Some(Arc::clone(&movement_controller));
+            }
             return;
         }
 

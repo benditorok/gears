@@ -8,8 +8,8 @@ pub use crate::{
         controllers::{MovementController, ViewController},
         lights::Light,
         misc::{
-            AnimationQueue, DynamicCameraMarker, LightMarker, Name, PlayerMarker, RigidBodyMarker,
-            StaticCameraMarker, StaticModelMarker,
+            AnimationQueue, CameraMarker, LightMarker, Name, PlayerMarker, RigidBodyMarker,
+            StaticModelMarker,
         },
         models::ModelSource,
         physics::{CollisionBox, RigidBody},
