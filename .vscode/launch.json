@@ -44,6 +44,117 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug executable 'custom_window'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=custom_window",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "custom_window",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'custom_window'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=custom_window",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "custom_window",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'minimal'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=minimal",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "minimal",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'minimal'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=minimal",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "minimal",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'physics'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=physics",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "physics",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'physics'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=physics",
+                    "--package=examples"
+                ],
+                "filter": {
+                    "name": "physics",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in library 'gears'",
             "cargo": {
                 "args": [
