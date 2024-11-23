@@ -15,33 +15,33 @@ async fn main() -> anyhow::Result<()> {
     // Add FPS camera
     new_entity!(
         app,
-        components::misc::Marker::Camera,
-        components::Name("FPS Camera"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
-        components::Camera::Dynamic {
-            look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
-            speed: 10.0,
-            sensitivity: 0.5,
-            keycodes: components::MovementKeycodes::default(),
-        }
+        DynamicCameraMarker,
+        Name("FPS Camera"),
+        Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+        ViewController::new_look_at(
+            cgmath::Point3::new(30.0, 20.0, 30.0),
+            cgmath::Point3::new(0.0, 0.0, 0.0),
+            0.8,
+            0.0,
+        ),
     );
 
     // Add ambient light
     new_entity!(
         app,
-        components::misc::Marker::Light,
-        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
-        components::Name("Ambient Light"),
-        components::lights::Light::Ambient { intensity: 0.05 },
+        LightMarker,
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        Name("Ambient Light"),
+        Light::Ambient { intensity: 0.05 },
     );
 
     // Add directional light
     new_entity!(
         app,
-        components::misc::Marker::Light,
-        components::Name("Directional Light"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,)),
-        components::lights::Light::Directional {
+        LightMarker,
+        Name("Directional Light"),
+        Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,)),
+        Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.3,
         },
@@ -51,144 +51,144 @@ async fn main() -> anyhow::Result<()> {
     // Physics Body 1
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Moving sphere"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(50.0, 0.0, 0.0)),
-        components::physics::RigidBody::new(
+        RigidBodyMarker,
+        Name("Moving sphere"),
+        Pos3::new(cgmath::Vector3::new(50.0, 0.0, 0.0)),
+        RigidBody::new(
             1.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(-15.0, -10.0, 0.0), // * Constant acceleration
-            components::physics::CollisionBox {
+            CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     // Physics Body 2
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Moving sphere"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(50.0, 0.0, 0.0)),
-        components::physics::RigidBody::new(
+        RigidBodyMarker,
+        Name("Moving sphere"),
+        Pos3::new(cgmath::Vector3::new(50.0, 0.0, 0.0)),
+        RigidBody::new(
             1.0,
             cgmath::Vector3::new(100.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
-            components::physics::CollisionBox {
+            CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Cube"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
-        components::physics::RigidBody::new(
+        RigidBodyMarker,
+        Name("Cube"),
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        RigidBody::new(
             10.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
-            components::physics::CollisionBox {
+            CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::models::ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("res/models/cube/cube.obj"),
     );
     // * END moving objects
     // Bouncing sphere
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Static cube"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(5.0, 0.0, 20.0)),
-        components::physics::RigidBody::new_static(components::physics::CollisionBox {
+        RigidBodyMarker,
+        Name("Static cube"),
+        Pos3::new(cgmath::Vector3::new(5.0, 0.0, 20.0)),
+        RigidBody::new_static(CollisionBox {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
-        components::models::ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("res/models/cube/cube.obj"),
     );
 
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Falling sphere"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(5.0, 20.0, 20.0)),
-        components::physics::RigidBody::new(
+        RigidBodyMarker,
+        Name("Falling sphere"),
+        Pos3::new(cgmath::Vector3::new(5.0, 20.0, 20.0)),
+        RigidBody::new(
             1.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -5.0, 0.0),
-            components::physics::CollisionBox {
+            CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     // Falling sphere bouncing off into the void
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Static cube"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 0.0, 20.0)),
-        components::physics::RigidBody::new_static(components::physics::CollisionBox {
+        RigidBodyMarker,
+        Name("Static cube"),
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 20.0)),
+        RigidBody::new_static(CollisionBox {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
-        components::models::ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("res/models/cube/cube.obj"),
     );
 
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Falling sphere"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, 20.0, 20.0)),
-        components::physics::RigidBody::new(
+        RigidBodyMarker,
+        Name("Falling sphere"),
+        Pos3::new(cgmath::Vector3::new(0.0, 20.0, 20.0)),
+        RigidBody::new(
             0.1,
             cgmath::Vector3::new(0.0, 0.0, 1.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
-            components::physics::CollisionBox {
+            CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     // Plane
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Plane"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(0.0, -3.0, 0.0)),
-        components::physics::RigidBody::new_static(components::physics::CollisionBox {
+        RigidBodyMarker,
+        Name("Plane"),
+        Pos3::new(cgmath::Vector3::new(0.0, -3.0, 0.0)),
+        RigidBody::new_static(CollisionBox {
             min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
             max: cgmath::Vector3::new(50.0, 0.1, 50.0),
         },),
-        components::models::ModelSource::Obj("res/models/plane/plane.obj"),
+        ModelSource::Obj("res/models/plane/plane.obj"),
     );
 
     new_entity!(
         app,
-        components::misc::Marker::RigidBody,
-        components::Name("Falling sphere"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(10.0, 20.0, 20.0)),
-        components::physics::RigidBody::new(
+        RigidBodyMarker,
+        Name("Falling sphere"),
+        Pos3::new(cgmath::Vector3::new(10.0, 20.0, 20.0)),
+        RigidBody::new(
             0.1,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
-            components::physics::CollisionBox {
+            CollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("res/models/sphere/sphere.obj"),
     );
 
     // Run the application

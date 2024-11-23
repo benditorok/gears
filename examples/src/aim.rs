@@ -15,6 +15,7 @@ async fn main() -> anyhow::Result<()> {
         std::io::stdin().read_line(&mut input).unwrap();
     }));
 
+    // TODO collect the entities in a single init fn so we can use an ENUM marker with its variants
     // TODO Model locations should be relative to the exe in a released build
 
     // Initialize the logger
