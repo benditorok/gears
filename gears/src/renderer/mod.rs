@@ -15,7 +15,7 @@ use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
 use log::{info, warn};
-use model::{DrawModel, DrawWireframeMesh, Vertex};
+use model::{DrawModelMesh, DrawWireframeMesh, Vertex};
 use std::f32::consts::FRAC_PI_2;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -824,7 +824,7 @@ impl<'a> State<'a> {
             ecs_lock.add_component_to_entity(*entity, instance_buffer);
         }
 
-        self.static_model_entities = Some(model_entities);
+        self.static_model_entities = Some(model_entities.clone());
         self.drawable_entities = Some(model_entities);
     }
 
@@ -938,9 +938,9 @@ impl<'a> State<'a> {
             ecs_lock.add_component_to_entity(*entity, wireframe);
         }
 
-        self.physics_entities = Some(physics_entities);
+        self.physics_entities = Some(physics_entities.clone());
 
-        if let Some(drawable_entities) = &self.drawable_entities {
+        if let Some(drawable_entities) = &mut self.drawable_entities {
             drawable_entities.extend(physics_entities);
         }
     }
@@ -1460,11 +1460,14 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            render_pass.set_bind_group(2, &self.light_bind_group, &[]);
-
+            // ! Render models if any are present
             if let Some(model_entities) = &self.drawable_entities {
+                render_pass.set_model_pipeline(
+                    &self.render_pipeline,
+                    &self.camera_bind_group,
+                    &self.light_bind_group,
+                );
+
                 for entity in model_entities {
                     let ecs_lock = self.ecs.lock().unwrap();
 
@@ -1475,32 +1478,10 @@ impl<'a> State<'a> {
                         .get_component_from_entity::<wgpu::Buffer>(*entity)
                         .unwrap();
 
-                    let model: &model::Model = unsafe { &*(&*model.read().unwrap() as *const _) };
+                    let rlock_model = model.read().unwrap();
+                    let rlock_instance_buffer = instance_buffer.read().unwrap();
 
-                    render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
-
-                    // Draw model
-                    render_pass.draw_model(model, &self.camera_bind_group, &self.light_bind_group);
-                }
-            }
-
-            if let Some(physics_model_entities) = &self.physics_entities {
-                for entity in physics_model_entities {
-                    let ecs_lock = self.ecs.lock().unwrap();
-
-                    let model = ecs_lock
-                        .get_component_from_entity::<model::Model>(*entity)
-                        .unwrap();
-                    let instance_buffer = ecs_lock
-                        .get_component_from_entity::<wgpu::Buffer>(*entity)
-                        .unwrap();
-
-                    let model: &model::Model = unsafe { &*(&*model.read().unwrap() as *const _) };
-
-                    render_pass.set_vertex_buffer(1, instance_buffer.read().unwrap().slice(..));
-
-                    // Draw model
-                    render_pass.draw_model(model, &self.camera_bind_group, &self.light_bind_group);
+                    render_pass.draw_model(&rlock_model, &rlock_instance_buffer);
                 }
             }
 
