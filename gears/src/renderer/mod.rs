@@ -175,6 +175,7 @@ struct State<'a> {
     light_bind_group: wgpu::BindGroup,
     static_model_entities: Option<Vec<ecs::Entity>>,
     physics_entities: Option<Vec<ecs::Entity>>,
+    drawable_entities: Option<Vec<ecs::Entity>>,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: texture::Texture,
@@ -413,6 +414,7 @@ impl<'a> State<'a> {
             light_bind_group,
             static_model_entities: None,
             physics_entities: None,
+            drawable_entities: None,
             light_bind_group_layout,
             depth_texture,
             window,
@@ -535,6 +537,8 @@ impl<'a> State<'a> {
         }
 
         self.init_lights().await;
+
+        // * The order of these is important!
         self.init_models().await;
         self.init_physics_models().await;
 
@@ -821,6 +825,7 @@ impl<'a> State<'a> {
         }
 
         self.static_model_entities = Some(model_entities);
+        self.drawable_entities = Some(model_entities);
     }
 
     async fn init_physics_models(&mut self) {
@@ -934,6 +939,10 @@ impl<'a> State<'a> {
         }
 
         self.physics_entities = Some(physics_entities);
+
+        if let Some(drawable_entities) = &self.drawable_entities {
+            drawable_entities.extend(physics_entities);
+        }
     }
 
     /// Get a reference to the window used by the state.
@@ -1076,15 +1085,15 @@ impl<'a> State<'a> {
                     rlock_movement_controller.update_pos(
                         &wlock_view_controller,
                         &mut wlock_pos3,
-                        dt.as_secs_f32(),
                         Some(&mut wlock_rigid_body),
+                        dt.as_secs_f32(),
                     );
                 } else {
                     rlock_movement_controller.update_pos(
                         &wlock_view_controller,
                         &mut wlock_pos3,
-                        dt.as_secs_f32(),
                         None,
+                        dt.as_secs_f32(),
                     );
                 }
             }
@@ -1455,7 +1464,7 @@ impl<'a> State<'a> {
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_bind_group(2, &self.light_bind_group, &[]);
 
-            if let Some(model_entities) = &self.static_model_entities {
+            if let Some(model_entities) = &self.drawable_entities {
                 for entity in model_entities {
                     let ecs_lock = self.ecs.lock().unwrap();
 
@@ -1495,7 +1504,7 @@ impl<'a> State<'a> {
                 }
             }
 
-            // Render collision boxes if enabled
+            // ! Render collision boxes if enabled
             if self.draw_colliders {
                 if let Some(physics_entities) = &self.physics_entities {
                     render_pass.set_wireframe_pipeline(
@@ -1512,9 +1521,6 @@ impl<'a> State<'a> {
                         // Use the same instance buffer that's used for the physics body
                         let instance_buffer = ecs_lock
                             .get_component_from_entity::<wgpu::Buffer>(*entity)
-                            .unwrap();
-                        let physics_body = ecs_lock
-                            .get_component_from_entity::<components::physics::RigidBody>(*entity)
                             .unwrap();
 
                         // Lock and read components
