@@ -26,7 +26,7 @@ impl Default for Player {
             is_static: false,
         };
 
-        let view_controller = ViewController::new(0.2, 1.8);
+        let view_controller = ViewController::new(0.8, 1.8);
 
         let pos3 = Pos3::new(cgmath::Vector3::new(0.0, 1.0, 0.0));
 
