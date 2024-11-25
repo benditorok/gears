@@ -197,9 +197,12 @@ impl GearsApp {
                         ..
                     } => {
                         // Handle the mouse motion for the camera if the state is NOT in a paused state
-                        if let Some(view_controller) = &state.view_controller {
-                            let mut wlock_view_controller = view_controller.write().unwrap();
-                            wlock_view_controller.process_mouse(delta.0, delta.1);
+                        if !state.is_paused() {
+                            // TODO bench for performance??
+                            if let Some(view_controller) = &state.view_controller {
+                                let mut wlock_view_controller = view_controller.write().unwrap();
+                                wlock_view_controller.process_mouse(delta.0, delta.1);
+                            }
                         }
                     }
                     Event::WindowEvent {
