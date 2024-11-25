@@ -1,14 +1,7 @@
 use super::OPENGL_TO_WGPU_MATRIX;
-use crate::ecs::{self, components};
+use crate::ecs::{components};
 use cgmath::{
-    perspective, EuclideanSpace, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3,
-};
-use gltf::camera;
-use std::time;
-use winit::{
-    dpi::PhysicalPosition,
-    event::{ElementState, MouseScrollDelta},
-    keyboard::KeyCode,
+    perspective, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3,
 };
 
 #[repr(C)]

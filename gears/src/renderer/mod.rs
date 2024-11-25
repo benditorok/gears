@@ -6,27 +6,20 @@ pub mod resources;
 pub mod texture;
 pub mod traits;
 
-use crate::core::Dt;
-use crate::ecs::components::controllers;
-use crate::ecs::components::prefabs::Player;
-use crate::ecs::traits::{Marker, Tick};
+use crate::ecs::traits::Marker;
 use crate::ecs::{self, components};
 use crate::gui::EguiRenderer;
 use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
-use log::{info, warn};
+use log::warn;
 use model::{DrawModelMesh, DrawWireframeMesh, Vertex};
-use std::f32::consts::FRAC_PI_2;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{self, Instant};
-use tokio::sync::broadcast;
 use wgpu::util::DeviceExt;
 use winit::event::*;
-use winit::window::WindowAttributes;
 use winit::{
-    event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::Window,
 };
@@ -511,14 +504,14 @@ impl<'a> State<'a> {
 
             let view_controller = ecs_lock
                 .get_component_from_entity::<components::controllers::ViewController>(player_entity)
-                .expect(components::misc::PlayerMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::PlayerMarker::describe()));
             self.view_controller = Some(Arc::clone(&view_controller));
 
             let movement_controller = ecs_lock
                 .get_component_from_entity::<components::controllers::MovementController>(
                     player_entity,
                 )
-                .expect(components::misc::PlayerMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::PlayerMarker::describe()));
             self.movement_controller = Some(Arc::clone(&movement_controller));
 
             return true;
@@ -543,7 +536,7 @@ impl<'a> State<'a> {
                 .get_component_from_entity::<components::controllers::ViewController>(
                     static_camera_entity,
                 )
-                .expect(components::misc::CameraMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::CameraMarker::describe()));
             self.view_controller = Some(Arc::clone(&view_controller));
 
             let movement_controller = ecs_lock
@@ -567,11 +560,11 @@ impl<'a> State<'a> {
         for entity in light_entities.iter() {
             let pos = ecs_lock
                 .get_component_from_entity::<components::transforms::Pos3>(*entity)
-                .expect(components::misc::LightMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::LightMarker::describe()));
 
             let light = ecs_lock
                 .get_component_from_entity::<components::lights::Light>(*entity)
-                .expect(components::misc::LightMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::LightMarker::describe()));
 
             let light_uniform = {
                 let rlock_pos = pos.read().unwrap();
@@ -664,13 +657,13 @@ impl<'a> State<'a> {
         for entity in model_entities.iter() {
             let name = ecs_lock
                 .get_component_from_entity::<components::misc::Name>(*entity)
-                .expect(components::misc::StaticModelMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
             let pos3 = ecs_lock
                 .get_component_from_entity::<components::transforms::Pos3>(*entity)
-                .expect(components::misc::StaticModelMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
             let model_source = ecs_lock
                 .get_component_from_entity::<components::models::ModelSource>(*entity)
-                .expect(components::misc::StaticModelMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
 
             let flip = ecs_lock.get_component_from_entity::<components::transforms::Flip>(*entity);
 
@@ -773,13 +766,13 @@ impl<'a> State<'a> {
 
             let physics_body = ecs_lock
                 .get_component_from_entity::<components::physics::RigidBody>(*entity)
-                .expect(components::misc::RigidBodyMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::RigidBodyMarker::describe()));
             let model_source = ecs_lock
                 .get_component_from_entity::<components::models::ModelSource>(*entity)
-                .expect(components::misc::RigidBodyMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::RigidBodyMarker::describe()));
             let pos3 = ecs_lock
                 .get_component_from_entity::<components::transforms::Pos3>(*entity)
-                .expect(components::misc::RigidBodyMarker::describe());
+                .unwrap_or_else(|| panic!("{}", components::misc::RigidBodyMarker::describe()));
 
             let flip = ecs_lock.get_component_from_entity::<components::transforms::Flip>(*entity);
 
@@ -1103,13 +1096,19 @@ impl<'a> State<'a> {
 
                 let name = ecs_lock
                     .get_component_from_entity::<components::misc::Name>(*entity)
-                    .expect(components::misc::StaticModelMarker::describe());
+                    .unwrap_or_else(|| {
+                        panic!("{}", components::misc::StaticModelMarker::describe())
+                    });
                 let pos3 = ecs_lock
                     .get_component_from_entity::<components::transforms::Pos3>(*entity)
-                    .expect(components::misc::StaticModelMarker::describe());
+                    .unwrap_or_else(|| {
+                        panic!("{}", components::misc::StaticModelMarker::describe())
+                    });
                 let instance = ecs_lock
                     .get_component_from_entity::<instance::Instance>(*entity)
-                    .expect(components::misc::StaticModelMarker::describe());
+                    .unwrap_or_else(|| {
+                        panic!("{}", components::misc::StaticModelMarker::describe())
+                    });
                 let buffer = ecs_lock
                     .get_component_from_entity::<wgpu::Buffer>(*entity)
                     .unwrap();
@@ -1278,7 +1277,7 @@ impl<'a> State<'a> {
 
                 {
                     let mut wlock_instance = instance.write().unwrap();
-                    let mut rlock_pos3 = pos3.read().unwrap();
+                    let rlock_pos3 = pos3.read().unwrap();
 
                     wlock_instance.position = rlock_pos3.pos;
                     wlock_instance.rotation = rlock_pos3.rot
@@ -1425,7 +1424,7 @@ impl<'a> State<'a> {
         }
 
         // ! Egui render pass for the custom UI windows
-        if (!self.egui_windows.is_empty()) {
+        if !self.egui_windows.is_empty() {
             // * if a custom ui is present
             let screen_descriptor = ScreenDescriptor {
                 size_in_pixels: [self.config.width, self.config.height],

@@ -1,10 +1,8 @@
-use gltf::mesh::Mode;
 use wgpu::util::DeviceExt;
 
 use crate::ecs::components;
 
-use super::{light, texture};
-use std::ops::{Div, Range};
+use super::texture;
 
 pub(crate) trait Vertex {
     fn desc() -> wgpu::VertexBufferLayout<'static>;

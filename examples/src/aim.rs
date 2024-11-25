@@ -1,5 +1,4 @@
-use cgmath::{One, Rotation3};
-use ecs::traits::Prefab;
+use cgmath::Rotation3;
 use egui::Align2;
 use gears::prelude::*;
 use log::LevelFilter;

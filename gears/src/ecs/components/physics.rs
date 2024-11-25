@@ -1,6 +1,6 @@
 use super::transforms::Pos3;
 use crate::ecs::traits::Component;
-use cgmath::{InnerSpace, Rotation3};
+use cgmath::InnerSpace;
 use gears_macro::Component;
 
 const MAX_HORIZONTAL_VELOCITY: f32 = 10.0;

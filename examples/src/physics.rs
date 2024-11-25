@@ -1,4 +1,3 @@
-use cgmath::One;
 use gears::prelude::*;
 use log::LevelFilter;
 

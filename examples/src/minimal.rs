@@ -1,4 +1,4 @@
-use cgmath::{One, Quaternion, Rotation3};
+use cgmath::{Quaternion, Rotation3};
 use gears::prelude::*;
 use log::LevelFilter;
 

@@ -1,8 +1,7 @@
-use crate::{ecs::traits::Tick, prelude::Component, SAFE_FRAC_PI_2};
+use crate::{prelude::Component, SAFE_FRAC_PI_2};
 use cgmath::{InnerSpace, Point3, Rotation3, Vector3};
 use gears_macro::Component;
 use log::info;
-use std::time;
 use winit::{event::ElementState, keyboard::KeyCode};
 
 use super::{physics::RigidBody, transforms::Pos3};

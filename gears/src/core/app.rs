@@ -4,7 +4,6 @@ use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::ecs::traits::Component;
 use crate::{ecs, renderer::State};
 use log::{info, warn};
-use std::cmp::Ordering;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
