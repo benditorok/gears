@@ -130,10 +130,14 @@ async fn main() -> anyhow::Result<()> {
 
         let sphere_entity = new_entity!(
             app,
-            StaticModelMarker,
+            RigidBodyMarker,
             Name(Box::leak(name.into_boxed_str())),
-            ModelSource::Obj("res/models/sphere/sphere.obj"),
             Pos3::new(cgmath::Vector3::new(x, 1.0, z)),
+            RigidBody::new_static(CollisionBox {
+                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+            },),
+            ModelSource::Obj("res/models/sphere/sphere.obj"),
         );
 
         *sphere = sphere_entity;
