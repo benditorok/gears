@@ -7,7 +7,7 @@ use winit::{event::ElementState, keyboard::KeyCode};
 use super::{physics::RigidBody, transforms::Pos3};
 
 const MOVE_ACCELERATION: f32 = 15.0; // Reduced from 50.0
-const JUMP_FORCE: f32 = 5.0; // Reduced from 10.0
+const JUMP_FORCE: f32 = 20.0; // Reduced from 10.0
 const GROUND_CHECK_DISTANCE: f32 = 0.1;
 const AIR_CONTROL_FACTOR: f32 = 0.2; // Reduced from 0.3
 
