@@ -32,60 +32,6 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.0, 1.0,
 );
 
-/*
- ! DRAFT
- struct GameState {
-    last_update: Instant,
-    accumulated_time: f32,
-    fixed_timestep: f32,
-}
-
-impl GameState {
-    fn new() -> Self {
-        Self {
-            last_update: Instant::now(),
-            accumulated_time: 0.0,
-            fixed_timestep: 1.0 / 144.0, // 144 Hz fixed update rate
-        }
-    }
-}
-
-// In event loop
-event_loop.run(move |event, _, control_flow| {
-    match event {
-        Event::DeviceEvent { .. } => {
-            // Handle input immediately but don't trigger update/render
-            handle_device_input(event);
-        }
-
-        Event::MainEventsCleared => {
-            let now = Instant::now();
-            let dt = now.duration_since(state.last_update);
-            state.last_update = now;
-
-            // Accumulate time
-            state.accumulated_time += dt.as_secs_f32();
-
-            // Fixed timestep updates
-            while state.accumulated_time >= state.fixed_timestep {
-                update(state.fixed_timestep);
-                state.accumulated_time -= state.fixed_timestep;
-            }
-
-            // Render at display refresh rate
-            window.request_redraw();
-        }
-
-        Event::RedrawRequested(_) => {
-            render();
-        }
-
-        // ... rest of event handling
-    }
-});
-
-*/
-
 /// Global state of the application. This is where all rendering related data is stored.
 ///
 /// The State is responsible for handling the rendering pipeline, the camera, the lights,
@@ -123,6 +69,7 @@ pub(crate) struct State<'a> {
     is_state_paused: AtomicBool,
     time: Instant,
     collider_render_pipeline: wgpu::RenderPipeline,
+    target_entities: Option<Vec<ecs::Entity>>,
 }
 
 impl<'a> State<'a> {
@@ -362,6 +309,7 @@ impl<'a> State<'a> {
             time: time::Instant::now(),
             collider_render_pipeline,
             player_entity: None,
+            target_entities: None,
         }
     }
 
@@ -480,6 +428,7 @@ impl<'a> State<'a> {
         // * The order of these is important!
         self.init_models().await;
         self.init_physics_models().await;
+        self.init_targets();
 
         Ok(())
     }
@@ -869,6 +818,14 @@ impl<'a> State<'a> {
         if let Some(drawable_entities) = &mut self.drawable_entities {
             drawable_entities.extend(physics_entities);
         }
+    }
+
+    fn init_targets(&mut self) {
+        let ecs_lock = self.ecs.lock().unwrap();
+        let target_entities =
+            ecs_lock.get_entites_with_component::<components::misc::TargetMarker>();
+
+        self.target_entities = Some(target_entities);
     }
 
     /// Get a reference to the window used by the state.

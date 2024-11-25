@@ -1,10 +1,10 @@
 use super::transforms::Pos3;
-use crate::ecs::traits::Component;
+use crate::{ecs::traits::Component, prelude::ViewController};
 use cgmath::InnerSpace;
 use gears_macro::Component;
 
-const MAX_HORIZONTAL_VELOCITY: f32 = 10.0;
-const MAX_VERTICAL_VELOCITY: f32 = 15.0;
+const MAX_HORIZONTAL_VELOCITY: f32 = 20.0;
+const MAX_VERTICAL_VELOCITY: f32 = 40.0;
 
 #[derive(Component, Debug, Clone)]
 pub struct CollisionBox {
@@ -67,7 +67,7 @@ impl RigidBody {
     }
 
     pub fn update_pos(&mut self, pos3: &mut Pos3, dt: f32) {
-        if !self.is_static {
+        if (!self.is_static) {
             let acceleration_threshold = 0.01;
             let is_accelerating = self.acceleration.magnitude() > acceleration_threshold;
 
