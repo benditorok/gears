@@ -2,13 +2,18 @@ use super::config::{self, Config};
 use super::Dt;
 use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::ecs::traits::Component;
-use crate::{ecs, renderer};
+use crate::{ecs, renderer::State};
 use log::{info, warn};
+use std::cmp::Ordering;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+use std::time;
 use tokio::sync::broadcast;
+use winit::event::{DeviceEvent, Event, WindowEvent};
+use winit::event_loop::EventLoop;
+use winit::window::WindowAttributes;
 
 pub trait App {
     fn new(config: Config) -> Self;
@@ -78,7 +83,7 @@ impl App for GearsApp {
         let tx = self.tx_dt.take().unwrap();
 
         // Run the event loop
-        renderer::run(Arc::clone(&self.ecs), tx, self.egui_windows.take()).await
+        GearsApp::run_engine(Arc::clone(&self.ecs), tx, self.egui_windows.take()).await
     }
 
     /// Get the delta time channel.
@@ -146,6 +151,124 @@ impl App for GearsApp {
 }
 
 impl GearsApp {
+    /// The main event loop of the application
+    ///
+    /// # Returns
+    ///
+    /// A future which can be awaited.
+    pub async fn run_engine(
+        ecs: Arc<Mutex<ecs::Manager>>,
+        tx_dt: broadcast::Sender<Dt>,
+        egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
+    ) -> anyhow::Result<()> {
+        // * Window creation
+        let event_loop = EventLoop::new()?;
+        let window_attributes = WindowAttributes::default()
+            .with_title("Winit window")
+            .with_transparent(true)
+            .with_window_icon(None);
+
+        let window = event_loop.create_window(window_attributes)?;
+        let mut state = State::new(&window, ecs).await;
+        state.init_components().await?;
+
+        if let Some(egui_windows) = egui_windows {
+            state.egui_windows = egui_windows;
+        }
+
+        let mut last_render_time = time::Instant::now();
+
+        // * Event loop
+        event_loop
+            .run(move |event, ewlt| {
+                // if let Event::DeviceEvent {
+                //     event: DeviceEvent::MouseMotion{ delta, },
+                //     .. // We're not using device_id currently
+                // } = event {
+                //     if state.mouse_pressed {
+                //         state.camera_controller.process_mouse(delta.0, delta.1);
+                //     }
+                // }
+
+                match event {
+                    // todo HANDLE this on a separate thread
+                    Event::DeviceEvent {
+                        event: DeviceEvent::MouseMotion { delta },
+                        ..
+                    } => {
+                        // Handle the mouse motion for the camera if the state is NOT in a paused state
+                        if let Some(view_controller) = &state.view_controller {
+                            let mut wlock_view_controller = view_controller.write().unwrap();
+                            wlock_view_controller.process_mouse(delta.0, delta.1);
+                        }
+                    }
+                    Event::WindowEvent {
+                        ref event,
+                        window_id,
+                        // TODO the state.input should handle device events as well as window events
+                    } if window_id == state.window().id() && !state.input(event) => {
+                        match event {
+                            WindowEvent::CloseRequested => ewlt.exit(),
+                            WindowEvent::Resized(physical_size) => {
+                                state.resize(*physical_size);
+                            }
+                            // WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {
+                            //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
+                            // }
+                            WindowEvent::RedrawRequested => {
+                                let now = time::Instant::now();
+                                let dt = now - last_render_time;
+                                last_render_time = now;
+
+                                // If the state is paused, busy wait
+                                if state.is_paused() {
+                                    std::thread::sleep(std::time::Duration::from_millis(16)); // ~60 fps
+                                    return;
+                                }
+
+                                // * Log FPS
+                                // info!(
+                                //     "FPS: {:.0}, frame time: {} ms",
+                                //     1.0 / &dt.as_secs_f32(),
+                                //     &dt.as_millis()
+                                // );
+
+                                // Send the delta time using the broadcast channel
+                                if let Err(e) = tx_dt.send(dt) {
+                                    log::warn!("Failed to send delta time: {:?}", e);
+                                }
+
+                                futures::executor::block_on(state.update(dt));
+
+                                match state.render() {
+                                    Ok(_) => {}
+                                    // Reconfigure the surface if it's lost or outdated
+                                    Err(
+                                        wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated,
+                                    ) => state.resize(state.size),
+                                    // The system is out of memory, we should probably quit
+                                    Err(wgpu::SurfaceError::OutOfMemory) => ewlt.exit(),
+                                    // We're ignoring timeouts
+                                    Err(wgpu::SurfaceError::Timeout) => {
+                                        log::warn!("Surface timeout")
+                                    }
+                                }
+                            }
+                            _ => {}
+                        };
+                    }
+                    Event::AboutToWait => {
+                        // RedrawRequested will only trigger once unless manually requested.
+                        state.window().request_redraw();
+                    }
+                    _ => {}
+                }
+            })
+            .unwrap();
+
+        Ok(())
+    }
+
     /// Create a new update job.
     /// This will create a new async task that will run the given update function on each update.
     #[warn(unstable_features)]

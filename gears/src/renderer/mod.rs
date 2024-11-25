@@ -39,137 +39,73 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.0, 1.0,
 );
 
-/// The main event loop of the application
-///
-/// # Returns
-///
-/// A future which can be awaited.
-pub async fn run(
-    ecs: Arc<Mutex<ecs::Manager>>,
-    tx_dt: broadcast::Sender<Dt>,
-    egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
-) -> anyhow::Result<()> {
-    // * Window creation
-    let event_loop = EventLoop::new()?;
-    let window_attributes = WindowAttributes::default()
-        .with_title("Winit window")
-        .with_transparent(true)
-        .with_window_icon(None);
-
-    let window = event_loop.create_window(window_attributes)?;
-    let mut state = State::new(&window, ecs).await;
-    state.init_components().await?;
-
-    if let Some(egui_windows) = egui_windows {
-        state.egui_windows = egui_windows;
-    }
-
-    let mut last_render_time = time::Instant::now();
-
-    // * Event loop
-    event_loop
-        .run(move |event, ewlt| {
-            // if let Event::DeviceEvent {
-            //     event: DeviceEvent::MouseMotion{ delta, },
-            //     .. // We're not using device_id currently
-            // } = event {
-            //     if state.mouse_pressed {
-            //         state.camera_controller.process_mouse(delta.0, delta.1);
-            //     }
-            // }
-
-            match event {
-                // todo HANDLE this on a separate thread
-                Event::DeviceEvent {
-                    event: DeviceEvent::MouseMotion { delta },
-                    ..
-                } => {
-                    // Handle the mouse motion for the camera if the state is NOT in a paused state
-                    if !state.is_state_paused.load(Ordering::Relaxed) {
-                        if let Some(view_controller) = &state.view_controller {
-                            let mut wlock_view_controller = view_controller.write().unwrap();
-                            wlock_view_controller.process_mouse(delta.0, delta.1);
-                        }
-                    }
-                }
-                Event::WindowEvent {
-                    ref event,
-                    window_id,
-                    // TODO the state.input should handle device events as well as window events
-                } if window_id == state.window().id() && !state.input(event) => {
-                    match event {
-                        WindowEvent::CloseRequested => ewlt.exit(),
-                        WindowEvent::Resized(physical_size) => {
-                            state.resize(*physical_size);
-                        }
-                        // WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {
-                        //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
-                        // }
-                        WindowEvent::RedrawRequested => {
-                            let now = time::Instant::now();
-                            let dt = now - last_render_time;
-                            last_render_time = now;
-
-                            // If the state is paused, busy wait
-                            if state.is_state_paused.load(Ordering::Relaxed) {
-                                std::thread::sleep(std::time::Duration::from_millis(16)); // ~60 fps
-                                return;
-                            }
-
-                            // * Log FPS
-                            // info!(
-                            //     "FPS: {:.0}, frame time: {} ms",
-                            //     1.0 / &dt.as_secs_f32(),
-                            //     &dt.as_millis()
-                            // );
-
-                            // Send the delta time using the broadcast channel
-                            if let Err(e) = tx_dt.send(dt) {
-                                log::warn!("Failed to send delta time: {:?}", e);
-                            }
-
-                            futures::executor::block_on(state.update(dt));
-
-                            match state.render() {
-                                Ok(_) => {}
-                                // Reconfigure the surface if it's lost or outdated
-                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                                    state.resize(state.size)
-                                }
-                                // The system is out of memory, we should probably quit
-                                Err(wgpu::SurfaceError::OutOfMemory) => ewlt.exit(),
-                                // We're ignoring timeouts
-                                Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
-                            }
-                        }
-                        _ => {}
-                    };
-                }
-                Event::AboutToWait => {
-                    // RedrawRequested will only trigger once unless manually requested.
-                    state.window().request_redraw();
-                }
-                _ => {}
-            }
-        })
-        .unwrap();
-
-    Ok(())
+/*
+ ! DRAFT
+ struct GameState {
+    last_update: Instant,
+    accumulated_time: f32,
+    fixed_timestep: f32,
 }
+
+impl GameState {
+    fn new() -> Self {
+        Self {
+            last_update: Instant::now(),
+            accumulated_time: 0.0,
+            fixed_timestep: 1.0 / 144.0, // 144 Hz fixed update rate
+        }
+    }
+}
+
+// In event loop
+event_loop.run(move |event, _, control_flow| {
+    match event {
+        Event::DeviceEvent { .. } => {
+            // Handle input immediately but don't trigger update/render
+            handle_device_input(event);
+        }
+
+        Event::MainEventsCleared => {
+            let now = Instant::now();
+            let dt = now.duration_since(state.last_update);
+            state.last_update = now;
+
+            // Accumulate time
+            state.accumulated_time += dt.as_secs_f32();
+
+            // Fixed timestep updates
+            while state.accumulated_time >= state.fixed_timestep {
+                update(state.fixed_timestep);
+                state.accumulated_time -= state.fixed_timestep;
+            }
+
+            // Render at display refresh rate
+            window.request_redraw();
+        }
+
+        Event::RedrawRequested(_) => {
+            render();
+        }
+
+        // ... rest of event handling
+    }
+});
+
+*/
 
 /// Global state of the application. This is where all rendering related data is stored.
 ///
 /// The State is responsible for handling the rendering pipeline, the camera, the lights,
 /// the models, the window, etc.
-struct State<'a> {
+pub(crate) struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+    pub(crate) size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
     movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
-    view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
+    pub(crate) view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
     player_entity: Option<ecs::Entity>,
     camera_owner_entity: Option<ecs::Entity>,
     camera_projection: camera::Projection,
@@ -190,7 +126,7 @@ struct State<'a> {
     mouse_pressed: bool,
     draw_colliders: bool,
     egui_renderer: EguiRenderer,
-    egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
+    pub(crate) egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
     is_state_paused: AtomicBool,
     time: Instant,
     collider_render_pipeline: wgpu::RenderPipeline,
@@ -207,7 +143,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A new instance of the State.
-    async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
+    pub(crate) async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
         // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -536,13 +472,17 @@ impl<'a> State<'a> {
         })
     }
 
+    pub fn is_paused(&self) -> bool {
+        self.is_state_paused.load(Ordering::Relaxed)
+    }
+
     /// Initialize the components which can be rendered.
-    async fn init_components(&mut self) -> anyhow::Result<()> {
+    pub(crate) async fn init_components(&mut self) -> anyhow::Result<()> {
         if !self.init_player() {
             self.init_camera();
         }
 
-        self.init_lights().await;
+        self.init_lights();
 
         // * The order of these is important!
         self.init_models().await;
@@ -620,11 +560,7 @@ impl<'a> State<'a> {
     }
 
     /// Initialize the light components.
-    ///
-    /// # Returns
-    ///
-    /// A future which can be awaited.
-    async fn init_lights(&mut self) {
+    fn init_lights(&mut self) {
         let ecs_lock = self.ecs.lock().unwrap();
         let light_entities = ecs_lock.get_entites_with_component::<components::misc::LightMarker>();
 
@@ -947,7 +883,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A reference to the window.
-    pub fn window(&self) -> &Window {
+    pub(crate) fn window(&self) -> &Window {
         self.window
     }
 
@@ -956,7 +892,7 @@ impl<'a> State<'a> {
     /// # Arguments
     ///
     /// * `new_size` - The new size of the window.
-    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    pub(crate) fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.camera_projection
             .resize(new_size.width, new_size.height);
 
@@ -980,7 +916,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A boolean indicating if the event was consumed.
-    fn input(&mut self, event: &WindowEvent) -> bool {
+    pub(crate) fn input(&mut self, event: &WindowEvent) -> bool {
         // * Pause the state
         if let WindowEvent::KeyboardInput {
             event:
@@ -1048,7 +984,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A future which can be awaited.
-    async fn update(&mut self, dt: time::Duration) {
+    pub(crate) async fn update(&mut self, dt: time::Duration) {
         // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {
             let ecs_lock = self.ecs.lock().unwrap();
@@ -1394,7 +1330,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A result indicating if the rendering was successful or not.
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub(crate) fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
