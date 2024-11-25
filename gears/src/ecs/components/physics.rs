@@ -92,17 +92,17 @@ impl RigidBody {
                 self.velocity = cgmath::Vector3::new(0.0, 0.0, 0.0);
             }
 
-            // Print debug information
-            println!(
-                "Velocity: ({:.2}, {:.2}, {:.2}), Acceleration: ({:.2}, {:.2}, {:.2}), Is Accelerating: {}",
-                self.velocity.x,
-                self.velocity.y,
-                self.velocity.z,
-                self.acceleration.x,
-                self.acceleration.y,
-                self.acceleration.z,
-                is_accelerating
-            );
+            // // Print debug information
+            // println!(
+            //     "Velocity: ({:.2}, {:.2}, {:.2}), Acceleration: ({:.2}, {:.2}, {:.2}), Is Accelerating: {}",
+            //     self.velocity.x,
+            //     self.velocity.y,
+            //     self.velocity.z,
+            //     self.acceleration.x,
+            //     self.acceleration.y,
+            //     self.acceleration.z,
+            //     is_accelerating
+            // );
 
             // Update position based on velocity
             pos3.pos += self.velocity * dt;
