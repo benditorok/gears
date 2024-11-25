@@ -4,6 +4,7 @@ pub mod gui;
 pub mod macros;
 pub mod prelude;
 pub mod renderer;
+pub mod state;
 
 use std::f32::consts::FRAC_PI_2;
 

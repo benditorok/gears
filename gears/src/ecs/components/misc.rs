@@ -1,5 +1,6 @@
 use crate::ecs::traits::{Component, Marker};
 use gears_macro::Component;
+use std::ops::Deref;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct PlayerMarker;
@@ -46,9 +47,51 @@ impl Marker for StaticModelMarker {
     }
 }
 
+#[derive(Component, Debug, Clone, Copy)]
+pub struct TargetMarker;
+
+impl Marker for TargetMarker {
+    fn describe() -> &'static str {
+        "Required components: Pos3, RigidBody, ModelSource, Name, Health"
+    }
+}
+
 /// A component that stores the name of an object.ű
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Name(pub &'static str);
+
+impl Deref for Name {
+    type Target = &'static str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Health {
+    pub(crate) health: f32,
+    pub(crate) max_health: f32,
+}
+
+impl Default for Health {
+    fn default() -> Self {
+        Self {
+            health: 100.0,
+            max_health: 100.0,
+        }
+    }
+}
+
+impl Health {
+    pub fn new(health: f32, max_health: f32) -> Self {
+        Self { health, max_health }
+    }
+
+    pub fn is_alive(&self) -> bool {
+        self.health > 0.0
+    }
+}
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct AnimationQueue {
