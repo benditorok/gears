@@ -1,3 +1,6 @@
 **/target
 flamegraph.svg
 res/gltf
+.old
+.idea
+.vscode
