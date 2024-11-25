@@ -103,7 +103,7 @@ async fn main() -> anyhow::Result<()> {
             max: cgmath::Vector3::new(50.0, 0.1, 50.0),
         }),
         Pos3::new(cgmath::Vector3::new(0.0, -1.0, 0.0)),
-        ModelSource::Obj("res/models/plane/plane.obj"),
+        ModelSource::Obj("models/plane/plane.obj"),
     );
     // * ENDREGION
 
@@ -137,7 +137,7 @@ async fn main() -> anyhow::Result<()> {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },),
-            ModelSource::Obj("res/models/sphere/sphere.obj"),
+            ModelSource::Obj("models/sphere/sphere.obj"),
         );
 
         *sphere = sphere_entity;
@@ -152,7 +152,7 @@ async fn main() -> anyhow::Result<()> {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
-        ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("models/cube/cube.obj"),
     );
 
     new_entity!(
@@ -164,7 +164,7 @@ async fn main() -> anyhow::Result<()> {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
-        ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("models/cube/cube.obj"),
     );
 
     new_entity!(
@@ -176,7 +176,7 @@ async fn main() -> anyhow::Result<()> {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
-        ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("models/cube/cube.obj"),
     );
 
     new_entity!(
@@ -188,7 +188,7 @@ async fn main() -> anyhow::Result<()> {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
-        ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("models/cube/cube.obj"),
     );
 
     // Update loop

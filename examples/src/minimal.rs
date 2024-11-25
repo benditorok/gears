@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         app,
         StaticModelMarker,
         Name("Sphere1"),
-        ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("models/sphere/sphere.obj"),
         Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
     );
 

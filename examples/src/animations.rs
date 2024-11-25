@@ -59,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
     let animated_cube = new_entity!(
         app,
         components::Name("test"),
-        components::models::ModelSource::Gltf("res/gltf/cube/AnimatedCube.gltf"),
+        components::models::ModelSource::Gltf("gltf/cube/AnimatedCube.gltf"),
         components::models::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::one(),
@@ -70,7 +70,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("test"),
-        components::models::ModelSource::Gltf("res/gltf/helmet/DamagedHelmet.gltf"),
+        components::models::ModelSource::Gltf("gltf/helmet/DamagedHelmet.gltf"),
         components::models::StaticModel {
             position: cgmath::Vector3::new(0.0, 5.0, 0.0),
             rotation: Quaternion::from_angle_x(cgmath::Rad(90.0)),
@@ -80,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
     new_entity!(
         app,
         components::Name("Sphere1"),
-        components::models::ModelSource::Obj("res/models/sphere/sphere.obj"),
+        components::models::ModelSource::Obj("models/sphere/sphere.obj"),
         components::models::StaticModel {
             position: cgmath::Vector3::new(0.0, 0.0, 5.0),
             rotation: Quaternion::one(),
