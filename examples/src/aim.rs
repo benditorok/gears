@@ -1,9 +1,11 @@
 use cgmath::Rotation3;
+use components::misc::Health;
 use egui::Align2;
-use gears::prelude::*;
+use gears::{prelude::*, read_component, write_component};
 use log::LevelFilter;
 use std::f32::consts::PI;
 use std::sync::mpsc;
+use std::time;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -108,14 +110,19 @@ async fn main() -> anyhow::Result<()> {
 
     // * Player
     let mut player_prefab = prefabs::Player::default();
-    app.new_entity();
-    app.add_component(PlayerMarker);
-    app.add_component(player_prefab.pos3.take().unwrap());
-    app.add_component(player_prefab.model_source.take().unwrap());
-    app.add_component(player_prefab.movement_controller.take().unwrap());
-    app.add_component(player_prefab.view_controller.take().unwrap());
-    app.add_component(player_prefab.rigidbody.take().unwrap());
-    app.build();
+    let player = new_entity!(
+        app,
+        PlayerMarker,
+        player_prefab.pos3.take().unwrap(),
+        player_prefab.model_source.take().unwrap(),
+        player_prefab.movement_controller.take().unwrap(),
+        player_prefab.view_controller.take().unwrap(),
+        player_prefab.rigidbody.take().unwrap(),
+        // * + HEALTH
+        Health::default(),
+        // * + WEAPON
+        Weapon::new(20.0),
+    );
     // * Player
 
     // Add 5 spheres in a circle
@@ -190,46 +197,104 @@ async fn main() -> anyhow::Result<()> {
         ModelSource::Obj("models/cube/cube.obj"),
     );
 
+    // Target
+    let target = new_entity!(
+        app,
+        TargetMarker,
+        RigidBodyMarker,
+        Name("Target"),
+        Pos3::new(cgmath::Vector3::new(30.0, 3.0, 0.0)),
+        RigidBody::new(
+            20.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            CollisionBox {
+                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+            },
+        ),
+        ModelSource::Obj("models/sphere/sphere.obj"),
+        // * + HEALTH
+        Health::default(),
+    );
+
+    // Start the timer
+    let shoot_start_time = time::Instant::now();
+
     // Update loop
     app.update_loop(move |ecs, dt| {
         // Send the frame time to the custom window
         w1_frame_tx.send(dt).unwrap();
 
         // ! Here we are inside a loop, so this has to lock on all iterations.
-        let ecs = ecs.lock().unwrap();
+        let ecs_lock = ecs.lock().unwrap();
         let circle_speed = 8.0f32;
         let light_speed_multiplier = 3.0f32;
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(pos3) = ecs.get_component_from_entity::<Pos3>(*sphere) {
-                let mut wlock_pos3 = pos3.write().unwrap();
-
-                let position = wlock_pos3.pos;
+            if let Some(mut wlock_pos3) = write_component!(ecs_lock, *sphere, Pos3) {
+                let pos3 = wlock_pos3.pos;
 
                 wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                     (0.0, 1.0, 0.0).into(),
                     cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
-                ) * position;
+                ) * pos3;
             }
         }
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(pos) = ecs.get_component_from_entity::<Pos3>(red_light) {
-            let mut pos3 = pos.write().unwrap();
+        if let Some(mut wlock_pos3) = write_component!(ecs_lock, red_light, Pos3) {
+            let pos3 = wlock_pos3.pos;
 
-            pos3.pos = cgmath::Quaternion::from_axis_angle(
+            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
                 cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-            ) * pos3.pos;
+            ) * pos3;
         }
 
-        if let Some(pos) = ecs.get_component_from_entity::<Pos3>(blue_light) {
-            let mut pos3 = pos.write().unwrap();
+        if let Some(mut wlock_pos3) = write_component!(ecs_lock, blue_light, Pos3) {
+            let pos3 = wlock_pos3.pos;
 
-            pos3.pos = cgmath::Quaternion::from_axis_angle(
+            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
                 cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-            ) * pos3.pos;
+            ) * pos3;
+        }
+
+        // SHOOTING TEST
+
+        // Kell egy channel amin keresztul lehet a state update() fnjenek kuldeni FnOnce-okat vagy FnMut??
+        // Tokio sync legyen (asnyc) mert az update() mar amugy is az
+        // ne blokkoljon
+        // Kell vmi buffer az eventeknek
+
+        // Shoot every 2 seconds
+        let elapsed = shoot_start_time.elapsed();
+        if elapsed.as_secs() % 2 == 0 {
+            {
+                let mut wlock_target_body = write_component!(ecs_lock, target, RigidBody).unwrap();
+                let mut wlock_target_health = write_component!(ecs_lock, target, Health).unwrap();
+                let rlock_target_pos3 = write_component!(ecs_lock, target, Pos3).unwrap();
+
+                let rlock_player_view = read_component!(ecs_lock, player, ViewController).unwrap();
+                let rlock_player_weapon = read_component!(ecs_lock, player, Weapon).unwrap();
+                let rlock_player_pos3 = read_component!(ecs_lock, player, Pos3).unwrap();
+
+                let pos3 = read_component!(ecs_lock, player, Pos3);
+
+                rlock_player_weapon.shoot(
+                    &rlock_player_pos3,
+                    &rlock_player_view,
+                    &rlock_target_pos3,
+                    &mut wlock_target_body,
+                    &mut wlock_target_health,
+                );
+
+                if !wlock_target_health.is_alive() {
+                    // Launch it up
+                    wlock_target_body.velocity = cgmath::Vector3::new(0.0, 40.0, 0.0);
+                }
+            }
         }
     })
     .await?;
