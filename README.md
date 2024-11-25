@@ -13,10 +13,13 @@ Goals
 - [x] Load 3D objects
 - [x] Generic lights
 - [ ] Shadows
+- [x] Player
+- [x] Movement and View controllers
+- [x] Rigidbody physics
 
-![Demo](/doc/imgs/demo3.png)
+![Demo](/doc/imgs/demo4.png)
 
-## Examples
+## Examples (some might be broken currently)
 
 You can try it with `cargo run --bin minimal` or run a more complex example with `cargo run --bin sandbox`.
 When creating components you can use a macro or an entity builder as well.
