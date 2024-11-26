@@ -44,3 +44,4 @@ macro_rules! new_entity {
 //             .map(|component| unsafe { &mut *std::ptr::addr_of_mut!(*component.write().unwrap()) })
 //     };
 // }
+// https://doc.rust-lang.org/nomicon/unbounded-lifetimes.html
