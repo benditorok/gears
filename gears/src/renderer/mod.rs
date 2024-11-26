@@ -236,7 +236,7 @@ impl<'a> State<'a> {
             });
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Main Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/shader.wgsl").into()),
             };
             Self::create_render_pipeline(
                 &device,
@@ -262,7 +262,7 @@ impl<'a> State<'a> {
             });
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Collider Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shader_collider.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/wireframe.wgsl").into()),
             };
 
             Self::create_render_pipeline(
