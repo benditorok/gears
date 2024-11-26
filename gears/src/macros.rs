@@ -34,11 +34,19 @@ macro_rules! read_component {
             .map(|component| unsafe {
                 std::mem::transmute::<
                     std::sync::RwLockReadGuard<'_, $component>,
-                    std::sync::RwLockReadGuard<'static, $component>,
+                    std::sync::RwLockReadGuard<'_, $component>,
                 >(component.read().unwrap())
             })
     };
 }
+
+/*
+gears/src/ecs/mod.rs let component = Arc::clone(component);
+                unsafe {
+                    // SAFETY: We ensure that the component is of type T
+                    let component_ptr = Arc::into_raw(component) as *const RwLock<T>;
+                    Arc::from_raw(component_ptr)
+                } */
 
 /// A macro to aquire a write lock for component of an entity.
 #[macro_export]
@@ -49,7 +57,7 @@ macro_rules! write_component {
             .map(|component| unsafe {
                 std::mem::transmute::<
                     std::sync::RwLockWriteGuard<'_, $component>,
-                    std::sync::RwLockWriteGuard<'static, $component>,
+                    std::sync::RwLockWriteGuard<'_, $component>,
                 >(component.write().unwrap())
             })
     };
