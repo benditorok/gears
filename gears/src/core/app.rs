@@ -2,7 +2,7 @@ use super::config::{self, Config};
 use super::Dt;
 use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::ecs::traits::Component;
-use crate::{ecs, renderer::State};
+use crate::{ecs, state::State};
 use log::{info, warn};
 use std::future::Future;
 use std::pin::Pin;
