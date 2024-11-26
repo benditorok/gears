@@ -1,7 +1,7 @@
 use cgmath::Rotation3;
 use components::misc::Health;
 use egui::Align2;
-use gears::{prelude::*, read_component, write_component};
+use gears::prelude::*;
 use log::LevelFilter;
 use std::f32::consts::PI;
 use std::sync::mpsc;
@@ -233,32 +233,32 @@ async fn main() -> anyhow::Result<()> {
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(wlock_pos3) = write_component!(ecs_lock, *sphere, Pos3) {
-                let pos3 = wlock_pos3.pos;
+            if let Some(pos3) = ecs_lock.get_component_from_entity::<Pos3>(*sphere) {
+                let mut wlock_pos3 = pos3.write().unwrap();
 
                 wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                     (0.0, 1.0, 0.0).into(),
                     cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
-                ) * pos3;
+                ) * wlock_pos3.pos;
             }
         }
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(wlock_pos3) = write_component!(ecs_lock, red_light, Pos3) {
-            let pos3 = wlock_pos3.pos;
+        if let Some(pos3) = ecs_lock.get_component_from_entity::<Pos3>(red_light) {
+            let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
                 cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-            ) * pos3;
+            ) * wlock_pos3.pos;
         }
 
-        if let Some(wlock_pos3) = write_component!(ecs_lock, blue_light, Pos3) {
-            let pos3 = wlock_pos3.pos;
+        if let Some(pos3) = ecs_lock.get_component_from_entity::<Pos3>(blue_light) {
+            let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
                 cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-            ) * pos3;
+            ) * wlock_pos3.pos;
         }
 
         // SHOOTING TEST
@@ -272,25 +272,40 @@ async fn main() -> anyhow::Result<()> {
         let elapsed = shoot_start_time.elapsed();
         if elapsed.as_secs() % 2 == 0 {
             {
-                let wlock_target_body = write_component!(ecs_lock, target, RigidBody).unwrap();
-                let wlock_target_health = write_component!(ecs_lock, target, Health).unwrap();
-                let rlock_target_pos3 = write_component!(ecs_lock, target, Pos3).unwrap();
+                let target_body = ecs_lock
+                    .get_component_from_entity::<RigidBody>(target)
+                    .unwrap();
+                let target_health = ecs_lock
+                    .get_component_from_entity::<Health>(target)
+                    .unwrap();
+                let target_pos3 = ecs_lock.get_component_from_entity::<Pos3>(target).unwrap();
 
-                let rlock_player_view = read_component!(ecs_lock, player, ViewController).unwrap();
-                let rlock_player_weapon = read_component!(ecs_lock, player, Weapon).unwrap();
-                let rlock_player_pos3 = read_component!(ecs_lock, player, Pos3).unwrap();
+                let player_view = ecs_lock
+                    .get_component_from_entity::<ViewController>(player)
+                    .unwrap();
+                let player_weapon = ecs_lock
+                    .get_component_from_entity::<Weapon>(player)
+                    .unwrap();
+                let player_pos3 = ecs_lock.get_component_from_entity::<Pos3>(player).unwrap();
+
+                let rlock_target_body = target_body.read().unwrap();
+                let mut wlock_target_health = target_health.write().unwrap();
+                let rlock_target_pos3 = target_pos3.read().unwrap();
+
+                let rlock_player_view = player_view.read().unwrap();
+                let rlock_player_weapon = player_weapon.read().unwrap();
+                let rlock_player_pos3 = player_pos3.read().unwrap();
 
                 rlock_player_weapon.shoot(
-                    rlock_player_pos3,
-                    rlock_player_view,
-                    rlock_target_pos3,
-                    wlock_target_body,
-                    wlock_target_health,
+                    &rlock_player_pos3,
+                    &rlock_player_view,
+                    &rlock_target_pos3,
+                    &rlock_target_body,
+                    &mut wlock_target_health,
                 );
 
                 if !wlock_target_health.is_alive() {
                     // Launch it up
-                    wlock_target_body.velocity = cgmath::Vector3::new(0.0, 40.0, 0.0);
                 }
             }
         }
