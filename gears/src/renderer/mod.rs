@@ -32,6 +32,7 @@ const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.0, 1.0,
 );
 
+// TODO export the state into a dedicated module
 /// Global state of the application. This is where all rendering related data is stored.
 ///
 /// The State is responsible for handling the rendering pipeline, the camera, the lights,
