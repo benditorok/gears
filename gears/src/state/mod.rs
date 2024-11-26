@@ -17,7 +17,6 @@ use winit::{
     window::Window,
 };
 
-// TODO export the state into a dedicated module
 /// Global state of the application. This is where all rendering related data is stored.
 ///
 /// The State is responsible for handling the rendering pipeline, the camera, the lights,
