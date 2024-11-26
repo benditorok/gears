@@ -19,7 +19,7 @@ Goals
 
 ![Demo](/doc/imgs/demo4.png)
 
-## Examples (some might be broken currently)
+## Examples
 
 You can try it with `cargo run --bin minimal` or run a more complex example with `cargo run --bin sandbox`.
 When creating components you can use a macro or an entity builder as well.
