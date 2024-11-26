@@ -31,12 +31,7 @@ macro_rules! read_component {
     ($ecs_lock:expr, $entity:expr, $component:ty) => {
         $ecs_lock
             .get_component_from_entity::<$component>($entity)
-            .map(|component| unsafe {
-                std::mem::transmute::<
-                    std::sync::RwLockReadGuard<'_, $component>,
-                    std::sync::RwLockReadGuard<'_, $component>,
-                >(component.read().unwrap())
-            })
+            .map(|component| unsafe { &*std::ptr::addr_of!(*component.read().unwrap()) })
     };
 }
 
@@ -46,11 +41,6 @@ macro_rules! write_component {
     ($ecs_lock:expr, $entity:expr, $component:ty) => {
         $ecs_lock
             .get_component_from_entity::<$component>($entity)
-            .map(|component| unsafe {
-                std::mem::transmute::<
-                    std::sync::RwLockWriteGuard<'_, $component>,
-                    std::sync::RwLockWriteGuard<'_, $component>,
-                >(component.write().unwrap())
-            })
+            .map(|component| unsafe { &mut *std::ptr::addr_of_mut!(*component.write().unwrap()) })
     };
 }

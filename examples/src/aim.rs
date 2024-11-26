@@ -233,7 +233,7 @@ async fn main() -> anyhow::Result<()> {
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(mut wlock_pos3) = write_component!(ecs_lock, *sphere, Pos3) {
+            if let Some(wlock_pos3) = write_component!(ecs_lock, *sphere, Pos3) {
                 let pos3 = wlock_pos3.pos;
 
                 wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -243,7 +243,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(mut wlock_pos3) = write_component!(ecs_lock, red_light, Pos3) {
+        if let Some(wlock_pos3) = write_component!(ecs_lock, red_light, Pos3) {
             let pos3 = wlock_pos3.pos;
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -252,7 +252,7 @@ async fn main() -> anyhow::Result<()> {
             ) * pos3;
         }
 
-        if let Some(mut wlock_pos3) = write_component!(ecs_lock, blue_light, Pos3) {
+        if let Some(wlock_pos3) = write_component!(ecs_lock, blue_light, Pos3) {
             let pos3 = wlock_pos3.pos;
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -272,22 +272,20 @@ async fn main() -> anyhow::Result<()> {
         let elapsed = shoot_start_time.elapsed();
         if elapsed.as_secs() % 2 == 0 {
             {
-                let mut wlock_target_body = write_component!(ecs_lock, target, RigidBody).unwrap();
-                let mut wlock_target_health = write_component!(ecs_lock, target, Health).unwrap();
+                let wlock_target_body = write_component!(ecs_lock, target, RigidBody).unwrap();
+                let wlock_target_health = write_component!(ecs_lock, target, Health).unwrap();
                 let rlock_target_pos3 = write_component!(ecs_lock, target, Pos3).unwrap();
 
                 let rlock_player_view = read_component!(ecs_lock, player, ViewController).unwrap();
                 let rlock_player_weapon = read_component!(ecs_lock, player, Weapon).unwrap();
                 let rlock_player_pos3 = read_component!(ecs_lock, player, Pos3).unwrap();
 
-                let pos3 = read_component!(ecs_lock, player, Pos3);
-
                 rlock_player_weapon.shoot(
-                    &rlock_player_pos3,
-                    &rlock_player_view,
-                    &rlock_target_pos3,
-                    &mut wlock_target_body,
-                    &mut wlock_target_health,
+                    rlock_player_pos3,
+                    rlock_player_view,
+                    rlock_target_pos3,
+                    wlock_target_body,
+                    wlock_target_health,
                 );
 
                 if !wlock_target_health.is_alive() {
