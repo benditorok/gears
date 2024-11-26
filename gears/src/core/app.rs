@@ -169,7 +169,12 @@ impl GearsApp {
 
         let window = event_loop.create_window(window_attributes)?;
         let mut state = State::new(&window, ecs).await;
-        state.init_components().await?;
+
+        // Proper error handling for initialization
+        if let Err(e) = state.init_components().await {
+            log::error!("Failed to initialize components: {}", e);
+            return Err(e);
+        }
 
         if let Some(egui_windows) = egui_windows {
             state.egui_windows = egui_windows;
@@ -240,8 +245,14 @@ impl GearsApp {
                                     log::warn!("Failed to send delta time: {:?}", e);
                                 }
 
-                                futures::executor::block_on(state.update(dt));
+                                // Handle update errors
+                                if let Err(e) = futures::executor::block_on(state.update(dt)) {
+                                    log::error!("Update failed: {}", e);
+                                    ewlt.exit();
+                                    return;
+                                }
 
+                                // Handle render errors
                                 match state.render() {
                                     Ok(_) => {}
                                     // Reconfigure the surface if it's lost or outdated
@@ -254,6 +265,11 @@ impl GearsApp {
                                     Err(wgpu::SurfaceError::Timeout) => {
                                         log::warn!("Surface timeout")
                                     }
+                                    Err(e @ wgpu::SurfaceError::OutOfMemory) => {
+                                        log::error!("Critical render error: {}", e);
+                                        ewlt.exit()
+                                    }
+                                    Err(e) => log::warn!("Render error: {}", e),
                                 }
                             }
                             _ => {}

@@ -8,7 +8,9 @@ use crate::renderer::{camera, instance, light, resources, texture};
 use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
 use log::warn;
+use std::future::Future;
 use std::iter;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{self, Instant};
@@ -405,17 +407,37 @@ impl<'a> State<'a> {
     }
 
     /// Initialize the components which can be rendered.
-    pub(crate) async fn init_components(&'a mut self) -> anyhow::Result<()> {
+    pub(crate) async fn init_components(&mut self) -> anyhow::Result<()> {
         if !init::player(self) {
             init::camera(self);
         }
 
+        init::targets(self);
         init::lights(self);
 
-        // * The order of these is important!
-        init::models(self).await;
-        init::physics_models(self).await;
-        init::targets(self);
+        // Load models and handle potential errors
+        let model_entities = init::models(
+            &self.device,
+            &self.queue,
+            &self.texture_bind_group_layout,
+            &self.ecs,
+        )
+        .await;
+
+        let physics_entities = init::physics_models(
+            &self.device,
+            &self.queue,
+            &self.texture_bind_group_layout,
+            &self.ecs,
+        )
+        .await;
+
+        self.static_model_entities = Some(model_entities.clone());
+        self.physics_entities = Some(physics_entities.clone());
+
+        let mut drawable_entities = model_entities;
+        drawable_entities.extend(physics_entities);
+        self.drawable_entities = Some(drawable_entities);
 
         Ok(())
     }
@@ -526,7 +548,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A future which can be awaited.
-    pub(crate) async fn update(&mut self, dt: time::Duration) {
+    pub(crate) async fn update(&mut self, dt: time::Duration) -> anyhow::Result<()> {
         // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {
             let ecs_lock = self.ecs.lock().unwrap();
@@ -575,6 +597,8 @@ impl<'a> State<'a> {
         self.update_physics_system(dt);
         self.update_lights();
         self.update_models();
+
+        Ok(())
     }
 
     /// Update the lights in the scene.

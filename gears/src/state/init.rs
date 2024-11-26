@@ -1,23 +1,11 @@
+use super::State;
 use crate::ecs::traits::Marker;
 use crate::ecs::{self, components};
-use crate::gui::EguiRenderer;
-use crate::renderer::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
-use crate::renderer::{camera, instance, light, resources, texture};
+use crate::renderer::model;
+use crate::renderer::{instance, light, resources};
 use cgmath::prelude::*;
-use egui_wgpu::ScreenDescriptor;
-use log::warn;
-use std::iter;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::{self, Instant};
+use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
-use winit::event::*;
-use winit::{
-    keyboard::{KeyCode, PhysicalKey},
-    window::Window,
-};
-
-use super::State;
 
 /// Initialie the player component.
 ///
@@ -183,8 +171,13 @@ pub(crate) fn lights(state: &mut State) {
 /// # Returns
 ///
 /// A future which can be awaited.
-pub(crate) async fn models<'a>(state: &'a mut State<'a>) {
-    let ecs_lock = state.ecs.lock().unwrap();
+pub(crate) async fn models<'a>(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    texture_bind_group_layout: &wgpu::BindGroupLayout,
+    ecs: &Arc<Mutex<ecs::Manager>>,
+) -> Vec<ecs::Entity> {
+    let ecs_lock = ecs.lock().unwrap();
     let model_entities =
         ecs_lock.get_entites_with_component::<components::misc::StaticModelMarker>();
 
@@ -207,22 +200,16 @@ pub(crate) async fn models<'a>(state: &'a mut State<'a>) {
             let rlock_model_source = model_source.read().unwrap();
 
             match *rlock_model_source {
-                components::models::ModelSource::Obj(path) => resources::load_model_obj(
-                    path,
-                    &state.device,
-                    &state.queue,
-                    &state.texture_bind_group_layout,
-                )
-                .await
-                .unwrap(),
-                components::models::ModelSource::Gltf(path) => resources::load_model_gltf(
-                    path,
-                    &state.device,
-                    &state.queue,
-                    &state.texture_bind_group_layout,
-                )
-                .await
-                .unwrap(),
+                components::models::ModelSource::Obj(path) => {
+                    resources::load_model_obj(path, device, queue, texture_bind_group_layout)
+                        .await
+                        .unwrap()
+                }
+                components::models::ModelSource::Gltf(path) => {
+                    resources::load_model_gltf(path, device, queue, texture_bind_group_layout)
+                        .await
+                        .unwrap()
+                }
             }
         };
         ecs_lock.add_component_to_entity(*entity, obj_model);
@@ -272,23 +259,25 @@ pub(crate) async fn models<'a>(state: &'a mut State<'a>) {
         // }
 
         let instance_raw = instance.to_raw();
-        let instance_buffer = state
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(format!("{} Instance Buffer", name.read().unwrap().0).as_str()),
-                contents: bytemuck::cast_slice(&[instance_raw]),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            });
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(format!("{} Instance Buffer", name.read().unwrap().0).as_str()),
+            contents: bytemuck::cast_slice(&[instance_raw]),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
         ecs_lock.add_component_to_entity(*entity, instance);
         ecs_lock.add_component_to_entity(*entity, instance_buffer);
     }
 
-    state.static_model_entities = Some(model_entities.clone());
-    state.drawable_entities = Some(model_entities);
+    model_entities
 }
 
-pub(crate) async fn physics_models<'a>(state: &mut State<'a>) {
-    let ecs_lock = state.ecs.lock().unwrap();
+pub(crate) async fn physics_models<'a>(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    texture_bind_group_layout: &wgpu::BindGroupLayout,
+    ecs: &Arc<Mutex<ecs::Manager>>,
+) -> Vec<ecs::Entity> {
+    let ecs_lock = ecs.lock().unwrap();
     let physics_entities =
         ecs_lock.get_entites_with_component::<components::misc::RigidBodyMarker>();
 
@@ -315,22 +304,16 @@ pub(crate) async fn physics_models<'a>(state: &mut State<'a>) {
             let rlock_model_source = model_source.read().unwrap();
 
             match *rlock_model_source {
-                components::models::ModelSource::Obj(path) => resources::load_model_obj(
-                    path,
-                    &state.device,
-                    &state.queue,
-                    &state.texture_bind_group_layout,
-                )
-                .await
-                .unwrap(),
-                components::models::ModelSource::Gltf(path) => resources::load_model_gltf(
-                    path,
-                    &state.device,
-                    &state.queue,
-                    &state.texture_bind_group_layout,
-                )
-                .await
-                .unwrap(),
+                components::models::ModelSource::Obj(path) => {
+                    resources::load_model_obj(path, device, queue, texture_bind_group_layout)
+                        .await
+                        .unwrap()
+                }
+                components::models::ModelSource::Gltf(path) => {
+                    resources::load_model_gltf(path, device, queue, texture_bind_group_layout)
+                        .await
+                        .unwrap()
+                }
             }
         };
         ecs_lock.add_component_to_entity(*entity, obj_model);
@@ -381,26 +364,20 @@ pub(crate) async fn physics_models<'a>(state: &mut State<'a>) {
         // }
 
         let instance_raw = instance.to_raw();
-        let instance_buffer = state
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(format!("{} Instance Buffer", name.read().unwrap().0).as_str()),
-                contents: bytemuck::cast_slice(&[instance_raw]),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            });
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(format!("{} Instance Buffer", name.read().unwrap().0).as_str()),
+            contents: bytemuck::cast_slice(&[instance_raw]),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
         ecs_lock.add_component_to_entity(*entity, instance);
         ecs_lock.add_component_to_entity(*entity, instance_buffer);
 
         // Create a wireframe collider from the RigidBody's data
-        let wireframe = model::WireframeMesh::new(&state.device, &physics_body.read().unwrap());
+        let wireframe = model::WireframeMesh::new(device, &physics_body.read().unwrap());
         ecs_lock.add_component_to_entity(*entity, wireframe);
     }
 
-    state.physics_entities = Some(physics_entities.clone());
-
-    if let Some(drawable_entities) = &mut state.drawable_entities {
-        drawable_entities.extend(physics_entities);
-    }
+    physics_entities
 }
 
 pub(crate) fn targets(state: &mut State) {
