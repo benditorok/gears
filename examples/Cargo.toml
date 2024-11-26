@@ -32,9 +32,9 @@ debug = true
 name = "minimal"
 path = "src/minimal.rs"
 
-# [[bin]]
-# name = "sandbox"
-# path = "src/sandbox.rs"
+[[bin]]
+name = "sandbox"
+path = "src/sandbox.rs"
 
 [[bin]]
 name = "custom_window"
@@ -44,9 +44,9 @@ path = "src/custom_window.rs"
 name = "physics"
 path = "src/physics.rs"
 
-# [[bin]]
-# name = "animations"
-# path = "src/animations.rs"
+[[bin]]
+name = "animations"
+path = "src/animations.rs"
 
 [[bin]]
 name = "aim"

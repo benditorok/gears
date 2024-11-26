@@ -18,73 +18,66 @@ async fn main() -> anyhow::Result<()> {
     // Add FPS camera
     new_entity!(
         app,
-        components::Name("FPS Camera"),
-        components::transforms::Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
-        components::Camera::Dynamic {
-            look_at: cgmath::Point3::new(0.0, 0.0, 0.0),
-            speed: 10.0,
-            sensitivity: 0.5,
-            keycodes: components::MovementKeycodes::default(),
-        }
+        CameraMarker,
+        Name("FPS Camera"),
+        Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+        ViewController::new_look_at(
+            cgmath::Point3::new(30.0, 20.0, 30.0),
+            cgmath::Point3::new(0.0, 0.0, 0.0),
+            0.8,
+            0.0,
+        ),
+        MovementController::default(),
     );
 
     // Use the entity builder
     app.new_entity() // Add ambient light
-        .add_component(components::Name("Ambient Light"))
-        .add_component(components::lights::Light::Ambient { intensity: 0.05 })
-        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
-            0.0, 50.0, 0.0,
-        )))
+        .add_component(LightMarker)
+        .add_component(Name("Ambient Light"))
+        .add_component(Light::Ambient { intensity: 0.05 })
+        .add_component(Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
         .new_entity() // Add directional light
-        .add_component(components::Name("Directional Light"))
-        .add_component(components::lights::Light::Directional {
+        .add_component(LightMarker)
+        .add_component(Name("Directional Light"))
+        .add_component(Light::Directional {
             direction: [-0.5, -0.5, 0.0],
             intensity: 0.3,
         })
-        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
-            30.0, 30.0, 30.0,
-        )))
+        .add_component(Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0)))
         .new_entity() // Add a green light
-        .add_component(components::Name("White Light"))
-        .add_component(components::lights::Light::PointColoured {
+        .add_component(LightMarker)
+        .add_component(Name("White Light"))
+        .add_component(Light::PointColoured {
             radius: 10.0,
             color: [0.6, 0.6, 0.8],
             intensity: 0.4,
         })
-        .add_component(components::transforms::Pos3::new(cgmath::Vector3::new(
-            -4.0, 4.0, 4.0,
-        )))
+        .add_component(Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
         .build();
 
     let animated_cube = new_entity!(
         app,
-        components::Name("test"),
-        components::models::ModelSource::Gltf("gltf/cube/AnimatedCube.gltf"),
-        components::models::StaticModel {
-            position: cgmath::Vector3::new(0.0, 0.0, 0.0),
-            rotation: Quaternion::one(),
-        },
-        components::AnimationQueue::default(),
+        StaticModelMarker,
+        Name("test"),
+        ModelSource::Gltf("gltf/cube/AnimatedCube.gltf"),
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        AnimationQueue::default(),
     );
 
     new_entity!(
         app,
-        components::Name("test"),
-        components::models::ModelSource::Gltf("gltf/helmet/DamagedHelmet.gltf"),
-        components::models::StaticModel {
-            position: cgmath::Vector3::new(0.0, 5.0, 0.0),
-            rotation: Quaternion::from_angle_x(cgmath::Rad(90.0)),
-        },
+        StaticModelMarker,
+        Name("test"),
+        ModelSource::Gltf("gltf/helmet/DamagedHelmet.gltf"),
+        Pos3::new(cgmath::Vector3::new(0.0, 5.0, 0.0)),
     );
 
     new_entity!(
         app,
-        components::Name("Sphere1"),
-        components::models::ModelSource::Obj("models/sphere/sphere.obj"),
-        components::models::StaticModel {
-            position: cgmath::Vector3::new(0.0, 0.0, 5.0),
-            rotation: Quaternion::one(),
-        },
+        StaticModelMarker,
+        Name("Sphere1"),
+        ModelSource::Obj("models/sphere/sphere.obj"),
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 5.0)),
     );
 
     // ! Custom windows
@@ -118,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
             let animation_queue = ecs
                 .lock()
                 .unwrap()
-                .get_component_from_entity::<components::AnimationQueue>(animated_cube)
+                .get_component_from_entity::<AnimationQueue>(animated_cube)
                 .unwrap();
 
             animation_queue
