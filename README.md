@@ -31,13 +31,14 @@ When creating components you can use a macro or an entity builder as well.
 
     let red_light = new_entity!(
         app,
+        LightMarker,
+        components::Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0))
         components::Name("Red Light"),
         components::Light::PointColoured {
             radius: 10.0,
             color: [0.8, 0.0, 0.0],
             intensity: 1.0,
         },
-        components::Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0))
     );
 ```
 
@@ -70,13 +71,13 @@ When creating components you can use a macro or an entity builder as well.
         let circle_speed = 8.0f32;
         let light_speed_multiplier = 3.0f32;
 
-        if let Some(pos) = ecs.get_component_from_entity::<components::Pos3>(red_light) {
-            let mut pos3 = pos.write().unwrap();
+        if let Some(pos3) = ecs.get_component_from_entity::<Pos3>(red_light) {
+            let mut wlock_pos3 = pos3.write().unwrap();
 
-            pos3.pos = cgmath::Quaternion::from_axis_angle(
+            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
                 cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-            ) * pos3.pos;
+            ) * wlock_pos3.pos;
         }
     })
     .await?;
