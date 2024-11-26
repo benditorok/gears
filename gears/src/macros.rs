@@ -40,14 +40,6 @@ macro_rules! read_component {
     };
 }
 
-/*
-gears/src/ecs/mod.rs let component = Arc::clone(component);
-                unsafe {
-                    // SAFETY: We ensure that the component is of type T
-                    let component_ptr = Arc::into_raw(component) as *const RwLock<T>;
-                    Arc::from_raw(component_ptr)
-                } */
-
 /// A macro to aquire a write lock for component of an entity.
 #[macro_export]
 macro_rules! write_component {
