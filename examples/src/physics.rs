@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("models/sphere/sphere.obj"),
     );
 
     // Physics Body 2
@@ -81,7 +81,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("models/sphere/sphere.obj"),
     );
 
     new_entity!(
@@ -98,7 +98,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("models/cube/cube.obj"),
     );
     // * END moving objects
     // Bouncing sphere
@@ -111,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
-        ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("models/cube/cube.obj"),
     );
 
     new_entity!(
@@ -128,7 +128,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("models/sphere/sphere.obj"),
     );
 
     // Falling sphere bouncing off into the void
@@ -141,7 +141,7 @@ async fn main() -> anyhow::Result<()> {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
-        ModelSource::Obj("res/models/cube/cube.obj"),
+        ModelSource::Obj("models/cube/cube.obj"),
     );
 
     new_entity!(
@@ -158,7 +158,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("models/sphere/sphere.obj"),
     );
 
     // Plane
@@ -171,7 +171,7 @@ async fn main() -> anyhow::Result<()> {
             min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
             max: cgmath::Vector3::new(50.0, 0.1, 50.0),
         },),
-        ModelSource::Obj("res/models/plane/plane.obj"),
+        ModelSource::Obj("models/plane/plane.obj"),
     );
 
     new_entity!(
@@ -188,7 +188,7 @@ async fn main() -> anyhow::Result<()> {
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
         ),
-        ModelSource::Obj("res/models/sphere/sphere.obj"),
+        ModelSource::Obj("models/sphere/sphere.obj"),
     );
 
     // Run the application
