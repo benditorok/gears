@@ -202,7 +202,7 @@ pub(crate) fn update_models(state: &mut State) {
     }
 }
 
-fn update_physics_system(state: &mut State, dt: time::Duration) {
+pub(crate) fn update_physics_system(state: &mut State, dt: time::Duration) {
     let dt = dt.as_secs_f32();
     let mut physics_bodies = Vec::new();
 

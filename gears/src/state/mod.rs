@@ -596,8 +596,8 @@ impl<'a> State<'a> {
         }
 
         update::update_lights(self);
-        update::update_lights(self);
         update::update_models(self);
+        update::update_physics_system(self);
 
         Ok(())
     }
