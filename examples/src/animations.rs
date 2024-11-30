@@ -1,4 +1,3 @@
-use cgmath::{One, Quaternion, Rotation3};
 use egui::Align2;
 use gears::prelude::*;
 use log::LevelFilter;

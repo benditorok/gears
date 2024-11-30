@@ -4,7 +4,6 @@ use crate::{
     prelude::{Pos3, ViewController},
 };
 use gears_macro::Component;
-use log::info;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Weapon {

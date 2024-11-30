@@ -1,17 +1,12 @@
 mod init;
 mod update;
 
-use crate::ecs::traits::Marker;
 use crate::ecs::{self, components};
 use crate::gui::EguiRenderer;
 use crate::renderer::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
-use crate::renderer::{camera, instance, light, resources, texture};
-use cgmath::prelude::*;
+use crate::renderer::{camera, instance, light, texture};
 use egui_wgpu::ScreenDescriptor;
-use log::warn;
-use std::future::Future;
 use std::iter;
-use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{self, Instant};

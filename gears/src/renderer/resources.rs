@@ -1,7 +1,6 @@
 use super::{model, texture};
 use anyhow::Context;
 use gltf::Gltf;
-use image::GenericImageView;
 use log::{info, warn};
 use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
@@ -296,14 +295,15 @@ pub(crate) async fn load_model_gltf(
     for material in gltf.materials() {
         println!("Looping thru materials");
         let pbr = material.pbr_metallic_roughness();
-        let base_color_texture = &pbr.base_color_texture();
+        // let base_color_texture = &pbr.base_color_texture();
         let texture_source = &pbr
             .base_color_texture()
             .map(|tex| tex.texture().source().source())
             .expect("texture");
 
         match texture_source {
-            gltf::image::Source::View { view, mime_type } => {
+            // Removed mime_type
+            gltf::image::Source::View { view, .. } => {
                 let texture = texture::Texture::from_bytes(
                     device,
                     queue,
@@ -334,7 +334,8 @@ pub(crate) async fn load_model_gltf(
                     bind_group,
                 });
             }
-            gltf::image::Source::Uri { uri, mime_type } => {
+            // Removed mime_type
+            gltf::image::Source::Uri { uri, .. } => {
                 let uri_path = Path::new(env!("RES_DIR")).join(model_root_dir).join(uri);
                 let diffuse_texture = load_texture_path(uri_path, device, queue).await?;
                 // Removed the invalid cloning line:

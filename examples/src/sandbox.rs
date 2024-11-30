@@ -1,4 +1,4 @@
-use cgmath::{One, Rotation3};
+use cgmath::Rotation3;
 use gears::prelude::*;
 use log::LevelFilter;
 use std::f32::consts::PI;
