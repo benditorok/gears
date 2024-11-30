@@ -1,4 +1,5 @@
 mod init;
+mod update;
 
 use crate::ecs::traits::Marker;
 use crate::ecs::{self, components};
@@ -595,66 +596,10 @@ impl<'a> State<'a> {
         }
 
         self.update_physics_system(dt);
-        self.update_lights();
+        update::update_lights(self);
         self.update_models();
 
         Ok(())
-    }
-
-    /// Update the lights in the scene.
-    ///
-    /// # Returns
-    ///
-    /// A future which can be awaited.
-    fn update_lights(&mut self) {
-        if let Some(light_entities) = &self.light_entities {
-            let mut light_uniforms: Vec<light::LightUniform> = Vec::new();
-
-            for entity in light_entities {
-                let ecs_lock = self.ecs.lock().unwrap();
-
-                let pos = ecs_lock
-                    .get_component_from_entity::<components::transforms::Pos3>(*entity)
-                    .unwrap();
-                let light_uniform = ecs_lock
-                    .get_component_from_entity::<light::LightUniform>(*entity)
-                    .unwrap();
-                let light = ecs_lock
-                    .get_component_from_entity::<components::lights::Light>(*entity)
-                    .unwrap();
-
-                {
-                    // TODO update the colors
-                    let rlock_pos = pos.read().unwrap();
-                    let mut wlock_light_uniform = light_uniform.write().unwrap();
-
-                    wlock_light_uniform.position =
-                        [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z];
-                }
-
-                let rlock_light_uniform = light_uniform.read().unwrap();
-
-                light_uniforms.push(*rlock_light_uniform);
-            }
-
-            let num_lights = light_uniforms.len() as u32;
-
-            let light_data = light::LightData {
-                lights: {
-                    let mut array =
-                        [light::LightUniform::default(); light::NUM_MAX_LIGHTS as usize];
-                    for (i, light) in light_uniforms.iter().enumerate() {
-                        array[i] = *light;
-                    }
-                    array
-                },
-                num_lights,
-                _padding: [0; 3],
-            };
-
-            self.queue
-                .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
-        }
     }
 
     /// Update the models in the scene.
