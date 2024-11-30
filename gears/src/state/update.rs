@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// Update the lights in the scene.
-pub(crate) fn update_lights(state: &mut State) {
+pub(crate) fn lights(state: &mut State) {
     if let Some(light_entities) = &state.light_entities {
         let mut light_uniforms: Vec<light::LightUniform> = Vec::new();
 
@@ -61,7 +61,7 @@ pub(crate) fn update_lights(state: &mut State) {
 }
 
 /// Update the models in the scene.
-pub(crate) fn update_models(state: &mut State) {
+pub(crate) fn models(state: &mut State) {
     if let Some(model_entities) = &state.static_model_entities {
         for entity in model_entities {
             let ecs_lock = state.ecs.lock().unwrap();
@@ -202,7 +202,7 @@ pub(crate) fn update_models(state: &mut State) {
     }
 }
 
-pub(crate) fn update_physics_system(state: &mut State, dt: time::Duration) {
+pub(crate) fn physics_system(state: &mut State, dt: time::Duration) {
     let dt = dt.as_secs_f32();
     let mut physics_bodies = Vec::new();
 
