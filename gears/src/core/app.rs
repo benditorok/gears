@@ -259,17 +259,15 @@ impl GearsApp {
                                     Err(
                                         wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated,
                                     ) => state.resize(state.size),
-                                    // The system is out of memory, we should probably quit
-                                    Err(wgpu::SurfaceError::OutOfMemory) => ewlt.exit(),
-                                    // We're ignoring timeouts
-                                    Err(wgpu::SurfaceError::Timeout) => {
-                                        log::warn!("Surface timeout")
-                                    }
+                                    // The system is out of memory and must exit
                                     Err(e @ wgpu::SurfaceError::OutOfMemory) => {
                                         log::error!("Critical render error: {}", e);
                                         ewlt.exit()
                                     }
-                                    Err(e) => log::warn!("Render error: {}", e),
+                                    // Ignore timeout errors
+                                    Err(wgpu::SurfaceError::Timeout) => {
+                                        log::warn!("Surface timeout")
+                                    }
                                 }
                             }
                             _ => {}
@@ -287,7 +285,7 @@ impl GearsApp {
         Ok(())
     }
 
-    /// Create a new update job.
+    /* /// Create a new update job.
     /// This will create a new async task that will run the given update function on each update.
     #[warn(unstable_features)]
     pub async fn update_loop_async<F>(&self, f: F) -> anyhow::Result<()>
@@ -320,7 +318,7 @@ impl GearsApp {
         });
 
         Ok(())
-    }
+    } */
 }
 
 impl Drop for GearsApp {
