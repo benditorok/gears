@@ -30,6 +30,7 @@ async fn main() -> anyhow::Result<()> {
     // ! Custom windows
     // Informations about the renderer
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
+    let frames_start = time::Instant::now();
     app.add_window(Box::new(move |ui| {
         egui::Window::new("Renderer info")
             .default_open(true)
@@ -42,6 +43,31 @@ async fn main() -> anyhow::Result<()> {
                 if let Ok(dt) = w1_frame_rx.try_recv() {
                     ui.label(format!("Frame time: {:.2} ms", dt.as_secs_f32() * 1000.0));
                     ui.label(format!("FPS: {:.0}", 1.0 / dt.as_secs_f32()));
+
+                    // TEMP: Average frame time and FPS
+                    unsafe {
+                        static mut FRAME_TIMES: Vec<f32> = Vec::new();
+
+                        let current_time = dt.as_secs_f32() * 1000.0;
+                        FRAME_TIMES.push(current_time);
+
+                        // Keep only frames from the last second
+                        while FRAME_TIMES.len() > 0 && FRAME_TIMES[0] < current_time - 1000.0 {
+                            FRAME_TIMES.remove(0);
+                        }
+
+                        let avg_frame_time =
+                            FRAME_TIMES.iter().sum::<f32>() / FRAME_TIMES.len() as f32;
+                        let avg_fps = 1000.0 / avg_frame_time;
+
+                        ui.label(format!("Avg frame time: {:.2} ms", avg_frame_time));
+                        ui.label(format!("Avg FPS: {:.0}", avg_fps));
+
+                        // Reset stats
+                        if ui.button("Reset stats").clicked() {
+                            FRAME_TIMES.clear();
+                        }
+                    }
                 }
                 ui.end_row();
             });
