@@ -223,18 +223,18 @@ async fn main() -> anyhow::Result<()> {
         ModelSource::Obj("models/cube/cube.obj"),
     );
 
-    // Merc
-    new_entity!(
-        app,
-        RigidBodyMarker,
-        Name("Merc"),
-        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
-        RigidBody::new_static(CollisionBox {
-            min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
-            max: cgmath::Vector3::new(1.0, 1.0, 1.0),
-        },),
-        ModelSource::Gltf("gltf/merc/scene.gltf"),
-    );
+    // // Merc
+    // new_entity!(
+    //     app,
+    //     RigidBodyMarker,
+    //     Name("Merc"),
+    //     Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+    //     RigidBody::new_static(CollisionBox {
+    //         min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+    //         max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+    //     },),
+    //     ModelSource::Gltf("gltf/merc/scene.gltf"),
+    // );
 
     // Target
     let target = new_entity!(
