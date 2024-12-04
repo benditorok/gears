@@ -293,13 +293,30 @@ pub(crate) async fn load_model_gltf(
     // Load materials
     let mut materials = Vec::new();
     for material in gltf.materials() {
-        println!("Looping thru materials");
         let pbr = material.pbr_metallic_roughness();
-        // let base_color_texture = &pbr.base_color_texture();
         let texture_source = &pbr
             .base_color_texture()
-            .map(|tex| tex.texture().source().source())
-            .expect("texture");
+            .map(|tex| tex.texture().source().source());
+
+        let texture_source = match texture_source {
+            Some(source) => source,
+            None => {
+                warn!("No texture source found for material {:?}", material.name());
+
+                println!("Continue? (y/n)");
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input).unwrap();
+
+                if input.trim() == "y" {
+                    continue;
+                } else {
+                    panic!(
+                        "Aborting due to missing texture source for material {:?}",
+                        material.name()
+                    );
+                }
+            }
+        };
 
         match texture_source {
             // Removed mime_type
