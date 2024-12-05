@@ -12,7 +12,7 @@ use wgpu::util::DeviceExt;
 /// # Returns
 ///
 /// A boolean indicating whether the player was found.
-pub(crate) fn player(state: &mut State) -> bool {
+pub(super) fn player(state: &mut State) -> bool {
     let ecs_lock = state.ecs.lock().unwrap();
 
     // * Look for a player first and retrieve it's camera
@@ -41,7 +41,7 @@ pub(crate) fn player(state: &mut State) -> bool {
 }
 
 /// Initialize the camera component.
-pub(crate) fn camera(state: &mut State) {
+pub(super) fn camera(state: &mut State) {
     let ecs_lock = state.ecs.lock().unwrap();
 
     let mut static_camera_entity =
@@ -73,7 +73,7 @@ pub(crate) fn camera(state: &mut State) {
 }
 
 /// Initialize the light components.
-pub(crate) fn lights(state: &mut State) {
+pub(super) fn lights(state: &mut State) {
     let ecs_lock = state.ecs.lock().unwrap();
     let light_entities = ecs_lock.get_entites_with_component::<components::misc::LightMarker>();
 
@@ -171,7 +171,7 @@ pub(crate) fn lights(state: &mut State) {
 /// # Returns
 ///
 /// A future which can be awaited.
-pub(crate) async fn models<'a>(
+pub(super) async fn models<'a>(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
@@ -271,7 +271,7 @@ pub(crate) async fn models<'a>(
     model_entities
 }
 
-pub(crate) async fn physics_models<'a>(
+pub(super) async fn physics_models<'a>(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
@@ -380,7 +380,7 @@ pub(crate) async fn physics_models<'a>(
     physics_entities
 }
 
-pub(crate) fn targets(state: &mut State) {
+pub(super) fn targets(state: &mut State) {
     let ecs_lock = state.ecs.lock().unwrap();
     let target_entities = ecs_lock.get_entites_with_component::<components::misc::TargetMarker>();
 
