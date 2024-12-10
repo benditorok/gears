@@ -27,7 +27,7 @@ impl CameraUniform {
             (projection.calc_matrix() * CameraUniform::calc_matrix(controller, pos3)).into();
     }
 
-    pub(crate) fn calc_matrix(
+    fn calc_matrix(
         controller: &components::controllers::ViewController,
         pos3: &components::transforms::Pos3,
     ) -> Matrix4<f32> {
@@ -67,7 +67,7 @@ impl Projection {
         self.aspect = width as f32 / height as f32;
     }
 
-    pub fn calc_matrix(&self) -> Matrix4<f32> {
+    fn calc_matrix(&self) -> Matrix4<f32> {
         OPENGL_TO_WGPU_MATRIX * perspective(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
