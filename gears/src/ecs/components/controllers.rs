@@ -134,7 +134,7 @@ impl MovementController {
             // Cap velocity after applying changes
             rb.cap_velocity();
         } else {
-            // Flying movement (original behavior)
+            // Flying movement
             let movement = forward * (self.amount_forward - self.amount_backward) * self.speed * dt
                 + right * (self.amount_right - self.amount_left) * self.speed * dt
                 + up * (self.amount_up - self.amount_down) * self.speed * dt;

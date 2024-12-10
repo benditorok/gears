@@ -1,11 +1,11 @@
 use super::config::{self, Config};
+use super::event::GearsEvent;
+use super::threadpool::ThreadPool;
 use super::Dt;
-use super::{event::EventQueue, threadpool::ThreadPool};
 use crate::ecs::traits::Component;
 use crate::{ecs, state::State};
+use crossbeam;
 use log::{info, warn};
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time;
@@ -14,30 +14,15 @@ use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::WindowAttributes;
 
-pub trait App {
-    fn new(config: Config) -> Self;
-    #[allow(async_fn_in_trait)]
-    async fn run(&mut self) -> anyhow::Result<()>;
-    fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>>;
-    fn get_ecs(&self) -> Arc<Mutex<ecs::Manager>>;
-    #[allow(async_fn_in_trait)]
-    async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
-    where
-        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static;
-    fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>);
-    // TODO add a create job fn to access the thread pool
-}
-
-/// This struct is used to manage the entire application.
+// This struct is used to manage the entire application.
 /// The application can also be used to create entities, add components, windows etc. to itself.
 pub struct GearsApp {
     config: Config,
     ecs: Arc<Mutex<ecs::Manager>>,
     pub thread_pool: ThreadPool,
-    event_queue: EventQueue,
     egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
-    tx_dt: Option<broadcast::Sender<Dt>>,
-    rx_dt: Option<broadcast::Receiver<Dt>>,
+    tx_dt: Option<tokio::sync::broadcast::Sender<Dt>>,
+    rx_dt: Option<tokio::sync::broadcast::Receiver<Dt>>,
     is_running: Arc<AtomicBool>,
 }
 
@@ -47,7 +32,7 @@ impl Default for GearsApp {
     }
 }
 
-impl App for GearsApp {
+impl GearsApp {
     /// Initialize the application.
     /// This will create a new instance of the application with the given configuration.
     ///
@@ -58,13 +43,12 @@ impl App for GearsApp {
     /// # Returns
     ///
     /// A new instance of the application.
-    fn new(config: config::Config) -> Self {
+    pub fn new(config: config::Config) -> Self {
         assert!(config.threadpool_size >= 1);
 
         let (tx_dt, rx_dt) = broadcast::channel(64);
 
         Self {
-            event_queue: EventQueue::new(),
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
             ecs: Arc::new(Mutex::new(ecs::Manager::default())),
@@ -76,7 +60,7 @@ impl App for GearsApp {
     }
 
     /// Run the application and start the event loop.
-    async fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> anyhow::Result<()> {
         info!("Starting Gears...");
 
         let tx = self.tx_dt.take().unwrap();
@@ -97,7 +81,7 @@ impl App for GearsApp {
     /// # Returns
     ///
     /// A mutable reference to the ecs manager.
-    fn get_ecs(&self) -> Arc<Mutex<ecs::Manager>> {
+    pub fn get_ecs(&self) -> Arc<Mutex<ecs::Manager>> {
         Arc::clone(&self.ecs)
     }
 
@@ -108,13 +92,17 @@ impl App for GearsApp {
     /// # Arguments
     ///
     /// * `f` - The function to run on each update.
-    async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
+    pub async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
     where
         F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static,
     {
         let mut rx_dt = self
             .get_dt_channel()
-            .ok_or_else(|| anyhow::anyhow!("No dt channel exists"))?;
+            .ok_or_else(|| anyhow::anyhow!("No dt reciever channel exists"))?;
+
+        // let mut rx_event = self
+        //     .get_event_channel()
+        //     .ok_or_else(|| anyhow::anyhow!("No event reciever channel exists"))?;
 
         let ecs = Arc::clone(&self.ecs);
         let is_running = Arc::clone(&self.is_running);
@@ -140,22 +128,20 @@ impl App for GearsApp {
     /// # Arguments
     ///
     /// * `window` - A function that will be called to render the window.
-    fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>) {
+    pub fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>) {
         if let Some(windows) = &mut self.egui_windows {
             windows.push(window);
         } else {
             self.egui_windows = Some(vec![window]);
         }
     }
-}
 
-impl GearsApp {
     /// The main event loop of the application
     ///
     /// # Returns
     ///
     /// A future which can be awaited.
-    pub async fn run_engine(
+    async fn run_engine(
         ecs: Arc<Mutex<ecs::Manager>>,
         tx_dt: broadcast::Sender<Dt>,
         egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,

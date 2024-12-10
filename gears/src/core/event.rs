@@ -1,56 +1,60 @@
-use std::{
-    collections::VecDeque,
-    fmt::Debug,
-    sync::{Arc, Mutex},
-};
+use log::error;
+use std::fmt::Debug;
+use std::sync::mpsc::{self, Receiver, RecvError, SendError, Sender, TryRecvError};
 
-#[derive(Debug)]
-pub enum WindowEvent {
-    Resize(u32, u32), // width, height
-    Update,
-    Redraw,
-}
+// #[derive(Debug)]
+// pub enum WindowEvent {
+//     Resize(u32, u32), // width, height
+//     Update,
+//     Redraw,
+// }
 
-#[derive(Debug)]
-pub enum DeviceEvent {
-    MouseMotion,
-    MouseWheel,
-    KeyboardInput,
-}
+// #[derive(Debug)]
+// pub enum DeviceEvent {
+//     MouseMotion,
+//     MouseWheel,
+//     KeyboardInput,
+// }
 
 #[derive(Debug)]
 pub enum GearsEvent {
-    WindowEvent(WindowEvent),
-    DeviceEvent(DeviceEvent),
-    CustomEvent,
-    UserEvent,
-    CloseRequest,
+    Shoot { pos: [i32; 3], ray: [i32; 3] },
 }
 
-pub struct EventQueue {
-    events: Arc<Mutex<VecDeque<GearsEvent>>>,
-}
+// pub struct EventSystem {
+//     sender: Sender<GearsEvent>,
+//     receiver: Receiver<GearsEvent>,
+// }
 
-impl Default for EventQueue {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for EventSystem {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
-impl EventQueue {
-    pub fn new() -> Self {
-        Self {
-            events: Arc::new(Mutex::new(VecDeque::new())),
-        }
-    }
+// impl EventSystem {
+//     pub fn new() -> Self {
+//         let (sender, receiver) = mpsc::channel();
+//         Self { sender, receiver }
+//     }
 
-    pub fn add_event(&mut self, event: GearsEvent) {
-        let events = &mut self.events.lock().unwrap();
-        events.push_back(event);
-    }
+//     pub(crate) fn try_receive(&self) -> Option<GearsEvent> {
+//         match self.receiver.try_recv() {
+//             Ok(event) => Some(event),
+//             Err(TryRecvError::Disconnected) => {
+//                 error!("Failed to receive event: channel disconnected");
+//                 None
+//             }
+//             Err(TryRecvError::Empty) => None,
+//         }
+//     }
 
-    pub fn remove_event(&mut self) -> Option<GearsEvent> {
-        let events = &mut self.events.lock().unwrap();
-        events.pop_front()
-    }
-}
+//     pub fn send(&self, event: GearsEvent) -> bool {
+//         if let Err(SendError(e)) = self.sender.send(event) {
+//             error!("Failed to send event: channel disconnected. Event: {:?}", e);
+//             false
+//         } else {
+//             true
+//         }
+//     }
+// }

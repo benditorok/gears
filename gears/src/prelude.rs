@@ -1,6 +1,6 @@
 #[allow(unused)]
 pub use crate::{
-    core::app::{self, App, GearsApp},
+    core::app::{self, GearsApp},
     core::Dt,
     ecs,
     ecs::components::interactive::Weapon,
