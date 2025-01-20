@@ -1,4 +1,4 @@
-use crate::ecs::traits::Component;
+use crate::ecs::Component;
 use cgmath::One;
 use gears_macro::Component;
 

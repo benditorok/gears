@@ -1,6 +1,6 @@
 use log::warn;
 
-use super::{traits::Component, Entity, World};
+use super::{Component, Entity, EntityBuilder, World};
 
 pub struct EcsBuilder<'a> {
     ecs: &'a mut World,
@@ -12,7 +12,7 @@ impl<'a> EcsBuilder<'a> {
     }
 }
 
-impl super::traits::EntityBuilder for EcsBuilder<'_> {
+impl EntityBuilder for EcsBuilder<'_> {
     fn new_entity(&mut self) -> &mut Self {
         self.ecs.create_entity();
 
@@ -46,7 +46,6 @@ impl super::traits::EntityBuilder for EcsBuilder<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::traits::EntityBuilder;
 
     #[derive(Debug, PartialEq)]
     struct TestComponent {
@@ -57,7 +56,7 @@ mod tests {
 
     #[test]
     fn test_create_entity() {
-        let mut manager = Manager::default();
+        let mut manager = World::default();
         let entity = EcsBuilder::new(&mut manager).new_entity().build();
 
         assert_eq!(Entity(0), entity);
@@ -66,7 +65,7 @@ mod tests {
 
     #[test]
     fn test_add_component() {
-        let mut manager = Manager::default();
+        let mut manager = World::default();
         let entity = EcsBuilder::new(&mut manager)
             .new_entity()
             .add_component(TestComponent { value: 42 })
@@ -80,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_chain_add_components() {
-        let mut manager = Manager::default();
+        let mut manager = World::default();
         let entity = EcsBuilder::new(&mut manager)
             .new_entity()
             .add_component(TestComponent { value: 42 })

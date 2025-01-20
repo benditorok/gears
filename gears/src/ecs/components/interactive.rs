@@ -1,6 +1,6 @@
 use super::{misc::Health, physics::RigidBody};
 use crate::{
-    ecs::traits::Component,
+    ecs::Component,
     prelude::{Pos3, ViewController},
 };
 use gears_macro::Component;

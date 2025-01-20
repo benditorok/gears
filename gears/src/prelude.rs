@@ -17,7 +17,6 @@ pub use crate::{
         prefabs,
         transforms::{Flip, Pos3, Scale},
     },
-    ecs::traits::{Component, EntityBuilder},
     // Macros
     new_entity,
 };

@@ -1,15 +1,69 @@
 pub mod components;
-pub mod traits;
 pub mod utils;
 
 use dashmap::{mapref::one::RefMut, DashMap};
 use gltf::accessor::Item;
 use std::any::{Any, TypeId};
+use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use traits::Component;
 
-pub type Entity = u32;
+/// An entity is a unique identifier that can be attached to components.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Entity(u32);
+
+impl Entity {
+    /// Create a new entity.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The id of the entity.
+    ///
+    /// # Returns
+    ///
+    /// A new entity.
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+}
+
+impl Deref for Entity {
+    type Target = u32;
+
+    /// Get the Id field of the entity.
+    ///
+    /// # Returns
+    ///
+    /// The id of the entity.
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<u32> for Entity {
+    /// Create a new entity from a number.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The id of the entity.
+    ///
+    /// # Returns
+    ///
+    /// A new entity.
+    fn from(id: u32) -> Self {
+        Self(id)
+    }
+}
+
+/// A component marker that can be attached to an entity.
+pub trait Component: 'static + Send + Sync {}
+
+/// The EntityBuilder trait is responsible for creating entities and adding components to them.
+pub trait EntityBuilder {
+    fn new_entity(&mut self) -> &mut Self;
+    fn add_component(&mut self, component: impl Component) -> &mut Self;
+    fn build(&mut self) -> Entity;
+}
 
 /// The ComponentStorage struct is responsible for storing components of a specific type.
 /// It uses a DashMap to store the components, which allows for concurrent reads and writes.
@@ -144,24 +198,21 @@ impl World {
         self.next_entity.fetch_add(1, Ordering::SeqCst)
     }
 
-    /// Remove an entity from the world with all of it's components.
+    /// Remove an entity from the world with all of its components.
     ///
-    /// # Returns
+    /// # Arguments
     ///
-    /// True if the entity was removed, false otherwise.
-    pub fn remove_entity(&mut self) -> bool {
-        let entity_id = self.next_entity.load(Ordering::SeqCst);
-        self.storage.iter().for_each(|entry| {
+    /// * `entity` - The entity to remove.
+    pub fn remove_entity(&mut self, entity: Entity) {
+        for entry in self.storage.iter() {
             let storage = entry.value();
-            storage
+            if let Some(any_storage) = storage
                 .as_ref()
-                .as_any()
-                .downcast_ref::<ComponentStorage<dyn Any>>()
-                .map(|component_storage| {
-                    component_storage.storage.retain(|key, _| key != &entity_id);
-                });
-        });
-        true
+                .downcast_ref::<ComponentStorage<Box<dyn Any + Send + Sync>>>()
+            {
+                any_storage.remove(entity);
+            }
+        }
     }
 
     /// Get the number of entities in the world.

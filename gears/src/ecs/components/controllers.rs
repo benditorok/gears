@@ -1,4 +1,4 @@
-use crate::{prelude::Component, SAFE_FRAC_PI_2};
+use crate::{ecs::Component, SAFE_FRAC_PI_2};
 use cgmath::{InnerSpace, Point3, Rotation3, Vector3};
 use gears_macro::Component;
 use log::info;

@@ -1,4 +1,4 @@
-use crate::ecs::traits::Component;
+use crate::ecs::Component;
 use gears_macro::Component;
 
 /// A component that stores the source of a model.

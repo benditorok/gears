@@ -3,6 +3,7 @@ use super::event::GearsEvent;
 use super::threadpool::ThreadPool;
 use super::Dt;
 use crate::ecs::traits::Component;
+use crate::ecs::World;
 use crate::{ecs, state::State};
 use crossbeam;
 use log::{info, warn};
@@ -18,7 +19,7 @@ use winit::window::WindowAttributes;
 /// The application can also be used to create entities, add components, windows etc. to itself.
 pub struct GearsApp {
     config: Config,
-    ecs: Arc<Mutex<ecs::Manager>>,
+    ecs: ecs::World,
     pub thread_pool: ThreadPool,
     egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
     tx_dt: Option<tokio::sync::broadcast::Sender<Dt>>,
@@ -51,7 +52,7 @@ impl GearsApp {
         Self {
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            ecs: Arc::new(Mutex::new(ecs::Manager::default())),
+            ecs: ecs::World::default(),
             egui_windows: None,
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
@@ -81,7 +82,7 @@ impl GearsApp {
     /// # Returns
     ///
     /// A mutable reference to the ecs manager.
-    pub fn get_ecs(&self) -> Arc<Mutex<ecs::Manager>> {
+    pub fn get_ecs(&self) -> World {
         Arc::clone(&self.ecs)
     }
 
@@ -94,7 +95,7 @@ impl GearsApp {
     /// * `f` - The function to run on each update.
     pub async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
     where
-        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) + Send + Sync + 'static,
+        F: Fn(Arc<Mutex<ecs::World>>, Dt) + Send + Sync + 'static,
     {
         let mut rx_dt = self
             .get_dt_channel()
@@ -142,7 +143,7 @@ impl GearsApp {
     ///
     /// A future which can be awaited.
     async fn run_engine(
-        ecs: Arc<Mutex<ecs::Manager>>,
+        ecs: Arc<Mutex<ecs::World>>,
         tx_dt: broadcast::Sender<Dt>,
         egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
     ) -> anyhow::Result<()> {
@@ -314,7 +315,7 @@ impl Drop for GearsApp {
     }
 }
 
-impl ecs::traits::EntityBuilder for GearsApp {
+impl ecs::EntityBuilder for GearsApp {
     fn new_entity(&mut self) -> &mut Self {
         self.ecs.lock().unwrap().create_entity();
 
@@ -350,10 +351,8 @@ impl ecs::traits::EntityBuilder for GearsApp {
 
 #[cfg(test)]
 mod tests {
-    use crate::new_entity;
-
     use super::*;
-    use ecs::traits::EntityBuilder;
+    use crate::new_entity;
 
     #[derive(Debug, PartialEq)]
     struct TestComponent {
