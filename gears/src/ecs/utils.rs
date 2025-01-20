@@ -1,14 +1,13 @@
-
 use log::warn;
 
-use super::{traits::Component, Entity, Manager};
+use super::{traits::Component, Entity, World};
 
 pub struct EcsBuilder<'a> {
-    ecs: &'a mut Manager,
+    ecs: &'a mut World,
 }
 
 impl<'a> EcsBuilder<'a> {
-    pub fn new(ecs: &'a mut Manager) -> Self {
+    pub fn new(ecs: &'a mut World) -> Self {
         Self { ecs }
     }
 }
@@ -47,8 +46,7 @@ impl super::traits::EntityBuilder for EcsBuilder<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::{traits::EntityBuilder};
-    
+    use crate::ecs::traits::EntityBuilder;
 
     #[derive(Debug, PartialEq)]
     struct TestComponent {

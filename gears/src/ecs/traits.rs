@@ -3,7 +3,7 @@ use std::time;
 use super::Entity;
 
 /// A component marker that can be attached to an entity.
-pub trait Component: Sized + 'static + Send + Sync {}
+pub trait Component: 'static + Send + Sync {}
 
 pub trait EntityBuilder {
     fn new_entity(&mut self) -> &mut Self;
