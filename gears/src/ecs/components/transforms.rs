@@ -2,6 +2,8 @@ use crate::ecs::Component;
 use cgmath::One;
 use gears_macro::Component;
 
+use super::Pos;
+
 /// A component that stores the position of any object.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
@@ -22,7 +24,7 @@ impl Pos3 {
     }
 }
 
-impl crate::ecs::traits::Pos for Pos3 {
+impl Pos for Pos3 {
     fn get_pos(&self) -> cgmath::Vector3<f32> {
         self.pos
     }

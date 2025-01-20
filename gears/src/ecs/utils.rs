@@ -21,12 +21,12 @@ impl EntityBuilder for EcsBuilder<'_> {
 
     fn add_component(&mut self, component: impl Component) -> &mut Self {
         if let Some(entity) = self.ecs.get_last() {
-            self.ecs.add_component_to_entity(entity, component);
+            self.ecs.add_component(entity, component);
         } else {
             warn!("No entity found, creating a new one...");
 
             let entity = self.ecs.create_entity();
-            self.ecs.add_component_to_entity(entity, component);
+            self.ecs.add_component(entity, component);
         }
 
         self
@@ -60,7 +60,7 @@ mod tests {
         let entity = EcsBuilder::new(&mut manager).new_entity().build();
 
         assert_eq!(Entity(0), entity);
-        assert_eq!(manager.entity_count(), 1);
+        assert_eq!(manager.storage_len(), 1);
     }
 
     #[test]
@@ -70,9 +70,7 @@ mod tests {
             .new_entity()
             .add_component(TestComponent { value: 42 })
             .build();
-        let binding = manager
-            .get_component_from_entity::<TestComponent>(entity)
-            .unwrap();
+        let binding = manager.get_component::<TestComponent>(entity).unwrap();
         let component = binding.read().unwrap();
         assert_eq!(*component, TestComponent { value: 42 });
     }
@@ -86,9 +84,7 @@ mod tests {
             .add_component(TestComponent { value: 100 })
             .build();
 
-        let component = manager
-            .get_component_from_entity::<TestComponent>(entity)
-            .unwrap();
+        let component = manager.get_component::<TestComponent>(entity).unwrap();
         let component = component.read().unwrap();
         assert_eq!(*component, TestComponent { value: 100 });
     }
