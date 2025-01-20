@@ -194,7 +194,7 @@ impl World {
     /// # Returns
     ///
     /// The Id of the new entity.
-    pub fn create_entity(&mut self) -> Entity {
+    pub fn create_entity(&self) -> Entity {
         self.next_entity.fetch_add(1, Ordering::SeqCst).into()
     }
 
@@ -203,7 +203,7 @@ impl World {
     /// # Arguments
     ///
     /// * `entity` - The entity to remove.
-    pub fn remove_entity(&mut self, entity: Entity) {
+    pub fn remove_entity(&self, entity: Entity) {
         for entry in self.storage.iter() {
             let storage = entry.value();
             if let Some(any_storage) = storage
@@ -213,18 +213,6 @@ impl World {
                 any_storage.remove(entity);
             }
         }
-    }
-
-    /// Get the last entity that was created.
-    ///
-    /// # Returns
-    ///
-    /// The last entity that was created.
-    pub fn get_last(&self) -> Option<Entity> {
-        self.next_entity
-            .load(Ordering::SeqCst)
-            .checked_sub(1)
-            .map(|id| id.into())
     }
 
     /// Get the number of entities in the world.
