@@ -94,10 +94,8 @@ async fn main() -> anyhow::Result<()> {
             .resizable(true)
             .anchor(Align2::LEFT_TOP, [0.0, 0.0])
             .show(ui, |ui| {
-                if let Some(sphere) = cw_ecs
-                    .lock()
-                    .unwrap()
-                    .get_component_from_entity::<components::transforms::Pos3>(sphere_entity)
+                if let Some(sphere) =
+                    cw_ecs.get_component::<components::transforms::Pos3>(sphere_entity)
                 {
                     let mut wlock_sphere = sphere.write().unwrap();
                     ui.label("Position");
@@ -134,14 +132,13 @@ async fn main() -> anyhow::Result<()> {
     }));
 
     // Use the update loop to spin the sphere
-    app.update_loop(move |ecs, dt| {
+    app.update_loop(move |world, dt| {
         // Send the frame time to the custom window
         w1_frame_tx.send(dt).unwrap();
 
-        let ecs = ecs.lock().unwrap();
         let spin_speed = 0.5f32;
 
-        if let Some(static_model) = ecs.get_component_from_entity::<Pos3>(sphere_entity) {
+        if let Some(static_model) = world.get_component::<Pos3>(sphere_entity) {
             let mut wlock_static_model = static_model.write().unwrap();
 
             let rotation = wlock_static_model.rot;

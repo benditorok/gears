@@ -261,18 +261,17 @@ async fn main() -> anyhow::Result<()> {
     let shoot_start_time = time::Instant::now();
 
     // Update loop
-    app.update_loop(move |ecs, dt| {
+    app.update_loop(move |world, dt| {
         // Send the frame time to the custom window
         w1_frame_tx.send(dt).unwrap();
 
         // ! Here we are inside a loop, so this has to lock on all iterations.
-        let ecs_lock = ecs.lock().unwrap();
         let circle_speed = 8.0f32;
         let light_speed_multiplier = 3.0f32;
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(pos3) = ecs_lock.get_component_from_entity::<Pos3>(*sphere) {
+            if let Some(pos3) = world.get_component::<Pos3>(*sphere) {
                 let mut wlock_pos3 = pos3.write().unwrap();
 
                 wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -282,7 +281,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(pos3) = ecs_lock.get_component_from_entity::<Pos3>(red_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(red_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -291,7 +290,7 @@ async fn main() -> anyhow::Result<()> {
             ) * wlock_pos3.pos;
         }
 
-        if let Some(pos3) = ecs_lock.get_component_from_entity::<Pos3>(blue_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(blue_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -311,21 +310,13 @@ async fn main() -> anyhow::Result<()> {
         let elapsed = shoot_start_time.elapsed();
         if elapsed.as_secs() % 2 == 0 {
             {
-                let target_body = ecs_lock
-                    .get_component_from_entity::<RigidBody>(target)
-                    .unwrap();
-                let target_health = ecs_lock
-                    .get_component_from_entity::<Health>(target)
-                    .unwrap();
-                let target_pos3 = ecs_lock.get_component_from_entity::<Pos3>(target).unwrap();
+                let target_body = world.get_component::<RigidBody>(target).unwrap();
+                let target_health = world.get_component::<Health>(target).unwrap();
+                let target_pos3 = world.get_component::<Pos3>(target).unwrap();
 
-                let player_view = ecs_lock
-                    .get_component_from_entity::<ViewController>(player)
-                    .unwrap();
-                let player_weapon = ecs_lock
-                    .get_component_from_entity::<Weapon>(player)
-                    .unwrap();
-                let player_pos3 = ecs_lock.get_component_from_entity::<Pos3>(player).unwrap();
+                let player_view = world.get_component::<ViewController>(player).unwrap();
+                let player_weapon = world.get_component::<Weapon>(player).unwrap();
+                let player_pos3 = world.get_component::<Pos3>(player).unwrap();
 
                 let rlock_target_body = target_body.read().unwrap();
                 let mut wlock_target_health = target_health.write().unwrap();

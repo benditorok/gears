@@ -176,15 +176,14 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Update loop
-    app.update_loop(move |ecs, dt| {
+    app.update_loop(move |world, dt| {
         // ! Here we are inside a loop, so this has to lock on all iterations.
-        let ecs = ecs.lock().unwrap();
         let circle_speed = 8.0f32;
         let light_speed_multiplier = 3.0f32;
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            let pos3 = ecs.get_component_from_entity::<Pos3>(*sphere).unwrap();
+            let pos3 = world.get_component::<Pos3>(*sphere).unwrap();
 
             let mut wlock_pos3 = pos3.write().unwrap();
 
@@ -195,7 +194,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(pos3) = ecs.get_component_from_entity::<Pos3>(red_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(red_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
@@ -204,7 +203,7 @@ async fn main() -> anyhow::Result<()> {
             ) * wlock_pos3.pos;
         }
 
-        if let Some(pos3) = ecs.get_component_from_entity::<Pos3>(blue_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(blue_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
