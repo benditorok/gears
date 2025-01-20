@@ -47,7 +47,7 @@ pub(crate) struct State<'a> {
     light_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: texture::Texture,
     window: &'a Window,
-    ecs: Arc<Mutex<ecs::Manager>>,
+    world: Arc<ecs::World>,
     mouse_pressed: bool,
     draw_colliders: bool,
     egui_renderer: EguiRenderer,
@@ -69,7 +69,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A new instance of the State.
-    pub(crate) async fn new(window: &'a Window, ecs: Arc<Mutex<ecs::Manager>>) -> State<'a> {
+    pub(crate) async fn new(window: &'a Window, ecs: Arc<ecs::World>) -> State<'a> {
         // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -286,7 +286,7 @@ impl<'a> State<'a> {
             light_bind_group_layout,
             depth_texture,
             window,
-            ecs,
+            world: ecs,
             mouse_pressed: false,
             draw_colliders: true,
             egui_renderer,
@@ -317,7 +317,7 @@ impl<'a> State<'a> {
             &self.device,
             &self.queue,
             &self.texture_bind_group_layout,
-            &self.ecs,
+            &self.world,
         )
         .await;
 
@@ -325,7 +325,7 @@ impl<'a> State<'a> {
             &self.device,
             &self.queue,
             &self.texture_bind_group_layout,
-            &self.ecs,
+            &self.world,
         )
         .await;
 
@@ -448,17 +448,17 @@ impl<'a> State<'a> {
     pub(crate) async fn update(&mut self, dt: time::Duration) -> anyhow::Result<()> {
         // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {
-            let ecs_lock = self.ecs.lock().unwrap();
             let camera_entity = self.camera_owner_entity.unwrap();
-            let pos3 = ecs_lock.get_component_from_entity(camera_entity).unwrap();
+            let pos3 = self.world.get_component(camera_entity).unwrap();
             let mut wlock_pos3 = pos3.write().unwrap();
             let mut wlock_view_controller = view_controller.write().unwrap();
             wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
 
             if let Some(movement_controller) = &self.movement_controller {
                 let rlock_movement_controller = movement_controller.read().unwrap();
-                if let Some(rigid_body) = ecs_lock
-                    .get_component_from_entity::<components::physics::RigidBody>(camera_entity)
+                if let Some(rigid_body) = self
+                    .world
+                    .get_component::<components::physics::RigidBody>(camera_entity)
                 {
                     let mut wlock_rigid_body = rigid_body.write().unwrap();
 
@@ -553,14 +553,9 @@ impl<'a> State<'a> {
                 );
 
                 for entity in model_entities {
-                    let ecs_lock = self.ecs.lock().unwrap();
-
-                    let model = ecs_lock
-                        .get_component_from_entity::<model::Model>(*entity)
-                        .unwrap();
-                    let instance_buffer = ecs_lock
-                        .get_component_from_entity::<wgpu::Buffer>(*entity)
-                        .unwrap();
+                    let model = self.world.get_component::<model::Model>(*entity).unwrap();
+                    let instance_buffer =
+                        self.world.get_component::<wgpu::Buffer>(*entity).unwrap();
 
                     let rlock_model = model.read().unwrap();
                     let rlock_instance_buffer = instance_buffer.read().unwrap();
@@ -578,15 +573,13 @@ impl<'a> State<'a> {
                     );
 
                     for entity in physics_entities {
-                        let ecs_lock = self.ecs.lock().unwrap();
-
-                        let wireframe = ecs_lock
-                            .get_component_from_entity::<model::WireframeMesh>(*entity)
+                        let wireframe = self
+                            .world
+                            .get_component::<model::WireframeMesh>(*entity)
                             .unwrap();
                         // Use the same instance buffer that's used for the physics body
-                        let instance_buffer = ecs_lock
-                            .get_component_from_entity::<wgpu::Buffer>(*entity)
-                            .unwrap();
+                        let instance_buffer =
+                            self.world.get_component::<wgpu::Buffer>(*entity).unwrap();
 
                         // Lock and read components
                         let wireframe = wireframe.read().unwrap();

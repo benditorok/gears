@@ -1,3 +1,5 @@
+use crate::ecs::Component;
+use gears_macro::Component;
 use wgpu::util::DeviceExt;
 
 use crate::ecs::components;
@@ -80,6 +82,7 @@ pub(crate) struct Mesh {
     pub material: usize,
 }
 
+#[derive(Component)]
 pub(crate) struct WireframeMesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -216,6 +219,7 @@ pub(crate) struct AnimationClip {
     pub timestamps: Vec<f32>,
 }
 
+#[derive(Component)]
 pub(crate) struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,

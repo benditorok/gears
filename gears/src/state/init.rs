@@ -1,10 +1,11 @@
 use super::State;
-use crate::ecs::traits::Marker;
-use crate::ecs::{self, components};
+use crate::ecs::components::Marker;
+use crate::ecs::{self, components, World};
 use crate::renderer::model;
 use crate::renderer::{instance, light, resources};
 use cgmath::prelude::*;
 use std::sync::{Arc, Mutex};
+use wgpu::hal::vulkan::Workarounds;
 use wgpu::util::DeviceExt;
 
 /// Initialie the player component.
@@ -13,10 +14,10 @@ use wgpu::util::DeviceExt;
 ///
 /// A boolean indicating whether the player was found.
 pub(super) fn player(state: &mut State) -> bool {
-    let ecs_lock = state.ecs.lock().unwrap();
-
     // * Look for a player first and retrieve it's camera
-    let mut player_entity = ecs_lock.get_entites_with_component::<components::misc::PlayerMarker>();
+    let mut player_entity = state
+        .world
+        .get_entities_with_component::<components::misc::PlayerMarker>();
 
     if !player_entity.is_empty() {
         let player_entity = player_entity.pop().unwrap();
@@ -24,13 +25,15 @@ pub(super) fn player(state: &mut State) -> bool {
         state.camera_owner_entity = Some(player_entity);
         //self.camera_type = ecs::components::misc::CameraType::Player;
 
-        let view_controller = ecs_lock
-            .get_component_from_entity::<components::controllers::ViewController>(player_entity)
+        let view_controller = state
+            .world
+            .get_component::<components::controllers::ViewController>(player_entity)
             .unwrap_or_else(|| panic!("{}", components::misc::PlayerMarker::describe()));
         state.view_controller = Some(Arc::clone(&view_controller));
 
-        let movement_controller = ecs_lock
-            .get_component_from_entity::<components::controllers::MovementController>(player_entity)
+        let movement_controller = state
+            .world
+            .get_component::<components::controllers::MovementController>(player_entity)
             .unwrap_or_else(|| panic!("{}", components::misc::PlayerMarker::describe()));
         state.movement_controller = Some(Arc::clone(&movement_controller));
 
@@ -42,27 +45,24 @@ pub(super) fn player(state: &mut State) -> bool {
 
 /// Initialize the camera component.
 pub(super) fn camera(state: &mut State) {
-    let ecs_lock = state.ecs.lock().unwrap();
-
-    let mut static_camera_entity =
-        ecs_lock.get_entites_with_component::<components::misc::CameraMarker>();
+    let mut static_camera_entity = state
+        .world
+        .get_entities_with_component::<components::misc::CameraMarker>();
 
     if !static_camera_entity.is_empty() {
         let static_camera_entity = static_camera_entity.pop().unwrap();
         state.camera_owner_entity = Some(static_camera_entity);
         //self.camera_type = ecs::components::misc::CameraType::Static;
 
-        let view_controller = ecs_lock
-            .get_component_from_entity::<components::controllers::ViewController>(
-                static_camera_entity,
-            )
+        let view_controller = state
+            .world
+            .get_component::<components::controllers::ViewController>(static_camera_entity)
             .unwrap_or_else(|| panic!("{}", components::misc::CameraMarker::describe()));
         state.view_controller = Some(Arc::clone(&view_controller));
 
-        let movement_controller = ecs_lock
-            .get_component_from_entity::<components::controllers::MovementController>(
-                static_camera_entity,
-            );
+        let movement_controller = state
+            .world
+            .get_component::<components::controllers::MovementController>(static_camera_entity);
         if let Some(movement_controller) = movement_controller {
             state.movement_controller = Some(Arc::clone(&movement_controller));
         }
@@ -74,16 +74,19 @@ pub(super) fn camera(state: &mut State) {
 
 /// Initialize the light components.
 pub(super) fn lights(state: &mut State) {
-    let ecs_lock = state.ecs.lock().unwrap();
-    let light_entities = ecs_lock.get_entites_with_component::<components::misc::LightMarker>();
+    let light_entities = state
+        .world
+        .get_entities_with_component::<components::misc::LightMarker>();
 
     for entity in light_entities.iter() {
-        let pos = ecs_lock
-            .get_component_from_entity::<components::transforms::Pos3>(*entity)
+        let pos = state
+            .world
+            .get_component::<components::transforms::Pos3>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::LightMarker::describe()));
 
-        let light = ecs_lock
-            .get_component_from_entity::<components::lights::Light>(*entity)
+        let light = state
+            .world
+            .get_component::<components::lights::Light>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::LightMarker::describe()));
 
         let light_uniform = {
@@ -154,7 +157,7 @@ pub(super) fn lights(state: &mut State) {
                 },
             }
         };
-        ecs_lock.add_component_to_entity(*entity, light_uniform);
+        state.world.add_component(*entity, light_uniform);
     }
 
     if light_entities.len() > light::NUM_MAX_LIGHTS as usize {
@@ -175,26 +178,24 @@ pub(super) async fn models<'a>(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
-    ecs: &Arc<Mutex<ecs::Manager>>,
+    world: &Arc<ecs::World>,
 ) -> Vec<ecs::Entity> {
-    let ecs_lock = ecs.lock().unwrap();
-    let model_entities =
-        ecs_lock.get_entites_with_component::<components::misc::StaticModelMarker>();
+    let model_entities = world.get_entities_with_component::<components::misc::StaticModelMarker>();
 
     for entity in model_entities.iter() {
-        let name = ecs_lock
-            .get_component_from_entity::<components::misc::Name>(*entity)
+        let name = world
+            .get_component::<components::misc::Name>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
-        let pos3 = ecs_lock
-            .get_component_from_entity::<components::transforms::Pos3>(*entity)
+        let pos3 = world
+            .get_component::<components::transforms::Pos3>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
-        let model_source = ecs_lock
-            .get_component_from_entity::<components::models::ModelSource>(*entity)
+        let model_source = world
+            .get_component::<components::models::ModelSource>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
 
-        let flip = ecs_lock.get_component_from_entity::<components::transforms::Flip>(*entity);
+        let flip = world.get_component::<components::transforms::Flip>(*entity);
 
-        let scale = ecs_lock.get_component_from_entity::<components::transforms::Scale>(*entity);
+        let scale = world.get_component::<components::transforms::Scale>(*entity);
 
         let obj_model = {
             let rlock_model_source = model_source.read().unwrap();
@@ -212,7 +213,7 @@ pub(super) async fn models<'a>(
                 }
             }
         };
-        ecs_lock.add_component_to_entity(*entity, obj_model);
+        world.add_component(*entity, obj_model);
 
         // TODO rename instance to model::ModelUniform
         let mut instance = {
@@ -264,8 +265,8 @@ pub(super) async fn models<'a>(
             contents: bytemuck::cast_slice(&[instance_raw]),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
-        ecs_lock.add_component_to_entity(*entity, instance);
-        ecs_lock.add_component_to_entity(*entity, instance_buffer);
+        world.add_component(*entity, instance);
+        world.add_component(*entity, instance_buffer);
     }
 
     model_entities
@@ -275,30 +276,28 @@ pub(super) async fn physics_models<'a>(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
-    ecs: &Arc<Mutex<ecs::Manager>>,
+    world: &Arc<ecs::World>,
 ) -> Vec<ecs::Entity> {
-    let ecs_lock = ecs.lock().unwrap();
-    let physics_entities =
-        ecs_lock.get_entites_with_component::<components::misc::RigidBodyMarker>();
+    let physics_entities = world.get_entities_with_component::<components::misc::RigidBodyMarker>();
 
     for entity in physics_entities.iter() {
-        let name = ecs_lock
-            .get_component_from_entity::<components::misc::Name>(*entity)
+        let name = world
+            .get_component::<components::misc::Name>(*entity)
             .expect("No name provided for the Model!");
 
-        let physics_body = ecs_lock
-            .get_component_from_entity::<components::physics::RigidBody>(*entity)
+        let physics_body = world
+            .get_component::<components::physics::RigidBody>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::RigidBodyMarker::describe()));
-        let model_source = ecs_lock
-            .get_component_from_entity::<components::models::ModelSource>(*entity)
+        let model_source = world
+            .get_component::<components::models::ModelSource>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::RigidBodyMarker::describe()));
-        let pos3 = ecs_lock
-            .get_component_from_entity::<components::transforms::Pos3>(*entity)
+        let pos3 = world
+            .get_component::<components::transforms::Pos3>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::RigidBodyMarker::describe()));
 
-        let flip = ecs_lock.get_component_from_entity::<components::transforms::Flip>(*entity);
+        let flip = world.get_component::<components::transforms::Flip>(*entity);
 
-        let scale = ecs_lock.get_component_from_entity::<components::transforms::Scale>(*entity);
+        let scale = world.get_component::<components::transforms::Scale>(*entity);
 
         let obj_model = {
             let rlock_model_source = model_source.read().unwrap();
@@ -316,7 +315,7 @@ pub(super) async fn physics_models<'a>(
                 }
             }
         };
-        ecs_lock.add_component_to_entity(*entity, obj_model);
+        world.add_component(*entity, obj_model);
 
         // TODO rename instance to model::ModelUniform
         let mut instance = {
@@ -369,20 +368,21 @@ pub(super) async fn physics_models<'a>(
             contents: bytemuck::cast_slice(&[instance_raw]),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
-        ecs_lock.add_component_to_entity(*entity, instance);
-        ecs_lock.add_component_to_entity(*entity, instance_buffer);
+        world.add_component(*entity, instance);
+        world.add_component(*entity, instance_buffer);
 
         // Create a wireframe collider from the RigidBody's data
         let wireframe = model::WireframeMesh::new(device, &physics_body.read().unwrap());
-        ecs_lock.add_component_to_entity(*entity, wireframe);
+        world.add_component(*entity, wireframe);
     }
 
     physics_entities
 }
 
 pub(super) fn targets(state: &mut State) {
-    let ecs_lock = state.ecs.lock().unwrap();
-    let target_entities = ecs_lock.get_entites_with_component::<components::misc::TargetMarker>();
+    let target_entities = state
+        .world
+        .get_entities_with_component::<components::misc::TargetMarker>();
 
     state.target_entities = Some(target_entities);
 }

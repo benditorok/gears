@@ -5,6 +5,7 @@ use dashmap::{mapref::one::RefMut, DashMap};
 use gltf::accessor::Item;
 use std::any::{Any, TypeId};
 use std::ops::Deref;
+use std::path::Iter;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -189,6 +190,27 @@ impl World {
         }
     }
 
+    /// Get the number of entities in the world.
+    ///
+    /// # Returns
+    ///
+    /// The number of entities in the world.
+    pub fn storage_len(&self) -> usize {
+        self.storage.len().checked_sub(1).unwrap_or(0)
+    }
+
+    /// Get the Id of the last entity created.
+    ///
+    /// # Returns
+    ///
+    /// The Id of the last entity created.
+    pub fn get_last(&self) -> Option<Entity> {
+        self.next_entity
+            .load(Ordering::SeqCst)
+            .checked_sub(1)
+            .map(|id| id.into())
+    }
+
     /// Create a new entity.
     ///
     /// # Returns
@@ -213,15 +235,6 @@ impl World {
                 any_storage.remove(entity);
             }
         }
-    }
-
-    /// Get the number of entities in the world.
-    ///
-    /// # Returns
-    ///
-    /// The number of entities in the world.
-    pub fn storage_len(&self) -> usize {
-        self.storage.len().checked_sub(1).unwrap_or(0)
     }
 
     /// Add a component to an entity.
@@ -291,12 +304,28 @@ impl World {
         }
     }
 
+    /// Get all entities which have a specific component.
+    ///
+    /// # Returns
+    ///
+    /// A vector of entities which have the specified component.
+    pub fn get_entities_with_component<T: Component>(&self) -> Vec<Entity> {
+        let storage = self.storage.get(&TypeId::of::<T>());
+        if let Some(storage) = storage {
+            let storage = storage.clone();
+            let storage = storage.downcast_ref::<ComponentStorage<T>>().unwrap();
+            storage.storage.iter().map(|r| *r.key()).collect()
+        } else {
+            Vec::new()
+        }
+    }
+
     /// Get mutable references to all components of a specific type with their associated entities.
     ///
     /// # Returns
     ///
     /// A vector of tuples containing the entity and the component.
-    pub fn get_entities_with_component<T: Component>(&self) -> Vec<(Entity, Arc<RwLock<T>>)> {
+    pub fn get_entities_and_component<T: Component>(&self) -> Vec<(Entity, Arc<RwLock<T>>)> {
         let storage = self.storage.get(&TypeId::of::<T>());
         if let Some(storage) = storage {
             let storage = storage.clone();

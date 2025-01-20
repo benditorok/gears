@@ -1,4 +1,8 @@
 use super::model;
+use crate::ecs::Component;
+use gears_macro::Component;
+
+#[derive(Component)]
 pub(crate) struct Instance {
     pub position: cgmath::Vector3<f32>,
     pub rotation: cgmath::Quaternion<f32>,
