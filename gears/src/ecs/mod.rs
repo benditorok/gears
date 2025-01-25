@@ -129,7 +129,7 @@ impl<T> ComponentStorage<T> {
     fn get(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
         self.storage
             .get(&entity)
-            .map(|entry| Arc::clone(&entry.value()))
+            .map(|entry| Arc::clone(entry.value()))
     }
 
     /// Remove a component from the storage.
@@ -196,7 +196,7 @@ impl World {
     ///
     /// The number of entities in the world.
     pub fn storage_len(&self) -> usize {
-        self.storage.len().checked_sub(1).unwrap_or(0)
+        self.storage.len().saturating_sub(1)
     }
 
     /// Get the Id of the last entity created.
@@ -297,7 +297,7 @@ impl World {
             storage
                 .storage
                 .iter()
-                .map(|entry| Arc::clone(&entry.value()))
+                .map(|entry| Arc::clone(entry.value()))
                 .collect()
         } else {
             Vec::new()
@@ -333,7 +333,7 @@ impl World {
             storage
                 .storage
                 .iter()
-                .map(|entry| (entry.key().to_owned(), Arc::clone(&entry.value())))
+                .map(|entry| (entry.key().to_owned(), Arc::clone(entry.value())))
                 .collect()
         } else {
             Vec::new()
