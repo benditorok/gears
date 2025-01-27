@@ -65,7 +65,7 @@ pub trait EntityBuilder {
     fn build(&mut self) -> Entity;
 }
 
-pub(crate) trait ComponentStorageProvider {
+pub(crate) trait ComponentStorageProvider: Send + Sync {
     type Item;
 
     fn new() -> Self
@@ -88,7 +88,7 @@ struct ComponentStorage<T> {
     storage: DashMap<Entity, Arc<RwLock<T>>>,
 }
 
-impl<T> Default for ComponentStorage<T> {
+impl<T: Component> Default for ComponentStorage<T> {
     /// Create a new ComponentStorage instance with a default capacity of 11.
     ///
     /// # Returns
@@ -101,7 +101,7 @@ impl<T> Default for ComponentStorage<T> {
     }
 }
 
-impl<T> ComponentStorageProvider for ComponentStorage<T> {
+impl<T: Component> ComponentStorageProvider for ComponentStorage<T> {
     type Item = T;
 
     /// Create a new ComponentStorage instance.
@@ -274,9 +274,14 @@ impl World {
     pub fn add_component<T: Component>(&self, entity: Entity, component: T) {
         let type_id = component.type_id();
 
-        let storage = self.storage.entry(type_id).or_insert_with(|| {
-            Arc::new(ComponentStorage::<Arc<RwLock<dyn Component>>>::new())
-                as Arc<dyn ComponentStorageProvider<Item = Arc<RwLock<dyn Component>>>>
+        let storage = self.storage.entry(type_id).or_insert_with(|| unsafe {
+            {
+                let storage = ComponentStorage::<T>::new();
+                let storage = Box::new(storage) as Box<dyn ComponentStorageProvider<Item = T>>;
+                let storage: Box<dyn ComponentStorageProvider<Item = Arc<RwLock<dyn Component>>>> =
+                    std::mem::transmute(storage);
+                Arc::from(storage)
+            }
         });
 
         storage.insert(entity, Arc::new(RwLock::new(component)));

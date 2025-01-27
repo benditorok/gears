@@ -4,6 +4,7 @@ use crate::ecs::{self, components, World};
 use crate::renderer::model;
 use crate::renderer::{instance, light, resources};
 use cgmath::prelude::*;
+use log::info;
 use std::sync::{Arc, Mutex};
 use wgpu::hal::vulkan::Workarounds;
 use wgpu::util::DeviceExt;
@@ -199,6 +200,7 @@ pub(super) async fn models<'a>(
 
         let obj_model = {
             let rlock_model_source = model_source.read().unwrap();
+            info!("Loading model: {:?}", rlock_model_source);
 
             match *rlock_model_source {
                 components::models::ModelSource::Obj(path) => {
