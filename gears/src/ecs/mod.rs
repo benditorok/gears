@@ -5,7 +5,6 @@ use dashmap::{mapref::one::RefMut, DashMap};
 use gltf::accessor::Item;
 use std::any::{Any, TypeId};
 use std::ops::Deref;
-use std::path::Iter;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -57,7 +56,7 @@ impl From<u32> for Entity {
 }
 
 /// A component marker that can be attached to an entity.
-pub trait Component: 'static + Send + Sync {}
+pub trait Component: Send + Sync + Any {}
 
 /// The EntityBuilder trait is responsible for creating entities and adding components to them.
 pub trait EntityBuilder {
@@ -66,10 +65,25 @@ pub trait EntityBuilder {
     fn build(&mut self) -> Entity;
 }
 
+pub(crate) trait ComponentStorageProvider {
+    type Item;
+
+    fn new() -> Self
+    where
+        Self: Sized;
+    fn new_with_capacity(capacity: usize) -> Self
+    where
+        Self: Sized;
+    fn insert(&self, entity: Entity, component: Self::Item);
+    fn get(&self, entity: Entity) -> Option<Arc<RwLock<Self::Item>>>;
+    fn remove(&self, entity: Entity);
+    fn iter_components(&self) -> Box<dyn Iterator<Item = Arc<RwLock<Self::Item>>> + '_>;
+    fn iter_entities(&self) -> Box<dyn Iterator<Item = Entity> + '_>;
+}
+
 /// The ComponentStorage struct is responsible for storing components of a specific type.
 /// It uses a DashMap to store the components, which allows for concurrent reads and writes.
 /// The components are stored in an Arc<RwLock<T>> to allow for multiple reads or a single write.
-#[derive(Debug)]
 struct ComponentStorage<T> {
     storage: DashMap<Entity, Arc<RwLock<T>>>,
 }
@@ -87,7 +101,9 @@ impl<T> Default for ComponentStorage<T> {
     }
 }
 
-impl<T> ComponentStorage<T> {
+impl<T> ComponentStorageProvider for ComponentStorage<T> {
+    type Item = T;
+
     /// Create a new ComponentStorage instance.
     ///
     /// # Returns
@@ -140,14 +156,31 @@ impl<T> ComponentStorage<T> {
     fn remove(&self, entity: Entity) {
         self.storage.remove(&entity);
     }
+
+    /// Get an iterator over the entities in the storage.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over the entities in the storage.
+    fn iter_components(&self) -> Box<dyn Iterator<Item = Arc<RwLock<Self::Item>>> + '_> {
+        Box::new(self.storage.iter().map(|entry| Arc::clone(entry.value())))
+    }
+
+    /// Get an iterator over the entities in the storage.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over the entities in the storage.
+    fn iter_entities(&self) -> Box<dyn Iterator<Item = Entity> + '_> {
+        Box::new(self.storage.iter().map(|entry| entry.key().to_owned()))
+    }
 }
 
 /// The World struct is the main entry point for the ECS system.
 /// It is responsible for creating entities and storing components.
-#[derive(Debug)]
 pub struct World {
     next_entity: AtomicU32,
-    storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    storage: DashMap<TypeId, Arc<dyn ComponentStorageProvider<Item = Arc<RwLock<dyn Component>>>>>,
 }
 
 impl Default for World {
@@ -228,12 +261,7 @@ impl World {
     pub fn remove_entity(&self, entity: Entity) {
         for entry in self.storage.iter() {
             let storage = entry.value();
-            if let Some(any_storage) = storage
-                .as_ref()
-                .downcast_ref::<ComponentStorage<Box<dyn Any + Send + Sync>>>()
-            {
-                any_storage.remove(entity);
-            }
+            storage.remove(entity);
         }
     }
 
@@ -243,15 +271,15 @@ impl World {
     ///
     /// * `entity` - The entity to add the component to.
     /// * `component` - The component to add.
-    pub fn add_component<T: 'static + Send + Sync>(&self, entity: Entity, component: T) {
-        let type_id = TypeId::of::<T>();
+    pub fn add_component<T: Component>(&self, entity: Entity, component: T) {
+        let type_id = component.type_id();
 
         let storage = self.storage.entry(type_id).or_insert_with(|| {
-            Arc::new(ComponentStorage::<T>::default()) as Arc<dyn Any + Send + Sync>
+            Arc::new(ComponentStorage::<Arc<RwLock<dyn Component>>>::new())
+                as Arc<dyn ComponentStorageProvider<Item = Arc<RwLock<dyn Component>>>>
         });
 
-        let storage = storage.downcast_ref::<ComponentStorage<T>>().unwrap();
-        storage.insert(entity, component);
+        storage.insert(entity, Arc::new(RwLock::new(component)));
     }
 
     /// Remove a component from an entity.
@@ -261,8 +289,7 @@ impl World {
     /// * `entity` - The entity to remove the component from.
     pub fn remove_component<T: Component>(&self, entity: Entity) {
         if let Some(storage) = self.storage.get(&TypeId::of::<T>()) {
-            let storage = storage.clone();
-            let storage = storage.downcast_ref::<ComponentStorage<T>>().unwrap();
+            let storage = Arc::clone(&storage);
             storage.remove(entity);
         }
     }
@@ -277,11 +304,14 @@ impl World {
     ///
     /// A mutable reference to the component if it exists.
     pub fn get_component<T: Component>(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
-        self.storage.get(&TypeId::of::<T>()).and_then(|storage| {
-            let storage = storage.clone();
-            let storage = storage.downcast_ref::<ComponentStorage<T>>()?;
-            storage.get(entity)
-        })
+        let storage = self.storage.get(&TypeId::of::<T>())?;
+        let component = storage.value().get(entity)?;
+        let component = Arc::clone(&component);
+        unsafe {
+            let component = Arc::into_raw(component);
+            let component = component as *const RwLock<T>;
+            Some(Arc::from_raw(component))
+        }
     }
 
     /// Get mutable references to all components of a specific type.
@@ -289,15 +319,20 @@ impl World {
     /// # Returns
     ///
     /// A vector of mutable references to the components.
-    pub fn get_components<T: Component>(&self) -> Vec<Arc<RwLock<T>>> {
+    pub fn get_components<T: Component + 'static>(&self) -> Vec<Arc<RwLock<T>>> {
         let storage = self.storage.get(&TypeId::of::<T>());
         if let Some(storage) = storage {
-            let storage = storage.clone();
-            let storage = storage.downcast_ref::<ComponentStorage<T>>().unwrap();
+            let storage = storage.value();
             storage
-                .storage
-                .iter()
-                .map(|entry| Arc::clone(entry.value()))
+                .iter_components()
+                .map(|component| {
+                    let component = Arc::clone(&component);
+                    unsafe {
+                        let component = Arc::into_raw(component);
+                        let component = component as *const RwLock<T>;
+                        Arc::from_raw(component)
+                    }
+                })
                 .collect()
         } else {
             Vec::new()
@@ -312,9 +347,8 @@ impl World {
     pub fn get_entities_with_component<T: Component>(&self) -> Vec<Entity> {
         let storage = self.storage.get(&TypeId::of::<T>());
         if let Some(storage) = storage {
-            let storage = storage.clone();
-            let storage = storage.downcast_ref::<ComponentStorage<T>>().unwrap();
-            storage.storage.iter().map(|r| *r.key()).collect()
+            let storage = storage.value();
+            storage.iter_entities().collect()
         } else {
             Vec::new()
         }
@@ -328,12 +362,19 @@ impl World {
     pub fn get_entities_and_component<T: Component>(&self) -> Vec<(Entity, Arc<RwLock<T>>)> {
         let storage = self.storage.get(&TypeId::of::<T>());
         if let Some(storage) = storage {
-            let storage = storage.clone();
-            let storage = storage.downcast_ref::<ComponentStorage<T>>().unwrap();
+            let storage = storage.value();
             storage
-                .storage
-                .iter()
-                .map(|entry| (entry.key().to_owned(), Arc::clone(entry.value())))
+                .iter_entities()
+                .filter_map(|entity| {
+                    storage.get(entity).map(|component| {
+                        let component = Arc::clone(&component);
+                        unsafe {
+                            let component = Arc::into_raw(component);
+                            let component = component as *const RwLock<T>;
+                            (entity, Arc::from_raw(component))
+                        }
+                    })
+                })
                 .collect()
         } else {
             Vec::new()
