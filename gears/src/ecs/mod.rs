@@ -219,13 +219,13 @@ impl World {
         }
     }
 
-    /// Get the number of entities in the world.
+    /// Get the number of entities with components stored.
     ///
     /// # Returns
     ///
-    /// The number of entities in the world.
+    /// The number of entities with components stored.
     pub fn storage_len(&self) -> usize {
-        self.storage.len().saturating_sub(1)
+        self.storage.len()
     }
 
     /// Get the Id of the last entity created.
@@ -368,5 +368,106 @@ impl World {
             }
         }
         Vec::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rayon::prelude::*;
+
+    #[derive(Debug)]
+    struct TestComp(u32);
+    impl Component for TestComp {}
+
+    #[test]
+    fn test_create_and_remove_entity() {
+        let world = World::new();
+        let entity = world.create_entity();
+        assert_eq!(*entity, 0);
+
+        world.remove_entity(entity);
+
+        // Just validate it doesn't panic and we can still create a new entity
+        let new_entity = world.create_entity();
+        assert_eq!(*new_entity, 1);
+    }
+
+    #[test]
+    fn test_add_and_get_component() {
+        let world = World::new();
+        let entity = world.create_entity();
+        world.add_component(entity, TestComp(123));
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+        assert_eq!(comp.read().unwrap().0, 123);
+    }
+
+    #[test]
+    fn test_component_storage_insert_and_get() {
+        let storage = ComponentStorage::<TestComp>::new();
+        let entity = Entity::new(42);
+        storage.insert(entity, TestComp(999));
+        let retrieved = storage.get(entity).unwrap();
+        assert_eq!(retrieved.read().unwrap().0, 999);
+    }
+
+    #[test]
+    fn test_parallel_entity_creation() {
+        let world = World::new();
+        // Create many entities in parallel
+        (0..100).into_par_iter().for_each(|_| {
+            world.create_entity();
+        });
+        // Just ensure no panic and entity count is 100
+        assert_eq!(*world.get_last().unwrap(), 99);
+    }
+
+    #[test]
+    fn test_get_component_and_write() {
+        let world = World::new();
+        let entity = world.create_entity();
+        world.add_component(entity, TestComp(123));
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+
+        {
+            let mut write = comp.write().unwrap();
+            write.0 = 456;
+        }
+
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+        assert_eq!(comp.read().unwrap().0, 456);
+    }
+
+    #[test]
+    fn test_get_component_write_lock_simultaneously() {
+        let world = World::new();
+        let entity = world.create_entity();
+        world.add_component(entity, TestComp(123));
+
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+        let _write = comp.write().unwrap();
+
+        // Hold the lock while we try to get another write lock on a reference which should fail
+        let comp2 = world.get_component::<TestComp>(entity).unwrap();
+        let write2 = comp2.try_write();
+        assert!(write2.is_err());
+    }
+
+    #[test]
+    fn test_get_component_read_lock_simultaneously() {
+        let world = World::new();
+        let entity = world.create_entity();
+        world.add_component(entity, TestComp(123));
+
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+        let read = comp.read().unwrap();
+
+        // Hold the lock while we try to get another write lock
+        let comp2 = world.get_component::<TestComp>(entity).unwrap();
+        let read2 = comp2.read().unwrap();
+
+        // Ensure we can still read the value
+        assert_eq!(read.0, 123);
+        assert_eq!(read2.0, 123);
     }
 }

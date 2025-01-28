@@ -55,9 +55,12 @@ mod tests {
     impl Component for TestComponent {}
 
     #[test]
-    fn test_create_entity() {
+    fn test_create_entity_with_component() {
         let mut manager = World::default();
-        let entity = EcsBuilder::new(&mut manager).new_entity().build();
+        let entity = EcsBuilder::new(&mut manager)
+            .new_entity()
+            .add_component(TestComponent { value: 42 })
+            .build();
 
         assert_eq!(Entity(0), entity);
         assert_eq!(manager.storage_len(), 1);
