@@ -69,50 +69,6 @@ pub trait Component: Send + Sync + Any + Debug {}
 
 impl Component for Box<dyn Component> {}
 
-// pub struct ComponentRef<'a, T: Component> {
-//     guard: std::sync::RwLockReadGuard<'a, T>,
-// }
-
-// pub struct ComponentRefMut<'a, T: Component> {
-//     guard: std::sync::RwLockWriteGuard<'a, T>,
-// }
-
-// impl<'a, T: Component> std::ops::Deref for ComponentRef<'a, T> {
-//     type Target = T;
-//     fn deref(&self) -> &Self::Target {
-//         &*self.guard
-//     }
-// }
-
-// impl<'a, T: Component> std::ops::Deref for ComponentRefMut<'a, T> {
-//     type Target = T;
-//     fn deref(&self) -> &Self::Target {
-//         &*self.guard
-//     }
-// }
-
-// impl<'a, T: Component> std::ops::DerefMut for ComponentRefMut<'a, T> {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut *self.guard
-//     }
-// }
-// pub(crate) trait ComponentStorageProvider: Send + Sync {
-//     type Item;
-
-//     fn new() -> Self
-//     where
-//         Self: Sized;
-//     fn new_with_capacity(capacity: usize) -> Self
-//     where
-//         Self: Sized;
-//     fn as_any(&self) -> &dyn std::any::Any;
-//     fn insert(&self, entity: Entity, component: Self::Item);
-//     fn get(&self, entity: Entity) -> Option<Arc<RwLock<Self::Item>>>;
-//     fn remove(&self, entity: Entity);
-//     fn iter_components(&self) -> Box<dyn Iterator<Item = Arc<RwLock<Self::Item>>> + '_>;
-//     fn iter_entities(&self) -> Box<dyn Iterator<Item = Entity> + '_>;
-// }
-
 /// The ComponentStorage struct is responsible for storing components of a specific type.
 /// It uses a DashMap to store the components, which allows for concurrent reads and writes.
 /// The components are stored in an Arc<RwLock<T>> to allow for multiple reads or a single write.
