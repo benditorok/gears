@@ -462,11 +462,11 @@ mod tests {
         let comp = world.get_component::<TestComp>(entity).unwrap();
         let read = comp.read().unwrap();
 
-        // Hold the lock while we try to get another write lock
+        // Get a second read lock on the same component
         let comp2 = world.get_component::<TestComp>(entity).unwrap();
         let read2 = comp2.read().unwrap();
 
-        // Ensure we can still read the value
+        // Ensure we can still read the value from both locks
         assert_eq!(read.0, 123);
         assert_eq!(read2.0, 123);
     }
