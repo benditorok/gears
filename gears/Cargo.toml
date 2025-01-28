@@ -56,3 +56,4 @@ egui-winit = { workspace = true }
 gltf = { workspace = true }
 crossbeam = { workspace = true }
 dashmap = { workspace = true }
+rayon = { workspace = true }

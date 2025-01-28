@@ -46,3 +46,4 @@ egui-winit = "0.29.1"
 gltf = { version = "1.4", features = ["extras", "names"] }
 crossbeam = "0.8"
 dashmap = "6.0.1"
+rayon = "1.5"
