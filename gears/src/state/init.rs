@@ -1,12 +1,11 @@
 use super::State;
 use crate::ecs::components::Marker;
-use crate::ecs::{self, components, World};
+use crate::ecs::{self, components};
 use crate::renderer::model;
 use crate::renderer::{instance, light, resources};
 use cgmath::prelude::*;
 use log::info;
-use std::sync::{Arc, Mutex};
-use wgpu::hal::vulkan::Workarounds;
+use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
 /// Initialie the player component.

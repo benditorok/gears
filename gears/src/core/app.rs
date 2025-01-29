@@ -1,14 +1,12 @@
 use super::config::{self, Config};
-use super::event::GearsEvent;
 use super::threadpool::ThreadPool;
 use super::Dt;
 use crate::ecs::Component;
 use crate::ecs::World;
 use crate::{ecs, state::State};
-use crossbeam;
 use log::{info, warn};
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time;
 use tokio::sync::broadcast;
 use winit::event::{DeviceEvent, Event, WindowEvent};

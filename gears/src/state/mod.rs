@@ -9,7 +9,7 @@ use crate::renderer::{camera, instance, light, texture};
 use egui_wgpu::ScreenDescriptor;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::time::{self, Instant};
 use wgpu::util::DeviceExt;
 use winit::event::*;

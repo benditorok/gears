@@ -1,14 +1,12 @@
 pub mod components;
 pub mod utils;
 
-use dashmap::{mapref::one::RefMut, DashMap};
-use gltf::accessor::Item;
-use log::info;
+use dashmap::DashMap;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock};
 
 /// An entity is a unique identifier that can be attached to components.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
