@@ -208,6 +208,14 @@ impl GearsApp {
                             //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
                             // }
                             WindowEvent::RedrawRequested => {
+                                /*
+                                   TODO refactor
+                                   defer state.update to a tokio::task like in the user facing update loop
+                                   send dt -> recv dt -> update
+                                   shrink the update channel so if it the update sags behind it will wait before entering a new
+                                    draw call and sending the new render dt
+
+                                */
                                 let now = time::Instant::now();
                                 let dt = now - last_render_time;
                                 last_render_time = now;
