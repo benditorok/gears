@@ -174,7 +174,7 @@ pub(super) fn lights(state: &mut State) {
 /// # Returns
 ///
 /// A future which can be awaited.
-pub(super) async fn models<'a>(
+pub(super) async fn models(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
