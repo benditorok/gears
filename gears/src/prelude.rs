@@ -2,7 +2,6 @@
 pub use crate::{
     core::app::{self, GearsApp},
     core::Dt,
-    ecs,
     ecs::components::interactive::Weapon,
     ecs::components::{
         self,
@@ -17,7 +16,7 @@ pub use crate::{
         prefabs,
         transforms::{Flip, Pos3, Scale},
     },
-    ecs::traits::{Component, EntityBuilder},
+    ecs::{self, Component, Entity, EntityBuilder, World},
     // Macros
     new_entity,
 };

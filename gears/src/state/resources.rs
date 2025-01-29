@@ -1,18 +1,3 @@
-use crate::ecs::{self, components};
-use crate::gui::EguiRenderer;
-use crate::renderer::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
-use crate::renderer::{camera, instance, light, texture};
-use egui_wgpu::ScreenDescriptor;
-use std::iter;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::{self, Instant};
-use wgpu::util::DeviceExt;
-use winit::event::*;
-use winit::{
-    keyboard::{KeyCode, PhysicalKey},
-    window::Window,
-};
 
 /// Create a new render pipeline.
 /// This function is used to create a new render pipeline for the given device.

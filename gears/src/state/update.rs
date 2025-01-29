@@ -5,9 +5,14 @@ use log::warn;
 
 use super::State;
 use crate::{
-    ecs::{components, traits::Marker},
+    ecs::{
+        components::{self, Marker},
+        Component,
+    },
     renderer::{instance, light, model},
 };
+
+impl Component for wgpu::Buffer {}
 
 /// Update the lights in the scene.
 pub(super) fn lights(state: &mut State) {
@@ -15,16 +20,17 @@ pub(super) fn lights(state: &mut State) {
         let mut light_uniforms: Vec<light::LightUniform> = Vec::new();
 
         for entity in light_entities {
-            let ecs_lock = state.ecs.lock().unwrap();
-
-            let pos = ecs_lock
-                .get_component_from_entity::<components::transforms::Pos3>(*entity)
+            let pos = state
+                .world
+                .get_component::<components::transforms::Pos3>(*entity)
                 .unwrap();
-            let light_uniform = ecs_lock
-                .get_component_from_entity::<light::LightUniform>(*entity)
+            let light_uniform = state
+                .world
+                .get_component::<light::LightUniform>(*entity)
                 .unwrap();
-            let light = ecs_lock
-                .get_component_from_entity::<components::lights::Light>(*entity)
+            let light = state
+                .world
+                .get_component::<components::lights::Light>(*entity)
                 .unwrap();
 
             {
@@ -64,25 +70,23 @@ pub(super) fn lights(state: &mut State) {
 pub(super) fn models(state: &mut State) {
     if let Some(model_entities) = &state.static_model_entities {
         for entity in model_entities {
-            let ecs_lock = state.ecs.lock().unwrap();
-
-            let name = ecs_lock
-                .get_component_from_entity::<components::misc::Name>(*entity)
+            let name = state
+                .world
+                .get_component::<components::misc::Name>(*entity)
                 .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
-            let pos3 = ecs_lock
-                .get_component_from_entity::<components::transforms::Pos3>(*entity)
+            let pos3 = state
+                .world
+                .get_component::<components::transforms::Pos3>(*entity)
                 .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
-            let instance = ecs_lock
-                .get_component_from_entity::<instance::Instance>(*entity)
+            let instance = state
+                .world
+                .get_component::<instance::Instance>(*entity)
                 .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
-            let buffer = ecs_lock
-                .get_component_from_entity::<wgpu::Buffer>(*entity)
-                .unwrap();
-            let model = ecs_lock
-                .get_component_from_entity::<model::Model>(*entity)
-                .unwrap();
-            let animation_queue =
-                ecs_lock.get_component_from_entity::<components::misc::AnimationQueue>(*entity);
+            let buffer = state.world.get_component::<wgpu::Buffer>(*entity).unwrap();
+            let model = state.world.get_component::<model::Model>(*entity).unwrap();
+            let animation_queue = state
+                .world
+                .get_component::<components::misc::AnimationQueue>(*entity);
 
             // ! Animations testing
             if let Some(animation_queue) = animation_queue {
@@ -207,14 +211,15 @@ pub(super) fn physics_system(state: &mut State, dt: time::Duration) {
     let mut physics_bodies = Vec::new();
 
     if let Some(player) = state.player_entity {
-        let ecs_lock = state.ecs.lock().unwrap();
         physics_bodies.push((
             player,
-            ecs_lock
-                .get_component_from_entity::<components::physics::RigidBody>(player)
+            state
+                .world
+                .get_component::<components::physics::RigidBody>(player)
                 .unwrap(),
-            ecs_lock
-                .get_component_from_entity::<components::transforms::Pos3>(player)
+            state
+                .world
+                .get_component::<components::transforms::Pos3>(player)
                 .unwrap(),
         ));
     }
@@ -222,20 +227,20 @@ pub(super) fn physics_system(state: &mut State, dt: time::Duration) {
     if let Some(physics_entities) = &state.physics_entities {
         for entity in physics_entities {
             // TODO add an animation queue for physics entities as well
-            let ecs_lock = state.ecs.lock().unwrap();
 
-            let physics_body = ecs_lock
-                .get_component_from_entity::<components::physics::RigidBody>(*entity)
+            let physics_body = state
+                .world
+                .get_component::<components::physics::RigidBody>(*entity)
                 .unwrap();
 
-            let instance = ecs_lock
-                .get_component_from_entity::<instance::Instance>(*entity)
+            let instance = state
+                .world
+                .get_component::<instance::Instance>(*entity)
                 .unwrap();
-            let buffer = ecs_lock
-                .get_component_from_entity::<wgpu::Buffer>(*entity)
-                .unwrap();
-            let pos3 = ecs_lock
-                .get_component_from_entity::<components::transforms::Pos3>(*entity)
+            let buffer = state.world.get_component::<wgpu::Buffer>(*entity).unwrap();
+            let pos3 = state
+                .world
+                .get_component::<components::transforms::Pos3>(*entity)
                 .unwrap();
 
             {

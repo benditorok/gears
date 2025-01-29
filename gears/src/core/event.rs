@@ -1,6 +1,4 @@
-use log::error;
 use std::fmt::Debug;
-use std::sync::mpsc::{self, Receiver, RecvError, SendError, Sender, TryRecvError};
 
 // #[derive(Debug)]
 // pub enum WindowEvent {

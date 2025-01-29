@@ -1,3 +1,7 @@
+use std::fmt::Debug;
+
+use crate::ecs::Component;
+use gears_macro::Component;
 use wgpu::util::DeviceExt;
 
 use crate::ecs::components;
@@ -63,6 +67,7 @@ impl Vertex for ColliderVertex {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Material {
     #[allow(unused)]
     pub name: String,
@@ -71,6 +76,7 @@ pub(crate) struct Material {
     pub bind_group: wgpu::BindGroup,
 }
 
+#[derive(Debug)]
 pub(crate) struct Mesh {
     #[allow(unused)]
     pub name: String,
@@ -80,6 +86,7 @@ pub(crate) struct Mesh {
     pub material: usize,
 }
 
+#[derive(Component, Debug)]
 pub(crate) struct WireframeMesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -203,6 +210,7 @@ impl DrawWireframeMesh for wgpu::RenderPass<'_> {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum Keyframes {
     Translation(Vec<Vec<f32>>),
     Rotation(Vec<Vec<f32>>), // Added Rotation variant
@@ -210,16 +218,28 @@ pub(crate) enum Keyframes {
     Other,
 }
 
+#[derive(Debug)]
 pub(crate) struct AnimationClip {
     pub name: String,
     pub keyframes: Keyframes,
     pub timestamps: Vec<f32>,
 }
 
+#[derive(Component)]
 pub(crate) struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
     pub animations: Vec<AnimationClip>,
+}
+
+impl Debug for Model {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Model")
+            .field("meshes", &self.meshes)
+            .field("materials", &self.materials)
+            .field("animations", &self.animations)
+            .finish()
+    }
 }
 
 impl Model {

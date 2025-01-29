@@ -61,11 +61,10 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Use the update loop to spin the sphere
-    app.update_loop(move |ecs, dt| {
-        let ecs = ecs.lock().unwrap();
+    app.update_loop(move |world, dt| {
         let spin_speed = 0.5f32;
 
-        if let Some(pos3) = ecs.get_component_from_entity::<Pos3>(sphere_entity) {
+        if let Some(pos3) = world.get_component::<Pos3>(sphere_entity) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             let rotation = wlock_pos3.rot;

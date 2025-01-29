@@ -209,7 +209,10 @@ pub(crate) async fn load_model_gltf(
     layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
     let file_path = Path::new(gltf_path);
-    let model_root_dir = file_path.parent().unwrap();
+    let model_root_dir = file_path.parent().context(format!(
+        "No parent directory for path {}.",
+        file_path.display()
+    ))?;
     let file_name = model_root_dir.file_name().unwrap().to_str().unwrap();
 
     let string_path = Path::new(env!("RES_DIR")).join(gltf_path);

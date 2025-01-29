@@ -27,6 +27,10 @@ strip = true # Ensures debug symbols are removed.
 trim-paths = "all" # Removes potentially privileged information from your binaries.
 rustflags = ["-Cdebuginfo=0", "-Zthreads=8"] # Better compile performance.
 
+# For memory allocation tracking
+# [profile.release]
+# debug = true
+
 [build-dependencies]
 anyhow = "1.0"
 fs_extra = "1.2"
@@ -51,3 +55,5 @@ egui-wgpu = { workspace = true }
 egui-winit = { workspace = true }
 gltf = { workspace = true }
 crossbeam = { workspace = true }
+dashmap = { workspace = true }
+rayon = { workspace = true }

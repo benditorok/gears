@@ -102,15 +102,13 @@ async fn main() -> anyhow::Result<()> {
     let time_started = std::time::Instant::now();
 
     // Use the update loop to spin the sphere
-    app.update_loop(move |ecs, dt| {
+    app.update_loop(move |world, dt| {
         // Send the frame time to the custom window
         w1_frame_tx.send(dt).unwrap();
 
         if time_started.elapsed().as_secs() % 3 == 0 {
-            let animation_queue = ecs
-                .lock()
-                .unwrap()
-                .get_component_from_entity::<AnimationQueue>(animated_cube)
+            let animation_queue = world
+                .get_component::<AnimationQueue>(animated_cube)
                 .unwrap();
 
             animation_queue

@@ -1,4 +1,6 @@
+use gears_macro::Component;
 
+use crate::ecs::Component;
 
 pub(crate) const NUM_MAX_LIGHTS: u32 = 20;
 
@@ -10,7 +12,7 @@ pub(crate) enum LightType {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Component, Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct LightUniform {
     pub position: [f32; 3],
     pub light_type: u32,
