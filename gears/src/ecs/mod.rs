@@ -2,6 +2,7 @@ pub mod components;
 pub mod utils;
 
 use dashmap::DashMap;
+use log::debug;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::ops::Deref;
@@ -111,15 +112,6 @@ impl<T: Component> ComponentStorage<T> {
         }
     }
 
-    /// Get a reference to the storage as an Any trait object.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the storage as an Any trait object.
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     /// Insert a component into the storage.
     ///
     /// # Arguments
@@ -148,24 +140,6 @@ impl<T: Component> ComponentStorage<T> {
     /// * `entity` - The entity to remove the component for.
     fn remove(&self, entity: Entity) {
         self.storage.remove(&entity);
-    }
-
-    /// Get an iterator over the entities in the storage.
-    ///
-    /// # Returns
-    ///
-    /// An iterator over the entities in the storage.
-    fn iter_components(&self) -> Box<dyn Iterator<Item = Arc<RwLock<T>>> + '_> {
-        Box::new(self.storage.iter().map(|entry| Arc::clone(entry.value())))
-    }
-
-    /// Get an iterator over the entities in the storage.
-    ///
-    /// # Returns
-    ///
-    /// An iterator over the entities in the storage.
-    fn iter_entities(&self) -> Box<dyn Iterator<Item = Entity> + '_> {
-        Box::new(self.storage.iter().map(|entry| entry.key().to_owned()))
     }
 }
 
@@ -263,7 +237,9 @@ impl World {
         }
     }
 
-    /// Add a component to an entity.
+    /// Add a component to an entity. If no storage exists for the component type,
+    /// a new storage will be created. If a component of the same type already exists,
+    /// it will be overwritten.
     ///
     /// # Arguments
     ///
@@ -315,20 +291,18 @@ impl World {
     /// # Returns
     ///
     /// A vector of mutable references to the components.
-    pub fn get_components<T: Component + 'static>(&self) -> Vec<Arc<RwLock<dyn Component>>> {
+    pub fn get_components<T: Component + 'static>(&self) -> Vec<Arc<RwLock<T>>> {
         if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
             if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
-                typed_storage
-                    .iter_components()
-                    .map(|component| {
-                        let component = Arc::clone(&component);
-                        unsafe {
-                            let raw = Arc::into_raw(component);
-                            let raw = raw as *const RwLock<dyn Component>;
-                            Arc::from_raw(raw)
-                        }
-                    })
-                    .collect()
+                let components = typed_storage
+                    .storage
+                    .iter()
+                    .map(|entry| Arc::clone(entry.value()))
+                    .collect();
+
+                debug!("Components: {:?}", components);
+
+                components
             } else {
                 Vec::new()
             }
@@ -345,7 +319,11 @@ impl World {
     pub fn get_entities_with_component<T: Component>(&self) -> Vec<Entity> {
         if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
             if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
-                return typed_storage.iter_entities().collect();
+                return typed_storage
+                    .storage
+                    .iter()
+                    .map(|entry| *entry.key())
+                    .collect();
             }
         }
         Vec::new()
@@ -360,8 +338,9 @@ impl World {
         if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
             if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
                 return typed_storage
-                    .iter_entities()
-                    .filter_map(|entity| typed_storage.get(entity).map(|c| (entity, c)))
+                    .storage
+                    .iter()
+                    .map(|entry| (*entry.key(), Arc::clone(entry.value())))
                     .collect();
             }
         }
@@ -412,28 +391,6 @@ mod tests {
         storage.insert(entity, TestComp(999));
         storage.remove(entity);
         assert!(storage.get(entity).is_none());
-    }
-
-    #[test]
-    fn test_iter_components_in_storage() {
-        let storage = ComponentStorage::<TestComp>::new();
-        for i in 0..3 {
-            let entity = Entity::new(i);
-            storage.insert(entity, TestComp(i * 10));
-        }
-        let comps: Vec<_> = storage.iter_components().collect();
-        assert_eq!(comps.len(), 3);
-    }
-
-    #[test]
-    fn test_iter_entities_in_storage() {
-        let storage = ComponentStorage::<TestComp>::new();
-        for i in 0..3 {
-            let entity = Entity::new(i);
-            storage.insert(entity, TestComp(i));
-        }
-        let entities: Vec<_> = storage.iter_entities().collect();
-        assert_eq!(entities.len(), 3);
     }
 
     #[test]
@@ -525,5 +482,15 @@ mod tests {
         // Ensure we can still read the value from both locks
         assert_eq!(read.0, 123);
         assert_eq!(read2.0, 123);
+    }
+
+    #[test]
+    fn test_get_components_vec() {
+        let world = World::new();
+        world.add_component(0.into(), TestComp(123));
+        world.add_component(1.into(), TestComp(345));
+        world.add_component(2.into(), TestComp(678));
+        let comps = world.get_components::<TestComp>();
+        assert_eq!(comps.len(), 3);
     }
 }
