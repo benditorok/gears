@@ -379,6 +379,64 @@ mod tests {
     impl Component for TestComp {}
 
     #[test]
+    fn test_insert_component_into_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        let entity = Entity::new(1);
+        storage.insert(entity, TestComp(999));
+        assert_eq!(storage.storage.len(), 1);
+    }
+
+    #[test]
+    fn test_par_insert_into_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        (0..100).into_par_iter().for_each(|i| {
+            let entity = Entity::new(i);
+            storage.insert(entity, TestComp(i * 10));
+        });
+        assert_eq!(storage.storage.len(), 100);
+    }
+
+    #[test]
+    fn test_get_component_from_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        let entity = Entity::new(1);
+        storage.insert(entity, TestComp(999));
+        let retrieved = storage.get(entity).unwrap();
+        assert_eq!(retrieved.read().unwrap().0, 999);
+    }
+
+    #[test]
+    fn test_remove_component_from_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        let entity = Entity::new(1);
+        storage.insert(entity, TestComp(999));
+        storage.remove(entity);
+        assert!(storage.get(entity).is_none());
+    }
+
+    #[test]
+    fn test_iter_components_in_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        for i in 0..3 {
+            let entity = Entity::new(i);
+            storage.insert(entity, TestComp(i * 10));
+        }
+        let comps: Vec<_> = storage.iter_components().collect();
+        assert_eq!(comps.len(), 3);
+    }
+
+    #[test]
+    fn test_iter_entities_in_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        for i in 0..3 {
+            let entity = Entity::new(i);
+            storage.insert(entity, TestComp(i));
+        }
+        let entities: Vec<_> = storage.iter_entities().collect();
+        assert_eq!(entities.len(), 3);
+    }
+
+    #[test]
     fn test_create_and_remove_entity() {
         let world = World::new();
         let entity = world.create_entity();
