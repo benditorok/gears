@@ -16,6 +16,9 @@ Goals
 - [x] Player
 - [x] Movement and View controllers
 - [x] Rigidbody physics
+- [ ] Gltf animation handling
+- [ ] Anti aliasing
+- [ ] HDR textures
 
 ![Demo](/doc/imgs/demo4.png)
 
@@ -65,19 +68,15 @@ When creating components you can use a macro or an entity builder as well.
 ### Update entities
 
 ```rust
- app.update_loop(move |ecs, dt| {
-        // ! Here we are inside a loop, so this has to lock on all iterations.
-        let ecs = ecs.lock().unwrap();
-        let circle_speed = 8.0f32;
-        let light_speed_multiplier = 3.0f32;
+ app.update_loop(move |world, dt| {
+        let spin_speed = 0.5f32;
 
-        if let Some(pos3) = ecs.get_component_from_entity::<Pos3>(red_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(sphere_entity) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
-            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
-                (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-            ) * wlock_pos3.pos;
+            let rotation = wlock_pos3.rot;
+            wlock_pos3.rot =
+                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
         }
     })
     .await?;
