@@ -155,6 +155,9 @@ impl GearsApp {
         let window = event_loop.create_window(window_attributes)?;
         let mut state = State::new(&window, ecs).await;
 
+        // Grab the cursor upon initialization
+        state.grab_cursor();
+
         // Proper error handling for initialization
         if let Err(e) = state.init_components().await {
             log::error!("Failed to initialize components: {}", e);

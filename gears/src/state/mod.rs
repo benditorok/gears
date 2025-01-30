@@ -13,6 +13,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{self, Instant};
 use wgpu::util::DeviceExt;
 use winit::event::*;
+use winit::window::CursorGrabMode;
 use winit::{
     keyboard::{KeyCode, PhysicalKey},
     window::Window,
@@ -303,6 +304,16 @@ impl<'a> State<'a> {
         self.is_state_paused.load(Ordering::Relaxed)
     }
 
+    pub fn grab_cursor(&self) {
+        self.window.set_cursor_grab(CursorGrabMode::Confined).ok();
+        self.window.set_cursor_visible(false);
+    }
+
+    pub fn release_cursor(&self) {
+        self.window.set_cursor_grab(CursorGrabMode::None).ok();
+        self.window.set_cursor_visible(true);
+    }
+
     /// Initialize the components which can be rendered.
     pub(crate) async fn init_components(&mut self) -> anyhow::Result<()> {
         if !init::player(self) {
@@ -389,10 +400,15 @@ impl<'a> State<'a> {
             ..
         } = event
         {
-            self.is_state_paused.store(
-                !self.is_state_paused.load(Ordering::Relaxed),
-                Ordering::Relaxed,
-            );
+            let is_running = self.is_state_paused.load(Ordering::Relaxed);
+            self.is_state_paused.store(!is_running, Ordering::Relaxed);
+
+            if is_running {
+                self.grab_cursor();
+            } else {
+                self.release_cursor();
+            }
+
             return true;
         }
 
