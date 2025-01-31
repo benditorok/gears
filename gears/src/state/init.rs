@@ -273,7 +273,7 @@ pub(super) async fn models(
     model_entities
 }
 
-pub(super) async fn physics_models<'a>(
+pub(super) async fn physics_models(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
