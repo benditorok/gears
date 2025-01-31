@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags", "trim-paths"]
+
 [workspace]
 resolver = "2"
 members = ["examples", "gears", "gears_macro"]
@@ -12,11 +14,23 @@ keywords = ["game engine"]
 license = ""
 authors = ["benditorok"]
 
+
 [profile.dev]
-opt-level = 0
+incremental = true # Compile your binary in smaller steps.
+rustflags = ["-Zthreads=8"] # Better compile performance.
 
 [profile.release]
-opt-level = 3
+codegen-units = 1 # Allows LLVM to perform better optimization.
+lto = true # Enables link-time-optimizations.
+opt-level = "s" # Prioritizes small binary size. Use `3` if you prefer speed.
+panic = "abort" # Higher performance by disabling panic handlers.
+strip = true # Ensures debug symbols are removed.
+trim-paths = "all" # Removes potentially privileged information from your binaries.
+rustflags = ["-Cdebuginfo=0", "-Zthreads=8"] # Better compile performance.
+
+# For memory allocation tracking
+# [profile.release]
+# debug = true
 
 [build]
 rustflags = ["-Z", "threads=8"]
