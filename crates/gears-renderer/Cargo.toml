@@ -1,0 +1,7 @@
+
+[package]
+name = "gears-renderer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

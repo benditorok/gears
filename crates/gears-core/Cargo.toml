@@ -1,0 +1,6 @@
+[package]
+name = "gears-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

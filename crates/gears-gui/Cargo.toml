@@ -1,0 +1,6 @@
+[package]
+name = "gears-gui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

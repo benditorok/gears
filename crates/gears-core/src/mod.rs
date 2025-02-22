@@ -1,10 +1,9 @@
-pub mod core;
-pub mod ecs;
-pub mod gui;
-pub mod macros;
-pub mod prelude;
-pub mod renderer;
-pub mod state;
+pub mod app;
+pub mod config;
+pub mod event;
+pub mod threadpool;
+
+pub type Dt = std::time::Duration;
 
 use std::f32::consts::FRAC_PI_2;
 
