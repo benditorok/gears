@@ -1,4 +1,3 @@
-pub mod app;
 pub mod config;
 pub mod event;
 pub mod threadpool;
@@ -7,7 +6,7 @@ pub type Dt = std::time::Duration;
 
 use std::f32::consts::FRAC_PI_2;
 
-const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
+pub const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 #[rustfmt::skip]
 const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(

@@ -1,4 +1,4 @@
-use crate::ecs::{components::Marker, Component};
+use crate::{components::Marker, Component};
 use gears_macro::Component;
 use std::ops::Deref;
 

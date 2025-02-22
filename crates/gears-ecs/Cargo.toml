@@ -4,3 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+gears-macro = { workspace = true }
+gears-core = { workspace = true }
+log = { workspace = true }
+dashmap = { workspace = true }
+cgmath = { workspace = true }
+winit = { workspace = true }
+rayon = { workspace = true }

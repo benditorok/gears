@@ -1,8 +1,5 @@
 use super::{misc::Health, physics::RigidBody};
-use crate::{
-    ecs::Component,
-    prelude::{Pos3, ViewController},
-};
+use crate::{components::controllers::ViewController, components::transforms::Pos3, Component};
 use gears_macro::Component;
 
 #[derive(Component, Debug, Clone, Copy)]

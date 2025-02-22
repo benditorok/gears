@@ -1,4 +1,4 @@
-use crate::ecs::Component;
+use crate::Component;
 use gears_macro::Component;
 
 /// A component that stores the light type.

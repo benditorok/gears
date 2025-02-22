@@ -1,5 +1,5 @@
 use super::transforms::Pos3;
-use crate::ecs::Component;
+use crate::Component;
 use cgmath::InnerSpace;
 use gears_macro::Component;
 

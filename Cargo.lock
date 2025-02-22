@@ -996,12 +996,22 @@ dependencies = [
 name = "gears-core"
 version = "0.1.0"
 dependencies = [
+ "cgmath",
  "log",
 ]
 
 [[package]]
 name = "gears-ecs"
 version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "dashmap",
+ "gears-core",
+ "gears-macro",
+ "log",
+ "rayon",
+ "winit",
+]
 
 [[package]]
 name = "gears-gui"
