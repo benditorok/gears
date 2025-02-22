@@ -1,13 +1,15 @@
+use super::model;
 use super::State;
-use crate::ecs::components::Marker;
-use crate::ecs::{self, components};
-use crate::renderer::model;
-use crate::renderer::{instance, light, resources};
+use super::{instance, light, resources};
+use crate::resources::{load_model_gltf, load_model_obj};
 use cgmath::prelude::*;
+use gears_ecs::{
+    components::{self, Marker},
+    Entity, World,
+};
 use log::info;
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
-
 /// Initialie the player component.
 ///
 /// # Returns
@@ -178,8 +180,8 @@ pub(super) async fn models(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
-    world: &Arc<ecs::World>,
-) -> Vec<ecs::Entity> {
+    world: &Arc<World>,
+) -> Vec<Entity> {
     let model_entities = world.get_entities_with_component::<components::misc::StaticModelMarker>();
 
     for entity in model_entities.iter() {
@@ -203,12 +205,12 @@ pub(super) async fn models(
 
             match *rlock_model_source {
                 components::models::ModelSource::Obj(path) => {
-                    resources::load_model_obj(path, device, queue, texture_bind_group_layout)
+                    load_model_obj(path, device, queue, texture_bind_group_layout)
                         .await
                         .unwrap()
                 }
                 components::models::ModelSource::Gltf(path) => {
-                    resources::load_model_gltf(path, device, queue, texture_bind_group_layout)
+                    load_model_gltf(path, device, queue, texture_bind_group_layout)
                         .await
                         .unwrap()
                 }
@@ -277,8 +279,8 @@ pub(super) async fn physics_models(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
-    world: &Arc<ecs::World>,
-) -> Vec<ecs::Entity> {
+    world: &Arc<World>,
+) -> Vec<Entity> {
     let physics_entities = world.get_entities_with_component::<components::misc::RigidBodyMarker>();
 
     for entity in physics_entities.iter() {
@@ -305,12 +307,12 @@ pub(super) async fn physics_models(
 
             match *rlock_model_source {
                 components::models::ModelSource::Obj(path) => {
-                    resources::load_model_obj(path, device, queue, texture_bind_group_layout)
+                    load_model_obj(path, device, queue, texture_bind_group_layout)
                         .await
                         .unwrap()
                 }
                 components::models::ModelSource::Gltf(path) => {
-                    resources::load_model_gltf(path, device, queue, texture_bind_group_layout)
+                    load_model_gltf(path, device, queue, texture_bind_group_layout)
                         .await
                         .unwrap()
                 }

@@ -18,7 +18,7 @@ fn main() -> Result<()> {
     copy_options.overwrite = true;
 
     // Copy resources relative to executable
-    let res_source = env::current_dir()?.join("../res");
+    let res_source = env::current_dir()?.join("../../res");
     let res_target = target_dir.join("res");
 
     // Create target directory if it doesn't exist

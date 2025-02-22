@@ -1,6 +1,9 @@
 use super::{instance, light, model, State};
 use cgmath::VectorSpace;
-use gears_ecs::{components::Marker, Component};
+use gears_ecs::{
+    components::{self, Marker},
+    Component,
+};
 use log::warn;
 use std::time::{self, Instant};
 

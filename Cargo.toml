@@ -22,7 +22,6 @@ keywords = ["game engine"]
 license = ""
 authors = ["benditorok"]
 
-
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
 rustflags = ["-Zthreads=8"] # Better compile performance.

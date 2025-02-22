@@ -1,9 +1,8 @@
 use gears_core::config::{self, Config};
 use gears_core::threadpool::ThreadPool;
 use gears_core::Dt;
-use crate::ecs::Component;
-use crate::ecs::World;
-use crate::{ecs, state::State};
+use gears_ecs::{Component, World};
+use gears_renderer::State;
 use log::{info, warn};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -17,7 +16,7 @@ use winit::window::WindowAttributes;
 /// The application can also be used to create entities, add components, windows etc. to itself.
 pub struct GearsApp {
     config: Config,
-    world: Arc<ecs::World>,
+    world: Arc<World>,
     pub thread_pool: ThreadPool,
     egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
     tx_dt: Option<tokio::sync::broadcast::Sender<Dt>>,
@@ -50,7 +49,7 @@ impl GearsApp {
         Self {
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            world: Arc::new(ecs::World::default()),
+            world: Arc::new(World::default()),
             egui_windows: None,
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
@@ -93,7 +92,7 @@ impl GearsApp {
     /// * `f` - The function to run on each update.
     pub async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
     where
-        F: Fn(Arc<ecs::World>, Dt) + Send + Sync + 'static,
+        F: Fn(Arc<World>, Dt) + Send + Sync + 'static,
     {
         let mut rx_dt = self
             .get_dt_channel()
@@ -141,7 +140,7 @@ impl GearsApp {
     ///
     /// A future which can be awaited.
     async fn run_engine(
-        ecs: Arc<ecs::World>,
+        ecs: Arc<World>,
         tx_dt: broadcast::Sender<Dt>,
         egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
     ) -> anyhow::Result<()> {
@@ -286,7 +285,7 @@ impl GearsApp {
     #[warn(unstable_features)]
     pub async fn update_loop_async<F>(&self, f: F) -> anyhow::Result<()>
     where
-        F: Fn(Arc<Mutex<ecs::Manager>>, Dt) -> Pin<Box<dyn Future<Output = ()> + Send>>
+        F: Fn(Arc<Mutex<Manager>>, Dt) -> Pin<Box<dyn Future<Output = ()> + Send>>
             + Send
             + Sync
             + 'static,
@@ -324,7 +323,7 @@ impl Drop for GearsApp {
     }
 }
 
-impl ecs::EntityBuilder for GearsApp {
+impl EntityBuilder for GearsApp {
     fn new_entity(&mut self) -> &mut Self {
         self.world.create_entity();
 
@@ -345,7 +344,7 @@ impl ecs::EntityBuilder for GearsApp {
         self
     }
 
-    fn build(&mut self) -> ecs::Entity {
+    fn build(&mut self) -> Entity {
         if let Some(e) = self.world.get_last() {
             e
         } else {
@@ -358,7 +357,7 @@ impl ecs::EntityBuilder for GearsApp {
 mod tests {
     use super::*;
     use crate::new_entity;
-    use ecs::EntityBuilder;
+    use EntityBuilder;
 
     #[derive(Debug, PartialEq)]
     struct TestComponent {
