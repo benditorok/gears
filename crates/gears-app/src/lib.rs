@@ -1,6 +1,6 @@
-use super::config::{self, Config};
-use super::threadpool::ThreadPool;
-use super::Dt;
+use gears_core::config::{self, Config};
+use gears_core::threadpool::ThreadPool;
+use gears_core::Dt;
 use crate::ecs::Component;
 use crate::ecs::World;
 use crate::{ecs, state::State};

@@ -2,7 +2,16 @@ cargo-features = ["profile-rustflags", "trim-paths"]
 
 [workspace]
 resolver = "2"
-members = ["examples", "gears", "gears_macro"]
+members = [
+    "crates/gears-app",
+    "crates/gears-core",
+    "crates/gears-ecs",
+    "crates/gears-gui",
+    "crates/gears-macro",
+    "crates/gears-renderer",
+    "crates/gears-state",
+    "examples"
+]
 
 [workspace.package]
 version = "0.1.0"
