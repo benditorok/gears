@@ -803,7 +803,7 @@ dependencies = [
  "egui-winit",
  "env_logger",
  "futures",
- "gears",
+ "gears-app",
  "log",
  "rand",
  "tokio",
@@ -960,7 +960,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gears"
+name = "gears-app"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -975,7 +975,12 @@ dependencies = [
  "env_logger",
  "fs_extra",
  "futures",
- "gears_macro",
+ "gears-core",
+ "gears-ecs",
+ "gears-gui",
+ "gears-macro",
+ "gears-renderer",
+ "gears-state",
  "glob",
  "gltf",
  "image",
@@ -988,12 +993,93 @@ dependencies = [
 ]
 
 [[package]]
-name = "gears_macro"
+name = "gears-core"
+version = "0.1.0"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "gears-ecs"
+version = "0.1.0"
+
+[[package]]
+name = "gears-gui"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "egui-wgpu",
+ "egui-winit",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "gears-macro"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.82",
+]
+
+[[package]]
+name = "gears-renderer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "cfg-if",
+ "cgmath",
+ "crossbeam",
+ "dashmap",
+ "egui",
+ "egui-wgpu",
+ "egui-winit",
+ "env_logger",
+ "futures",
+ "gears-core",
+ "gears-ecs",
+ "gears-gui",
+ "gears-macro",
+ "gears-state",
+ "gltf",
+ "image",
+ "log",
+ "rayon",
+ "tobj",
+ "tokio",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "gears-state"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "cfg-if",
+ "cgmath",
+ "crossbeam",
+ "dashmap",
+ "egui",
+ "egui-wgpu",
+ "egui-winit",
+ "env_logger",
+ "futures",
+ "gears-core",
+ "gears-ecs",
+ "gears-gui",
+ "gears-macro",
+ "gltf",
+ "image",
+ "log",
+ "rayon",
+ "tobj",
+ "tokio",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
