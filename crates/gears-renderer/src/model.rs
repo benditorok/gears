@@ -1,12 +1,9 @@
 use std::fmt::Debug;
 
-use crate::ecs::Component;
+use super::texture;
+use gears_ecs::{components, Component};
 use gears_macro::Component;
 use wgpu::util::DeviceExt;
-
-use crate::ecs::components;
-
-use super::texture;
 
 pub(crate) trait Vertex {
     fn desc() -> wgpu::VertexBufferLayout<'static>;

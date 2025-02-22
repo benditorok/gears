@@ -1,16 +1,8 @@
-use std::time::{self, Instant};
-
+use super::{instance, light, model, State};
 use cgmath::VectorSpace;
+use gears_ecs::{components::Marker, Component};
 use log::warn;
-
-use super::State;
-use crate::{
-    ecs::{
-        components::{self, Marker},
-        Component,
-    },
-    renderer::{instance, light, model},
-};
+use std::time::{self, Instant};
 
 impl Component for wgpu::Buffer {}
 

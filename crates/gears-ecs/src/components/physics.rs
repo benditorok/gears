@@ -17,8 +17,8 @@ pub struct RigidBody {
     pub mass: f32,
     pub velocity: cgmath::Vector3<f32>,
     pub acceleration: cgmath::Vector3<f32>,
-    pub(crate) collision_box: CollisionBox,
-    pub(crate) is_static: bool,
+    pub collision_box: CollisionBox,
+    pub is_static: bool,
 }
 
 impl Default for RigidBody {

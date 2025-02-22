@@ -1,5 +1,5 @@
 use super::model;
-use crate::ecs::Component;
+use gears_ecs::Component;
 use gears_macro::Component;
 
 #[derive(Component, Debug)]

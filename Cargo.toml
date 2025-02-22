@@ -9,7 +9,6 @@ members = [
     "crates/gears-gui",
     "crates/gears-macro",
     "crates/gears-renderer",
-    "crates/gears-state",
     "examples"
 ]
 
@@ -52,7 +51,6 @@ gears-ecs = { path = "crates/gears-ecs" }
 gears-gui = { path = "crates/gears-gui" }
 gears-macro = { path = "crates/gears-macro" }
 gears-renderer = { path = "crates/gears-renderer" }
-gears-state = { path = "crates/gears-state" }
 
 # External crates
 tokio = { version = "1.40.0", features = ["full"] }

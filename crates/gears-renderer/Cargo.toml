@@ -9,7 +9,6 @@ gears-macro = { workspace = true }
 gears-core = { workspace = true }
 gears-gui = { workspace = true }
 gears-ecs = { workspace = true }
-gears-state = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 anyhow = { workspace = true }

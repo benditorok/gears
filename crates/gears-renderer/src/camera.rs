@@ -1,5 +1,6 @@
-use crate::{ecs::components, OPENGL_TO_WGPU_MATRIX};
 use cgmath::{perspective, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3};
+use gears_core::OPENGL_TO_WGPU_MATRIX;
+use gears_ecs::components;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]

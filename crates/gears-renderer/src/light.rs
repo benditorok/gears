@@ -1,6 +1,5 @@
+use gears_ecs::Component;
 use gears_macro::Component;
-
-use crate::ecs::Component;
 
 pub(crate) const NUM_MAX_LIGHTS: u32 = 20;
 

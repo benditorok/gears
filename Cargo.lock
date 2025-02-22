@@ -980,7 +980,6 @@ dependencies = [
  "gears-gui",
  "gears-macro",
  "gears-renderer",
- "gears-state",
  "glob",
  "gltf",
  "image",
@@ -1035,36 +1034,6 @@ dependencies = [
 
 [[package]]
 name = "gears-renderer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "cfg-if",
- "cgmath",
- "crossbeam",
- "dashmap",
- "egui",
- "egui-wgpu",
- "egui-winit",
- "env_logger",
- "futures",
- "gears-core",
- "gears-ecs",
- "gears-gui",
- "gears-macro",
- "gears-state",
- "gltf",
- "image",
- "log",
- "rayon",
- "tobj",
- "tokio",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "gears-state"
 version = "0.1.0"
 dependencies = [
  "anyhow",

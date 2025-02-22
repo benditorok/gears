@@ -149,10 +149,10 @@ impl MovementController {
 pub struct ViewController {
     pub sensitivity: f32,
     pub head_offset: f32,
-    pub(crate) rotate_horizontal: f32,
-    pub(crate) rotate_vertical: f32,
-    pub(crate) yaw: cgmath::Rad<f32>,
-    pub(crate) pitch: cgmath::Rad<f32>,
+    pub rotate_horizontal: f32,
+    pub rotate_vertical: f32,
+    pub yaw: cgmath::Rad<f32>,
+    pub pitch: cgmath::Rad<f32>,
 }
 
 impl Default for ViewController {
