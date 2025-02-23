@@ -1,6 +1,6 @@
 use cgmath::{Euler, Quaternion, Rad, Rotation3};
 use egui::Align2;
-use gears::prelude::*;
+use gears_app::prelude::*;
 use log::LevelFilter;
 use std::sync::mpsc;
 
@@ -94,9 +94,7 @@ async fn main() -> anyhow::Result<()> {
             .resizable(true)
             .anchor(Align2::LEFT_TOP, [0.0, 0.0])
             .show(ui, |ui| {
-                if let Some(sphere) =
-                    cw_ecs.get_component::<components::transforms::Pos3>(sphere_entity)
-                {
+                if let Some(sphere) = cw_ecs.get_component::<Pos3>(sphere_entity) {
                     let mut wlock_sphere = sphere.write().unwrap();
                     ui.label("Position");
                     ui.add(egui::Slider::new(&mut wlock_sphere.pos.x, -10.0..=10.0));

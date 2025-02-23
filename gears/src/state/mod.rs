@@ -2,13 +2,11 @@ mod init;
 mod resources;
 mod update;
 
-use crate::BufferComponent;
-
-use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
-use super::{camera, instance, light, texture};
+use crate::ecs::{self, components};
+use crate::gui::EguiRenderer;
+use crate::renderer::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
+use crate::renderer::{camera, instance, light, texture};
 use egui_wgpu::ScreenDescriptor;
-use gears_ecs::{self, components, Entity, World};
-use gears_gui::EguiRenderer;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
@@ -25,40 +23,40 @@ use winit::{
 ///
 /// The State is responsible for handling the rendering pipeline, the camera, the lights,
 /// the models, the window, etc.
-pub struct State<'a> {
+pub(crate) struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    pub size: winit::dpi::PhysicalSize<u32>,
+    pub(crate) size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
     movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
-    pub view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
-    player_entity: Option<Entity>,
-    camera_owner_entity: Option<Entity>,
+    pub(crate) view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
+    player_entity: Option<ecs::Entity>,
+    camera_owner_entity: Option<ecs::Entity>,
     camera_projection: camera::Projection,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    light_entities: Option<Vec<Entity>>,
+    light_entities: Option<Vec<ecs::Entity>>,
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
-    static_model_entities: Option<Vec<Entity>>,
-    physics_entities: Option<Vec<Entity>>,
-    drawable_entities: Option<Vec<Entity>>,
+    static_model_entities: Option<Vec<ecs::Entity>>,
+    physics_entities: Option<Vec<ecs::Entity>>,
+    drawable_entities: Option<Vec<ecs::Entity>>,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: texture::Texture,
     window: &'a Window,
-    world: Arc<World>,
+    world: Arc<ecs::World>,
     mouse_pressed: bool,
     draw_colliders: bool,
     egui_renderer: EguiRenderer,
-    pub egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
+    pub(crate) egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
     is_state_paused: AtomicBool,
     time: Instant,
     collider_render_pipeline: wgpu::RenderPipeline,
-    target_entities: Option<Vec<Entity>>,
+    target_entities: Option<Vec<ecs::Entity>>,
 }
 
 impl<'a> State<'a> {
@@ -72,7 +70,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A new instance of the State.
-    pub async fn new(window: &'a Window, ecs: Arc<World>) -> State<'a> {
+    pub(crate) async fn new(window: &'a Window, ecs: Arc<ecs::World>) -> State<'a> {
         // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -225,7 +223,7 @@ impl<'a> State<'a> {
             });
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Main Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/shader.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/shader.wgsl").into()),
             };
             resources::create_render_pipeline(
                 &device,
@@ -251,9 +249,7 @@ impl<'a> State<'a> {
             });
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Collider Shader"),
-                source: wgpu::ShaderSource::Wgsl(
-                    include_str!("../../shaders/wireframe.wgsl").into(),
-                ),
+                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/wireframe.wgsl").into()),
             };
 
             resources::create_render_pipeline(
@@ -319,7 +315,7 @@ impl<'a> State<'a> {
     }
 
     /// Initialize the components which can be rendered.
-    pub async fn init_components(&mut self) -> anyhow::Result<()> {
+    pub(crate) async fn init_components(&mut self) -> anyhow::Result<()> {
         if !init::player(self) {
             init::camera(self);
         }
@@ -359,7 +355,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A reference to the window.
-    pub fn window(&self) -> &Window {
+    pub(crate) fn window(&self) -> &Window {
         self.window
     }
 
@@ -368,7 +364,7 @@ impl<'a> State<'a> {
     /// # Arguments
     ///
     /// * `new_size` - The new size of the window.
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    pub(crate) fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.camera_projection
             .resize(new_size.width, new_size.height);
 
@@ -392,7 +388,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A boolean indicating if the event was consumed.
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
+    pub(crate) fn input(&mut self, event: &WindowEvent) -> bool {
         // * Pause the state
         if let WindowEvent::KeyboardInput {
             event:
@@ -465,7 +461,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A future which can be awaited.
-    pub async fn update(&mut self, dt: time::Duration) -> anyhow::Result<()> {
+    pub(crate) async fn update(&mut self, dt: time::Duration) -> anyhow::Result<()> {
         // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {
             let camera_entity = self.camera_owner_entity.unwrap();
@@ -524,7 +520,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A result indicating if the rendering was successful or not.
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub(crate) fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -574,10 +570,8 @@ impl<'a> State<'a> {
 
                 for entity in model_entities {
                     let model = self.world.get_component::<model::Model>(*entity).unwrap();
-                    let instance_buffer = self
-                        .world
-                        .get_component::<BufferComponent>(*entity)
-                        .unwrap();
+                    let instance_buffer =
+                        self.world.get_component::<wgpu::Buffer>(*entity).unwrap();
 
                     let rlock_model = model.read().unwrap();
                     let rlock_instance_buffer = instance_buffer.read().unwrap();
@@ -600,10 +594,8 @@ impl<'a> State<'a> {
                             .get_component::<model::WireframeMesh>(*entity)
                             .unwrap();
                         // Use the same instance buffer that's used for the physics body
-                        let instance_buffer = self
-                            .world
-                            .get_component::<BufferComponent>(*entity)
-                            .unwrap();
+                        let instance_buffer =
+                            self.world.get_component::<wgpu::Buffer>(*entity).unwrap();
 
                         // Lock and read components
                         let wireframe = wireframe.read().unwrap();

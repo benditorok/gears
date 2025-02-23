@@ -1,5 +1,5 @@
 use cgmath::{Quaternion, Rotation3};
-use gears::prelude::*;
+use gears_app::prelude::*;
 use log::LevelFilter;
 
 #[tokio::main]

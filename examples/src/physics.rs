@@ -1,4 +1,4 @@
-use gears::prelude::*;
+use gears_app::prelude::*;
 use log::LevelFilter;
 
 #[tokio::main]
