@@ -1,10 +1,15 @@
-use super::transforms::Pos3;
+use super::transforms::{Pos, Pos3};
 use crate::Component;
 use cgmath::InnerSpace;
 use gears_macro::Component;
 
 const MAX_HORIZONTAL_VELOCITY: f32 = 20.0;
 const MAX_VERTICAL_VELOCITY: f32 = 40.0;
+
+pub trait Collider {
+    fn intersects(&self, other: &Self) -> bool;
+    fn move_to(&mut self, pos: impl Pos);
+}
 
 #[derive(Component, Debug, Clone)]
 pub struct CollisionBox {

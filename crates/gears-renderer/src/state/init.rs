@@ -4,8 +4,9 @@ use super::{instance, light, resources};
 use crate::resources::{load_model_gltf, load_model_obj};
 use crate::BufferComponent;
 use cgmath::prelude::*;
+use gears_ecs::components::misc::Marker;
 use gears_ecs::{
-    components::{self, Marker},
+    components::{self},
     Entity, World,
 };
 use log::info;

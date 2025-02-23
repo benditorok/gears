@@ -1,6 +1,15 @@
-use crate::{components::Marker, Component};
+use crate::Component;
+use core::time;
 use gears_macro::Component;
 use std::ops::Deref;
+
+pub trait Tick {
+    fn on_tick(&mut self, delta_time: time::Duration);
+}
+
+pub trait Marker {
+    fn describe() -> &'static str;
+}
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct PlayerMarker;

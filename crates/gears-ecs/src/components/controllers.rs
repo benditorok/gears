@@ -1,4 +1,4 @@
-use crate::components::Component;
+use crate::Component;
 use cgmath::{InnerSpace, Point3, Rotation3, Vector3};
 use gears_core::SAFE_FRAC_PI_2;
 use gears_macro::Component;

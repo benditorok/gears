@@ -1,9 +1,15 @@
+use crate::Component;
+
 use super::{
     controllers::{MovementController, ViewController},
     models::ModelSource,
     physics::RigidBody,
     transforms::Pos3,
 };
+
+pub trait Prefab {
+    fn unpack_prefab(&mut self) -> Vec<Box<impl Component>>;
+}
 
 pub struct Player {
     pub pos3: Option<Pos3>,

@@ -2,7 +2,9 @@ use crate::Component;
 use cgmath::One;
 use gears_macro::Component;
 
-use super::Pos;
+pub trait Pos {
+    fn get_pos(&self) -> cgmath::Vector3<f32>;
+}
 
 /// A component that stores the position of any object.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]

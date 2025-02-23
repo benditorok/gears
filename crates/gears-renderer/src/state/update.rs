@@ -3,7 +3,7 @@ use crate::BufferComponent;
 use super::{instance, light, model, State};
 use cgmath::VectorSpace;
 use gears_ecs::{
-    components::{self, Marker},
+    components::{self, misc::Marker},
     Component,
 };
 use log::warn;

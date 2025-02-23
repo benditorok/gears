@@ -1,6 +1,5 @@
-use log::warn;
-
 use super::{Component, Entity, EntityBuilder, World};
+use log::warn;
 
 pub struct EcsBuilder<'a> {
     ecs: &'a mut World,
