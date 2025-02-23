@@ -1,7 +1,6 @@
 use cgmath::Rotation3;
-use components::misc::Health;
 use egui::Align2;
-use gears::prelude::*;
+use gears_app::prelude::*;
 use log::LevelFilter;
 use std::f32::consts::PI;
 use std::sync::mpsc;
@@ -135,7 +134,7 @@ async fn main() -> anyhow::Result<()> {
     // * ENDREGION
 
     // * Player
-    let mut player_prefab = prefabs::Player::default();
+    let mut player_prefab = Player::default();
     let player = new_entity!(
         app,
         PlayerMarker,
@@ -152,7 +151,7 @@ async fn main() -> anyhow::Result<()> {
     // * Player
 
     // Add 5 spheres in a circle
-    let mut moving_spheres: [ecs::Entity; 5] = [ecs::Entity::new(0); 5];
+    let mut moving_spheres: [Entity; 5] = [Entity::new(0); 5];
     for (i, sphere) in moving_spheres.iter_mut().enumerate() {
         let angle = i as f32 * std::f32::consts::PI * 2.0 / 5.0;
         let x = angle.cos() * 10.0;

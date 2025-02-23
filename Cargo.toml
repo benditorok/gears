@@ -2,7 +2,15 @@ cargo-features = ["profile-rustflags", "trim-paths"]
 
 [workspace]
 resolver = "2"
-members = ["examples", "gears", "gears_macro"]
+members = [
+    "crates/gears-app",
+    "crates/gears-core",
+    "crates/gears-ecs",
+    "crates/gears-gui",
+    "crates/gears-macro",
+    "crates/gears-renderer",
+    "examples"
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,7 +21,6 @@ repository = "https://github.com/benditorok/gears"
 keywords = ["game engine"]
 license = ""
 authors = ["benditorok"]
-
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
@@ -36,7 +43,15 @@ rustflags = ["-Cdebuginfo=0", "-Zthreads=8"] # Better compile performance.
 rustflags = ["-Z", "threads=8"]
 
 [workspace.dependencies]
-gears_macro = { path = "./gears_macro" }
+# Internal crates
+gears-app = { path = "crates/gears-app" }
+gears-core = { path = "crates/gears-core" }
+gears-ecs = { path = "crates/gears-ecs" }
+gears-gui = { path = "crates/gears-gui" }
+gears-macro = { path = "crates/gears-macro" }
+gears-renderer = { path = "crates/gears-renderer" }
+
+# External crates
 tokio = { version = "1.40.0", features = ["full"] }
 futures = "0.3.31"
 anyhow = "1.0.89"

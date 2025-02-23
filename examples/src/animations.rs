@@ -1,5 +1,5 @@
 use egui::Align2;
-use gears::prelude::*;
+use gears_app::prelude::*;
 use log::LevelFilter;
 use std::sync::mpsc;
 

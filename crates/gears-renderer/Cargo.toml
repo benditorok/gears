@@ -1,0 +1,34 @@
+[package]
+name = "gears-renderer"
+version.workspace = true
+edition.workspace = true
+
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.2"
+glob = "0.3"
+
+[dependencies]
+gears-macro = { workspace = true }
+gears-core = { workspace = true }
+gears-gui = { workspace = true }
+gears-ecs = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+anyhow = { workspace = true }
+cfg-if = { workspace = true }
+winit = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+image = { workspace = true }
+cgmath = { workspace = true }
+tobj = { workspace = true }
+egui = { workspace = true }
+egui-wgpu = { workspace = true }
+egui-winit = { workspace = true }
+gltf = { workspace = true }
+crossbeam = { workspace = true }
+dashmap = { workspace = true }
+rayon = { workspace = true }

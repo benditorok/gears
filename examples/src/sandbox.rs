@@ -1,5 +1,5 @@
 use cgmath::Rotation3;
-use gears::prelude::*;
+use gears_app::prelude::*;
 use log::LevelFilter;
 use std::f32::consts::PI;
 
@@ -140,7 +140,7 @@ async fn main() -> anyhow::Result<()> {
         Name("Sphere1"),
         ModelSource::Obj("models/sphere/sphere.obj"),
         Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
-        components::transforms::Flip::Vertical
+        Flip::Vertical
     );
 
     // Plane
@@ -157,7 +157,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Add 5 spheres in a circle
-    let mut moving_spheres: [ecs::Entity; 5] = [ecs::Entity::new(0); 5];
+    let mut moving_spheres: [Entity; 5] = [Entity::new(0); 5];
     for (i, sphere) in moving_spheres.iter_mut().enumerate() {
         let angle = i as f32 * std::f32::consts::PI * 2.0 / 5.0;
         let x = angle.cos() * 10.0;
