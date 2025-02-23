@@ -1,11 +1,10 @@
+use super::{physics::RigidBody, transforms::Pos3};
 use crate::Component;
 use cgmath::{InnerSpace, Point3, Rotation3, Vector3};
 use gears_core::SAFE_FRAC_PI_2;
 use gears_macro::Component;
 use log::info;
 use winit::{event::ElementState, keyboard::KeyCode};
-
-use super::{physics::RigidBody, transforms::Pos3};
 
 const MOVE_ACCELERATION: f32 = 15.0; // Reduced from 50.0
 const JUMP_FORCE: f32 = 20.0; // Reduced from 10.0

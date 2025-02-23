@@ -9,6 +9,17 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 
+/// The EntityBuilder trait is responsible for creating entities and adding components to them.
+pub trait EntityBuilder {
+    fn new_entity(&mut self) -> &mut Self;
+    fn add_component(&mut self, component: impl Component) -> &mut Self;
+    fn build(&mut self) -> Entity;
+}
+
+/// A component marker that can be attached to an entity.
+pub trait Component: Send + Sync + Any + Debug {}
+
+impl Component for Box<dyn Component> {}
 /// An entity is a unique identifier that can be attached to components.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(u32);
@@ -55,18 +66,6 @@ impl From<u32> for Entity {
         Self(id)
     }
 }
-
-/// The EntityBuilder trait is responsible for creating entities and adding components to them.
-pub trait EntityBuilder {
-    fn new_entity(&mut self) -> &mut Self;
-    fn add_component(&mut self, component: impl Component) -> &mut Self;
-    fn build(&mut self) -> Entity;
-}
-
-/// A component marker that can be attached to an entity.
-pub trait Component: Send + Sync + Any + Debug {}
-
-impl Component for Box<dyn Component> {}
 
 /// The ComponentStorage struct is responsible for storing components of a specific type.
 /// It uses a DashMap to store the components, which allows for concurrent reads and writes.
