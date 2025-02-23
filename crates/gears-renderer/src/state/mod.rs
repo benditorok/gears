@@ -2,11 +2,13 @@ mod init;
 mod resources;
 mod update;
 
-use crate::ecs::{self, components};
-use crate::gui::EguiRenderer;
-use crate::renderer::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
-use crate::renderer::{camera, instance, light, texture};
+use crate::BufferComponent;
+
+use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
+use super::{camera, instance, light, texture};
 use egui_wgpu::ScreenDescriptor;
+use gears_ecs::{self, components, Entity, World};
+use gears_gui::EguiRenderer;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
@@ -23,7 +25,7 @@ use winit::{
 ///
 /// The State is responsible for handling the rendering pipeline, the camera, the lights,
 /// the models, the window, etc.
-pub(crate) struct State<'a> {
+pub struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -32,23 +34,23 @@ pub(crate) struct State<'a> {
     render_pipeline: wgpu::RenderPipeline,
     movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
     pub(crate) view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
-    player_entity: Option<ecs::Entity>,
-    camera_owner_entity: Option<ecs::Entity>,
+    player_entity: Option<Entity>,
+    camera_owner_entity: Option<Entity>,
     camera_projection: camera::Projection,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    light_entities: Option<Vec<ecs::Entity>>,
+    light_entities: Option<Vec<Entity>>,
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
-    static_model_entities: Option<Vec<ecs::Entity>>,
-    physics_entities: Option<Vec<ecs::Entity>>,
-    drawable_entities: Option<Vec<ecs::Entity>>,
+    static_model_entities: Option<Vec<Entity>>,
+    physics_entities: Option<Vec<Entity>>,
+    drawable_entities: Option<Vec<Entity>>,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: texture::Texture,
     window: &'a Window,
-    world: Arc<ecs::World>,
+    world: Arc<World>,
     mouse_pressed: bool,
     draw_colliders: bool,
     egui_renderer: EguiRenderer,
@@ -56,7 +58,7 @@ pub(crate) struct State<'a> {
     is_state_paused: AtomicBool,
     time: Instant,
     collider_render_pipeline: wgpu::RenderPipeline,
-    target_entities: Option<Vec<ecs::Entity>>,
+    target_entities: Option<Vec<Entity>>,
 }
 
 impl<'a> State<'a> {
@@ -70,7 +72,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A new instance of the State.
-    pub(crate) async fn new(window: &'a Window, ecs: Arc<ecs::World>) -> State<'a> {
+    pub async fn new(window: &'a Window, ecs: Arc<World>) -> State<'a> {
         // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -223,7 +225,7 @@ impl<'a> State<'a> {
             });
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Main Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/shader.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/shader.wgsl").into()),
             };
             resources::create_render_pipeline(
                 &device,
@@ -249,7 +251,9 @@ impl<'a> State<'a> {
             });
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Collider Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/wireframe.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(
+                    include_str!("../../shaders/wireframe.wgsl").into(),
+                ),
             };
 
             resources::create_render_pipeline(
@@ -570,8 +574,10 @@ impl<'a> State<'a> {
 
                 for entity in model_entities {
                     let model = self.world.get_component::<model::Model>(*entity).unwrap();
-                    let instance_buffer =
-                        self.world.get_component::<wgpu::Buffer>(*entity).unwrap();
+                    let instance_buffer = self
+                        .world
+                        .get_component::<BufferComponent>(*entity)
+                        .unwrap();
 
                     let rlock_model = model.read().unwrap();
                     let rlock_instance_buffer = instance_buffer.read().unwrap();
@@ -594,8 +600,10 @@ impl<'a> State<'a> {
                             .get_component::<model::WireframeMesh>(*entity)
                             .unwrap();
                         // Use the same instance buffer that's used for the physics body
-                        let instance_buffer =
-                            self.world.get_component::<wgpu::Buffer>(*entity).unwrap();
+                        let instance_buffer = self
+                            .world
+                            .get_component::<BufferComponent>(*entity)
+                            .unwrap();
 
                         // Lock and read components
                         let wireframe = wireframe.read().unwrap();

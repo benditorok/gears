@@ -2,6 +2,7 @@ use super::model;
 use super::State;
 use super::{instance, light, resources};
 use crate::resources::{load_model_gltf, load_model_obj};
+use crate::BufferComponent;
 use cgmath::prelude::*;
 use gears_ecs::{
     components::{self, Marker},
@@ -269,7 +270,7 @@ pub(super) async fn models(
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
         world.add_component(*entity, instance);
-        world.add_component(*entity, instance_buffer);
+        world.add_component(*entity, BufferComponent(instance_buffer));
     }
 
     model_entities
@@ -372,7 +373,7 @@ pub(super) async fn physics_models(
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
         world.add_component(*entity, instance);
-        world.add_component(*entity, instance_buffer);
+        world.add_component(*entity, BufferComponent(instance_buffer));
 
         // Create a wireframe collider from the RigidBody's data
         let wireframe = model::WireframeMesh::new(device, &physics_body.read().unwrap());

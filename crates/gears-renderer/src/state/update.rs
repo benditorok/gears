@@ -1,3 +1,5 @@
+use crate::BufferComponent;
+
 use super::{instance, light, model, State};
 use cgmath::VectorSpace;
 use gears_ecs::{
@@ -6,8 +8,6 @@ use gears_ecs::{
 };
 use log::warn;
 use std::time::{self, Instant};
-
-impl Component for wgpu::Buffer {}
 
 /// Update the lights in the scene.
 pub(super) fn lights(state: &mut State) {
@@ -77,7 +77,10 @@ pub(super) fn models(state: &mut State) {
                 .world
                 .get_component::<instance::Instance>(*entity)
                 .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
-            let buffer = state.world.get_component::<wgpu::Buffer>(*entity).unwrap();
+            let buffer = state
+                .world
+                .get_component::<BufferComponent>(*entity)
+                .unwrap();
             let model = state.world.get_component::<model::Model>(*entity).unwrap();
             let animation_queue = state
                 .world
@@ -232,7 +235,10 @@ pub(super) fn physics_system(state: &mut State, dt: time::Duration) {
                 .world
                 .get_component::<instance::Instance>(*entity)
                 .unwrap();
-            let buffer = state.world.get_component::<wgpu::Buffer>(*entity).unwrap();
+            let buffer = state
+                .world
+                .get_component::<BufferComponent>(*entity)
+                .unwrap();
             let pos3 = state
                 .world
                 .get_component::<components::transforms::Pos3>(*entity)
