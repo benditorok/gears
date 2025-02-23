@@ -1,8 +1,12 @@
-
 [package]
 name = "gears-renderer"
 version.workspace = true
 edition.workspace = true
+
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.2"
+glob = "0.3"
 
 [dependencies]
 gears-macro = { workspace = true }

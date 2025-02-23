@@ -6,8 +6,12 @@ use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
 use wgpu::util::DeviceExt;
 
+fn get_resource_path(file_path: &str) -> PathBuf {
+    Path::new(env!("RES_DIR")).join(file_path)
+}
+
 pub(crate) async fn load_string(file_path: &str) -> anyhow::Result<String> {
-    let path = std::path::Path::new(std::env::var("RES_DIR").unwrap().as_str()).join(file_path);
+    let path = get_resource_path(file_path);
     let txt = std::fs::read_to_string(&path).context(format!(
         "Failed to read file to string: {}",
         &path.display()
@@ -26,7 +30,7 @@ pub(crate) async fn load_string_path(path: PathBuf) -> anyhow::Result<String> {
 }
 
 pub(crate) async fn load_binary(file_path: &str) -> anyhow::Result<Vec<u8>> {
-    let path = std::path::Path::new(std::env::var("RES_DIR").unwrap().as_str()).join(file_path);
+    let path = get_resource_path(file_path);
     let data = std::fs::read(&path).context(format!(
         "Failed to read file to binary: {}",
         &path.display()
@@ -215,7 +219,7 @@ pub(crate) async fn load_model_gltf(
     ))?;
     let file_name = model_root_dir.file_name().unwrap().to_str().unwrap();
 
-    let string_path = Path::new(std::env::var("RES_DIR").unwrap().as_str()).join(gltf_path);
+    let string_path = get_resource_path(gltf_path);
     let gltf_text = load_string_path(string_path).await?;
     let gltf_cursor = Cursor::new(gltf_text);
     let gltf_reader = BufReader::new(gltf_cursor);
@@ -233,9 +237,7 @@ pub(crate) async fn load_model_gltf(
                 // };
             }
             gltf::buffer::Source::Uri(uri) => {
-                let uri_path = Path::new(std::env::var("RES_DIR").unwrap().as_str())
-                    .join(model_root_dir)
-                    .join(uri);
+                let uri_path = get_resource_path(&model_root_dir.join(uri).to_str().unwrap());
                 let bin = load_binary_path(uri_path).await?;
                 buffer_data.push(bin);
             }
@@ -358,9 +360,7 @@ pub(crate) async fn load_model_gltf(
             }
             // Removed mime_type
             gltf::image::Source::Uri { uri, .. } => {
-                let uri_path = Path::new(std::env::var("RES_DIR").unwrap().as_str())
-                    .join(model_root_dir)
-                    .join(uri);
+                let uri_path = get_resource_path(&model_root_dir.join(uri).to_str().unwrap());
                 let diffuse_texture = load_texture_path(uri_path, device, queue).await?;
                 // Removed the invalid cloning line:
                 // diffuse_texture.view = diffuse_texture.view.clone();
