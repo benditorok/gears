@@ -1,4 +1,7 @@
-use super::{misc::Health, physics::RigidBody};
+use super::{
+    misc::Health,
+    physics::{AABBCollisionBox, CollisionBox, RigidBody},
+};
 use crate::{components::controllers::ViewController, components::transforms::Pos3, Component};
 use gears_macro::Component;
 
@@ -17,7 +20,7 @@ impl Weapon {
         self_pos3: &Pos3,
         self_view: &ViewController,
         target_pos3: &Pos3,
-        target_body: &RigidBody,
+        target_body: &RigidBody<impl CollisionBox>,
         target_health: &mut Health,
     ) {
     }

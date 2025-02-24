@@ -3,7 +3,7 @@ use crate::Component;
 use super::{
     controllers::{MovementController, ViewController},
     models::ModelSource,
-    physics::RigidBody,
+    physics::{AABBCollisionBox, RigidBody},
     transforms::Pos3,
 };
 
@@ -16,7 +16,7 @@ pub struct Player {
     pub model_source: Option<ModelSource>,
     pub movement_controller: Option<MovementController>,
     pub view_controller: Option<ViewController>,
-    pub rigidbody: Option<RigidBody>,
+    pub rigidbody: Option<RigidBody<AABBCollisionBox>>,
 }
 
 impl Default for Player {
@@ -25,7 +25,7 @@ impl Default for Player {
             mass: 80.0, // Average human mass in kg
             velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
             acceleration: cgmath::Vector3::new(0.0, -10.0, 0.0),
-            collision_box: super::physics::CollisionBox {
+            collision_box: super::physics::AABBCollisionBox {
                 min: cgmath::Vector3::new(-0.5, -2.0, -0.5),
                 max: cgmath::Vector3::new(0.5, 2.0, 0.5),
             },

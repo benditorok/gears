@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
             1.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(-15.0, -10.0, 0.0), // * Constant acceleration
-            CollisionBox {
+            AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
@@ -76,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
             1.0,
             cgmath::Vector3::new(100.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
-            CollisionBox {
+            AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
@@ -93,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
             10.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
-            CollisionBox {
+            AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
@@ -107,7 +107,7 @@ async fn main() -> anyhow::Result<()> {
         RigidBodyMarker,
         Name("Static cube"),
         Pos3::new(cgmath::Vector3::new(5.0, 0.0, 20.0)),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
@@ -123,7 +123,7 @@ async fn main() -> anyhow::Result<()> {
             1.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -5.0, 0.0),
-            CollisionBox {
+            AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
@@ -137,7 +137,7 @@ async fn main() -> anyhow::Result<()> {
         RigidBodyMarker,
         Name("Static cube"),
         Pos3::new(cgmath::Vector3::new(0.0, 0.0, 20.0)),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
@@ -153,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
             0.1,
             cgmath::Vector3::new(0.0, 0.0, 1.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
-            CollisionBox {
+            AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
@@ -167,7 +167,7 @@ async fn main() -> anyhow::Result<()> {
         RigidBodyMarker,
         Name("Plane"),
         Pos3::new(cgmath::Vector3::new(0.0, -3.0, 0.0)),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
             max: cgmath::Vector3::new(50.0, 0.1, 50.0),
         },),
@@ -183,7 +183,7 @@ async fn main() -> anyhow::Result<()> {
             0.1,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, -10.0, 0.0),
-            CollisionBox {
+            AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },

@@ -1,4 +1,7 @@
-use super::{physics::RigidBody, transforms::Pos3};
+use super::{
+    physics::{CollisionBox, RigidBody},
+    transforms::Pos3,
+};
 use crate::Component;
 use cgmath::{InnerSpace, Point3, Rotation3, Vector3};
 use gears_core::SAFE_FRAC_PI_2;
@@ -87,7 +90,7 @@ impl MovementController {
         &self,
         view_controller: &ViewController,
         pos3: &mut Pos3,
-        rigid_body: Option<&mut RigidBody>,
+        rigid_body: Option<&mut RigidBody<impl CollisionBox>>,
         dt: f32,
     ) {
         // info!(

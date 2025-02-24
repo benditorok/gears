@@ -5,6 +5,7 @@ use crate::resources::{load_model_gltf, load_model_obj};
 use crate::BufferComponent;
 use cgmath::prelude::*;
 use gears_ecs::components::misc::Marker;
+use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::{
     components::{self},
     Entity, World,
@@ -291,7 +292,7 @@ pub(super) async fn physics_models(
             .expect("No name provided for the Model!");
 
         let physics_body = world
-            .get_component::<components::physics::RigidBody>(*entity)
+            .get_component::<components::physics::RigidBody<AABBCollisionBox>>(*entity)
             .unwrap_or_else(|| panic!("{}", components::misc::RigidBodyMarker::describe()));
         let model_source = world
             .get_component::<components::models::ModelSource>(*entity)

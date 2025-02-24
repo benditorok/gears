@@ -124,7 +124,7 @@ async fn main() -> anyhow::Result<()> {
         app,
         RigidBodyMarker,
         Name("Plane"),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
             max: cgmath::Vector3::new(50.0, 0.1, 50.0),
         }),
@@ -164,7 +164,7 @@ async fn main() -> anyhow::Result<()> {
             RigidBodyMarker,
             Name(Box::leak(name.into_boxed_str())),
             Pos3::new(cgmath::Vector3::new(x, 1.0, z)),
-            RigidBody::new_static(CollisionBox {
+            RigidBody::new_static(AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },),
@@ -179,7 +179,7 @@ async fn main() -> anyhow::Result<()> {
         RigidBodyMarker,
         Name("Static cube"),
         Pos3::new(cgmath::Vector3::new(0.0, 0.0, 20.0)),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
@@ -191,7 +191,7 @@ async fn main() -> anyhow::Result<()> {
         RigidBodyMarker,
         Name("Static cube"),
         Pos3::new(cgmath::Vector3::new(20.0, 0.0, 20.0)),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
@@ -203,7 +203,7 @@ async fn main() -> anyhow::Result<()> {
         RigidBodyMarker,
         Name("Static cube"),
         Pos3::new(cgmath::Vector3::new(0.0, 0.0, -20.0)),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
@@ -215,7 +215,7 @@ async fn main() -> anyhow::Result<()> {
         RigidBodyMarker,
         Name("Static cube"),
         Pos3::new(cgmath::Vector3::new(-20.0, 0.0, -20.0)),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
             max: cgmath::Vector3::new(1.0, 1.0, 1.0),
         },),
@@ -246,7 +246,7 @@ async fn main() -> anyhow::Result<()> {
             20.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             cgmath::Vector3::new(0.0, 0.0, 0.0),
-            CollisionBox {
+            AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             },
@@ -309,7 +309,9 @@ async fn main() -> anyhow::Result<()> {
         let elapsed = shoot_start_time.elapsed();
         if elapsed.as_secs() % 2 == 0 {
             {
-                let target_body = world.get_component::<RigidBody>(target).unwrap();
+                let target_body = world
+                    .get_component::<RigidBody<AABBCollisionBox>>(target)
+                    .unwrap();
                 let target_health = world.get_component::<Health>(target).unwrap();
                 let target_pos3 = world.get_component::<Pos3>(target).unwrap();
 

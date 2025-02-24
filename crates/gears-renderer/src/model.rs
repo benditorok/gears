@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
 use super::texture;
-use gears_ecs::{components, Component};
+use gears_ecs::{
+    components::{self, physics::AABBCollisionBox},
+    Component,
+};
 use gears_macro::Component;
 use wgpu::util::DeviceExt;
 
@@ -91,7 +94,10 @@ pub(crate) struct WireframeMesh {
 }
 
 impl WireframeMesh {
-    pub fn new(device: &wgpu::Device, rigid_body: &components::physics::RigidBody) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        rigid_body: &components::physics::RigidBody<AABBCollisionBox>,
+    ) -> Self {
         let collision_box = &rigid_body.collision_box;
         // New indices to include diagonals of each face and through the cube
         let indices: Vec<u32> = vec![

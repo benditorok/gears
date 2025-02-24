@@ -7,6 +7,7 @@ use crate::BufferComponent;
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
 use egui_wgpu::ScreenDescriptor;
+use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
 use gears_ecs::{self, components, Entity, World};
 use gears_gui::EguiRenderer;
 use std::iter;
@@ -478,7 +479,9 @@ impl<'a> State<'a> {
                 let rlock_movement_controller = movement_controller.read().unwrap();
                 if let Some(rigid_body) = self
                     .world
-                    .get_component::<components::physics::RigidBody>(camera_entity)
+                    .get_component::<components::physics::RigidBody<AABBCollisionBox>>(
+                        camera_entity,
+                    )
                 {
                     let mut wlock_rigid_body = rigid_body.write().unwrap();
 
@@ -492,7 +495,7 @@ impl<'a> State<'a> {
                     rlock_movement_controller.update_pos(
                         &wlock_view_controller,
                         &mut wlock_pos3,
-                        None,
+                        None::<&mut gears_ecs::components::physics::RigidBody<AABBCollisionBox>>,
                         dt.as_secs_f32(),
                     );
                 }

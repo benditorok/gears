@@ -148,7 +148,7 @@ async fn main() -> anyhow::Result<()> {
         app,
         RigidBodyMarker,
         Name("Plane"),
-        RigidBody::new_static(CollisionBox {
+        RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
             max: cgmath::Vector3::new(50.0, 0.1, 50.0),
         }),

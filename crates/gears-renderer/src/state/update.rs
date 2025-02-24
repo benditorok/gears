@@ -3,7 +3,7 @@ use crate::BufferComponent;
 use super::{instance, light, model, State};
 use cgmath::VectorSpace;
 use gears_ecs::{
-    components::{self, misc::Marker},
+    components::{self, misc::Marker, physics::AABBCollisionBox},
     Component,
 };
 use log::warn;
@@ -213,7 +213,7 @@ pub(super) fn physics_system(state: &mut State, dt: time::Duration) {
             player,
             state
                 .world
-                .get_component::<components::physics::RigidBody>(player)
+                .get_component::<components::physics::RigidBody<AABBCollisionBox>>(player)
                 .unwrap(),
             state
                 .world
@@ -228,7 +228,7 @@ pub(super) fn physics_system(state: &mut State, dt: time::Duration) {
 
             let physics_body = state
                 .world
-                .get_component::<components::physics::RigidBody>(*entity)
+                .get_component::<components::physics::RigidBody<AABBCollisionBox>>(*entity)
                 .unwrap();
 
             let instance = state

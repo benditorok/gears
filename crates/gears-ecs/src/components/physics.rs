@@ -2,37 +2,160 @@ use super::transforms::{Pos, Pos3};
 use crate::Component;
 use cgmath::InnerSpace;
 use gears_macro::Component;
+use std::fmt::Debug;
 
 const MAX_HORIZONTAL_VELOCITY: f32 = 20.0;
 const MAX_VERTICAL_VELOCITY: f32 = 40.0;
 
-pub trait Collider {
-    fn intersects(&self, other: &Self) -> bool;
-    fn move_to(&mut self, pos: impl Pos);
+pub trait CollisionBox {
+    fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool;
+    fn resolve(
+        obj_a: &mut RigidBody<Self>,
+        obj_a_pos3: &mut Pos3,
+        obj_b: &mut RigidBody<Self>,
+        obj_b_pos3: &mut Pos3,
+    ) where
+        Self: Sized;
 }
 
 #[derive(Component, Debug, Clone)]
-pub struct CollisionBox {
+pub struct AABBCollisionBox {
     pub min: cgmath::Vector3<f32>,
     pub max: cgmath::Vector3<f32>,
 }
 
-#[derive(Component, Debug, Clone)]
-pub struct RigidBody {
+impl CollisionBox for AABBCollisionBox {
+    fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool {
+        let a_min = obj_a_pos3.pos + obj_a.min;
+        let a_max = obj_a_pos3.pos + obj_a.max;
+        let b_min = obj_b_pos3.pos + obj_b.min;
+        let b_max = obj_b_pos3.pos + obj_b.max;
+
+        return a_min.x < b_max.x
+            && a_max.x > b_min.x
+            && a_min.y < b_max.y
+            && a_max.y > b_min.y
+            && a_min.z < b_max.z
+            && a_max.z > b_min.z;
+    }
+
+    fn resolve(
+        obj_a: &mut RigidBody<Self>,
+        obj_a_pos3: &mut Pos3,
+        obj_b: &mut RigidBody<Self>,
+        obj_b_pos3: &mut Pos3,
+    ) {
+        let a_min = obj_a_pos3.pos + obj_a.collision_box.min;
+        let a_max = obj_a_pos3.pos + obj_a.collision_box.max;
+        let b_min = obj_b_pos3.pos + obj_b.collision_box.min;
+        let b_max = obj_b_pos3.pos + obj_b.collision_box.max;
+
+        // Calculate overlap depths
+        let overlap_x = (a_max.x.min(b_max.x)) - (a_min.x.max(b_min.x));
+        let overlap_y = (a_max.y.min(b_max.y)) - (a_min.y.max(b_min.y));
+        let overlap_z = (a_max.z.min(b_max.z)) - (a_min.z.max(b_min.z));
+
+        // Find axis of minimum penetration
+        let (min_overlap, axis) = if overlap_x < overlap_y && overlap_x < overlap_z {
+            (overlap_x, 0)
+        } else if overlap_y < overlap_z {
+            (overlap_y, 1)
+        } else {
+            (overlap_z, 2)
+        };
+
+        let center_diff = obj_b_pos3.pos - obj_a_pos3.pos;
+        let normal = match axis {
+            0 => cgmath::Vector3::new(if center_diff.x > 0.0 { 1.0 } else { -1.0 }, 0.0, 0.0),
+            1 => cgmath::Vector3::new(0.0, if center_diff.y > 0.0 { 1.0 } else { -1.0 }, 0.0),
+            _ => cgmath::Vector3::new(0.0, 0.0, if center_diff.z > 0.0 { 1.0 } else { -1.0 }),
+        };
+
+        let relative_velocity = obj_b.velocity - obj_a.velocity;
+        let vel_along_normal = relative_velocity.dot(normal);
+
+        // Only resolve collision if objects are moving toward each other
+        if vel_along_normal > 0.0 {
+            return;
+        }
+
+        let restitution = 0.3; // Reduced bounciness further
+        let friction = 0.8; // Add friction coefficient
+
+        let inv_mass_a = if obj_a.is_static {
+            0.0
+        } else {
+            1.0 / obj_a.mass
+        };
+        let inv_mass_b = if obj_b.is_static {
+            0.0
+        } else {
+            1.0 / obj_b.mass
+        };
+
+        // Separate objects based on overlap
+        if !obj_a.is_static {
+            obj_a_pos3.pos -= normal * min_overlap * (inv_mass_a / (inv_mass_a + inv_mass_b));
+        }
+        if !obj_b.is_static {
+            obj_b_pos3.pos += normal * min_overlap * (inv_mass_b / (inv_mass_a + inv_mass_b));
+        }
+
+        // Apply impulse only if relative velocity is above threshold
+        let velocity_threshold = 0.1;
+        if vel_along_normal.abs() > velocity_threshold {
+            let impulse_scalar =
+                -(1.0 + restitution) * vel_along_normal / (inv_mass_a + inv_mass_b);
+            let impulse = normal * impulse_scalar;
+
+            if !obj_a.is_static {
+                obj_a.velocity -= impulse * inv_mass_a;
+                // Apply friction
+                let tangent_velocity = relative_velocity - (normal * vel_along_normal);
+                if tangent_velocity.magnitude() > 0.0 {
+                    obj_a.velocity -=
+                        tangent_velocity.normalize() * friction * impulse_scalar.abs() * inv_mass_a;
+                }
+            }
+            if !obj_b.is_static {
+                obj_b.velocity += impulse * inv_mass_b;
+                // Apply friction
+                let tangent_velocity = relative_velocity - (normal * vel_along_normal);
+                if tangent_velocity.magnitude() > 0.0 {
+                    obj_b.velocity +=
+                        tangent_velocity.normalize() * friction * impulse_scalar.abs() * inv_mass_b;
+                }
+            }
+        } else {
+            // If velocity is below threshold, stop the movement along the collision normal
+            if !obj_a.is_static {
+                obj_a.velocity -= normal * vel_along_normal * 0.5;
+            }
+            if !obj_b.is_static {
+                obj_b.velocity += normal * vel_along_normal * 0.5;
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct RigidBody<T: CollisionBox> {
     pub mass: f32,
     pub velocity: cgmath::Vector3<f32>,
     pub acceleration: cgmath::Vector3<f32>,
-    pub collision_box: CollisionBox,
+    pub collision_box: T,
     pub is_static: bool,
 }
 
-impl Default for RigidBody {
+impl Component for RigidBody<AABBCollisionBox> {}
+
+impl Default for RigidBody<AABBCollisionBox> {
     fn default() -> Self {
         Self {
             mass: 1.0,
             velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
             acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
-            collision_box: CollisionBox {
+            collision_box: AABBCollisionBox {
                 min: cgmath::Vector3::new(-0.5, -0.5, -0.5),
                 max: cgmath::Vector3::new(0.5, 0.5, 0.5),
             },
@@ -41,12 +164,12 @@ impl Default for RigidBody {
     }
 }
 
-impl RigidBody {
+impl<T: CollisionBox> RigidBody<T> {
     pub fn new(
         mass: f32,
         velocity: cgmath::Vector3<f32>,
         acceleration: cgmath::Vector3<f32>,
-        collision_box: CollisionBox,
+        collision_box: T,
     ) -> Self {
         Self {
             mass,
@@ -57,7 +180,7 @@ impl RigidBody {
         }
     }
 
-    pub fn new_static(collision_box: CollisionBox) -> Self {
+    pub fn new_static(collision_box: T) -> Self {
         Self {
             mass: 0.0,
             velocity: cgmath::Vector3::new(0.0, 0.0, 0.0),
@@ -120,107 +243,13 @@ impl RigidBody {
         obj_b: &mut Self,
         obj_b_pos3: &mut Pos3,
     ) {
-        let a_min = obj_a_pos3.pos + obj_a.collision_box.min;
-        let a_max = obj_a_pos3.pos + obj_a.collision_box.max;
-        let b_min = obj_b_pos3.pos + obj_b.collision_box.min;
-        let b_max = obj_b_pos3.pos + obj_b.collision_box.max;
-
-        if a_min.x < b_max.x
-            && a_max.x > b_min.x
-            && a_min.y < b_max.y
-            && a_max.y > b_min.y
-            && a_min.z < b_max.z
-            && a_max.z > b_min.z
-        {
-            // Calculate overlap depths
-            let overlap_x = (a_max.x.min(b_max.x)) - (a_min.x.max(b_min.x));
-            let overlap_y = (a_max.y.min(b_max.y)) - (a_min.y.max(b_min.y));
-            let overlap_z = (a_max.z.min(b_max.z)) - (a_min.z.max(b_min.z));
-
-            // Find axis of minimum penetration
-            let (min_overlap, axis) = if overlap_x < overlap_y && overlap_x < overlap_z {
-                (overlap_x, 0)
-            } else if overlap_y < overlap_z {
-                (overlap_y, 1)
-            } else {
-                (overlap_z, 2)
-            };
-
-            let center_diff = obj_b_pos3.pos - obj_a_pos3.pos;
-            let normal = match axis {
-                0 => cgmath::Vector3::new(if center_diff.x > 0.0 { 1.0 } else { -1.0 }, 0.0, 0.0),
-                1 => cgmath::Vector3::new(0.0, if center_diff.y > 0.0 { 1.0 } else { -1.0 }, 0.0),
-                _ => cgmath::Vector3::new(0.0, 0.0, if center_diff.z > 0.0 { 1.0 } else { -1.0 }),
-            };
-
-            let relative_velocity = obj_b.velocity - obj_a.velocity;
-            let vel_along_normal = relative_velocity.dot(normal);
-
-            // Only resolve collision if objects are moving toward each other
-            if vel_along_normal > 0.0 {
-                return;
-            }
-
-            let restitution = 0.3; // Reduced bounciness further
-            let friction = 0.8; // Add friction coefficient
-
-            let inv_mass_a = if obj_a.is_static {
-                0.0
-            } else {
-                1.0 / obj_a.mass
-            };
-            let inv_mass_b = if obj_b.is_static {
-                0.0
-            } else {
-                1.0 / obj_b.mass
-            };
-
-            // Separate objects based on overlap
-            if !obj_a.is_static {
-                obj_a_pos3.pos -= normal * min_overlap * (inv_mass_a / (inv_mass_a + inv_mass_b));
-            }
-            if !obj_b.is_static {
-                obj_b_pos3.pos += normal * min_overlap * (inv_mass_b / (inv_mass_a + inv_mass_b));
-            }
-
-            // Apply impulse only if relative velocity is above threshold
-            let velocity_threshold = 0.1;
-            if vel_along_normal.abs() > velocity_threshold {
-                let impulse_scalar =
-                    -(1.0 + restitution) * vel_along_normal / (inv_mass_a + inv_mass_b);
-                let impulse = normal * impulse_scalar;
-
-                if !obj_a.is_static {
-                    obj_a.velocity -= impulse * inv_mass_a;
-                    // Apply friction
-                    let tangent_velocity = relative_velocity - (normal * vel_along_normal);
-                    if tangent_velocity.magnitude() > 0.0 {
-                        obj_a.velocity -= tangent_velocity.normalize()
-                            * friction
-                            * impulse_scalar.abs()
-                            * inv_mass_a;
-                    }
-                }
-                if !obj_b.is_static {
-                    obj_b.velocity += impulse * inv_mass_b;
-                    // Apply friction
-                    let tangent_velocity = relative_velocity - (normal * vel_along_normal);
-                    if tangent_velocity.magnitude() > 0.0 {
-                        obj_b.velocity += tangent_velocity.normalize()
-                            * friction
-                            * impulse_scalar.abs()
-                            * inv_mass_b;
-                    }
-                }
-            } else {
-                // If velocity is below threshold, stop the movement along the collision normal
-                if !obj_a.is_static {
-                    obj_a.velocity -= normal * vel_along_normal * 0.5;
-                }
-                if !obj_b.is_static {
-                    obj_b.velocity += normal * vel_along_normal * 0.5;
-                }
-            }
+        if CollisionBox::intersects(
+            &obj_a.collision_box,
+            obj_a_pos3,
+            &obj_b.collision_box,
+            obj_b_pos3,
+        ) {
+            CollisionBox::resolve(obj_a, obj_a_pos3, obj_b, obj_b_pos3);
         }
     }
 

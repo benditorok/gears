@@ -11,7 +11,7 @@ pub use gears_ecs::{
             StaticModelMarker, TargetMarker,
         },
         models::ModelSource,
-        physics::{CollisionBox, RigidBody},
+        physics::{AABBCollisionBox, RigidBody},
         prefabs::Player,
         transforms::{Flip, Pos3, Scale},
     },
