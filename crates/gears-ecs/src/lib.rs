@@ -1,13 +1,16 @@
 pub mod components;
+pub mod systems;
 pub mod utils;
 
 use dashmap::DashMap;
 use log::debug;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
+use std::future::Future;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
+use tokio::task::JoinHandle;
 
 /// The EntityBuilder trait is responsible for creating entities and adding components to them.
 pub trait EntityBuilder {
@@ -142,11 +145,53 @@ impl<T: Component> ComponentStorage<T> {
     }
 }
 
+pub struct System {
+    pub name: &'static str,
+    pub run: Box<dyn Fn(&World) + Send + Sync + 'static>,
+}
+
+impl System {
+    pub fn new(name: &'static str, run: impl Fn(&World) + Send + Sync + 'static) -> Self {
+        Self {
+            name,
+            run: Box::new(run),
+        }
+    }
+
+    pub fn run(&self, world: &World) {
+        (self.run)(world);
+    }
+}
+
+pub struct AsyncSystem {
+    pub name: &'static str,
+    pub run:
+        Box<dyn Fn(&World) -> Box<dyn Future<Output = ()> + Send + Unpin> + Send + Sync + 'static>,
+}
+
+impl AsyncSystem {
+    pub fn new(
+        name: &'static str,
+        run: impl Fn(&World) -> Box<dyn Future<Output = ()> + Send + Unpin> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            name,
+            run: Box::new(run),
+        }
+    }
+
+    pub fn run(&self, world: &World) -> Box<dyn Future<Output = ()> + Send + Unpin> {
+        (self.run)(world)
+    }
+}
+
 /// The World struct is the main entry point for the ECS system.
 /// It is responsible for creating entities and storing components.
 pub struct World {
     next_entity: AtomicU32,
     storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    systems: Vec<System>,
+    async_systems: Vec<AsyncSystem>,
 }
 
 impl Default for World {
@@ -159,6 +204,8 @@ impl Default for World {
         Self {
             next_entity: AtomicU32::new(0),
             storage: DashMap::with_capacity(41),
+            systems: Vec::new(),
+            async_systems: Vec::new(),
         }
     }
 }
@@ -173,6 +220,8 @@ impl World {
         Self {
             next_entity: AtomicU32::new(0),
             storage: DashMap::new(),
+            systems: Vec::new(),
+            async_systems: Vec::new(),
         }
     }
 
@@ -186,7 +235,54 @@ impl World {
         Self {
             next_entity: AtomicU32::new(0),
             storage: DashMap::with_capacity(capacity as usize),
+            systems: Vec::new(),
+            async_systems: Vec::new(),
         }
+    }
+
+    /// Add a system to the world.
+    ///
+    /// # Arguments
+    ///
+    /// * `system` - The system to add.
+    pub fn add_system(&mut self, system: System) {
+        self.systems.push(system);
+    }
+
+    pub fn add_async_system(&mut self, system: AsyncSystem) {
+        self.async_systems.push(system);
+    }
+
+    /// Run all systems in the world.
+    pub fn run_systems(&self) {
+        for system in &self.systems {
+            system.run(self);
+        }
+    }
+
+    pub async fn run_async_systems(&self) {
+        let mut handles: Vec<JoinHandle<()>> = Vec::new();
+
+        // Spawn all async systems
+        for system in &self.async_systems {
+            let world = self;
+            let future = system.run(world);
+            handles.push(tokio::spawn(async move {
+                future.await;
+            }));
+        }
+
+        // Wait for all systems to complete
+        for handle in handles {
+            let _ = handle.await;
+        }
+    }
+
+    pub async fn run_all_systems(&self) {
+        // Run sync systems first
+        self.run_systems();
+        // Then run async systems
+        self.run_async_systems().await;
     }
 
     /// Get the number of entities with components stored.
