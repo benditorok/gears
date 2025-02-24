@@ -41,12 +41,6 @@ impl Default for Pos3 {
     }
 }
 
-// impl From<Pos3> for cgmath::Point3<f32> {
-//     fn from(val: Pos3) -> Self {
-//         cgmath::Point3::new(val.x, val.y, val.z)
-//     }
-// }
-
 /// A component that stores the scale of an object.
 #[derive(Component, Debug, Copy, Clone)]
 pub enum Scale {

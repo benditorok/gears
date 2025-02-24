@@ -1,6 +1,5 @@
-use crate::BufferComponent;
-
 use super::{instance, light, model, State};
+use crate::BufferComponent;
 use cgmath::VectorSpace;
 use gears_ecs::{
     components::{self, misc::Marker, physics::AABBCollisionBox},

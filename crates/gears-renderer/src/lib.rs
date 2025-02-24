@@ -1,7 +1,3 @@
-use std::ops::Deref;
-
-use gears_ecs::Component;
-
 pub mod camera;
 pub mod instance;
 pub mod light;
@@ -9,7 +5,9 @@ pub mod model;
 pub mod resources;
 pub mod state;
 pub mod texture;
-pub mod traits;
+
+use gears_ecs::Component;
+use std::ops::Deref;
 
 /// Wrapper for wgpu::Buffer to implement Component
 #[derive(Debug)]

@@ -146,7 +146,6 @@ impl<T: Component> ComponentStorage<T> {
 /// It is responsible for creating entities and storing components.
 pub struct World {
     next_entity: AtomicU32,
-    // Change storage to hold Arc<dyn Any>
     storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 }
 

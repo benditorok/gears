@@ -2,10 +2,9 @@ mod init;
 mod resources;
 mod update;
 
-use crate::BufferComponent;
-
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
+use crate::BufferComponent;
 use egui_wgpu::ScreenDescriptor;
 use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
 use gears_ecs::{self, components, Entity, World};

@@ -13,6 +13,7 @@ use gears_ecs::{
 use log::info;
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
+
 /// Initialie the player component.
 ///
 /// # Returns
