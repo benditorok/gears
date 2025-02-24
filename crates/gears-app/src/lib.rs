@@ -231,13 +231,6 @@ impl GearsApp {
                                     return;
                                 }
 
-                                // * Log FPS
-                                // info!(
-                                //     "FPS: {:.0}, frame time: {} ms",
-                                //     1.0 / &dt.as_secs_f32(),
-                                //     &dt.as_millis()
-                                // );
-
                                 // Send the delta time using the broadcast channel
                                 if let Err(e) = tx_dt.send(dt) {
                                     log::warn!("Failed to send delta time: {:?}", e);
@@ -282,41 +275,6 @@ impl GearsApp {
 
         Ok(())
     }
-
-    /* /// Create a new update job.
-    /// This will create a new async task that will run the given update function on each update.
-    #[warn(unstable_features)]
-    pub async fn update_loop_async<F>(&self, f: F) -> anyhow::Result<()>
-    where
-        F: Fn(Arc<Mutex<Manager>>, Dt) -> Pin<Box<dyn Future<Output = ()> + Send>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        let mut rx_dt = self
-            .get_dt_channel()
-            .ok_or_else(|| anyhow::anyhow!("No dt channel exists"))?;
-
-        let ecs = Arc::clone(&self.ecs);
-        let is_running = Arc::clone(&self.is_running);
-
-        tokio::spawn(async move {
-            while is_running.load(std::sync::atomic::Ordering::Relaxed) {
-                match rx_dt.recv().await {
-                    Ok(dt) => {
-                        f(Arc::clone(&ecs), dt).await;
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to receive: {:?}", e);
-                    }
-                }
-            }
-
-            info!("Update loop stopped...");
-        });
-
-        Ok(())
-    } */
 }
 
 impl Drop for GearsApp {

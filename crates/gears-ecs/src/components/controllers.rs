@@ -93,16 +93,6 @@ impl MovementController {
         rigid_body: Option<&mut RigidBody<impl CollisionBox>>,
         dt: f32,
     ) {
-        // info!(
-        //     "Updating position: left: {}, right: {}, up: {}, down: {}, forward: {}, backward: {}",
-        //     self.amount_left,
-        //     self.amount_right,
-        //     self.amount_up,
-        //     self.amount_down,
-        //     self.amount_forward,
-        //     self.amount_backward
-        // );
-
         // Calculate forward and right vectors from yaw
         let (sin_yaw, cos_yaw) = view_controller.yaw.0.sin_cos();
         let forward = Vector3::new(cos_yaw, 0.0, sin_yaw);
@@ -211,10 +201,6 @@ impl ViewController {
     }
 
     pub fn update_rot(&mut self, pos3: &mut Pos3, dt: f32) {
-        // info!(
-        //     "Updating rotation: yaw: {}, pitch: {}",
-        //     self.yaw.0, self.pitch.0
-        // );
         // Rotate
         self.yaw += cgmath::Rad(self.rotate_horizontal) * dt;
         self.pitch += cgmath::Rad(-self.rotate_vertical) * dt;

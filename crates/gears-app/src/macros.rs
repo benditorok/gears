@@ -9,39 +9,3 @@ macro_rules! new_entity {
         entity_builder.build()
     }};
 }
-
-// #[macro_export]
-// macro_rules! new_entity_prefab {
-//     ($app:expr, $prefab:expr) => {{
-//         let prefab = $prefab;
-//         let components = prefab.unpack_prefab();
-//         let mut entity_builder = $app.new_entity();
-//         for component in components {
-//             entity_builder = entity_builder.add_component(*component);
-//         }
-//         entity_builder.build()
-//     }};
-// }
-
-// /// A macro to aquire a read only lock for component of an entity.
-// /// UNSAFE: This macro uses unsafe code to bypass lifetime checks.
-// /// The caller must ensure the component outlives the returned guard.
-// #[macro_export]
-// macro_rules! read_component {
-//     ($ecs_lock:expr, $entity:expr, $component:ty) => {
-//         $ecs_lock
-//             .get_component_from_entity::<$component>($entity)
-//             .map(|component| unsafe { &*std::ptr::addr_of!(*component.read().unwrap()) })
-//     };
-// }
-
-// /// A macro to aquire a write lock for component of an entity.
-// #[macro_export]
-// macro_rules! write_component {
-//     ($ecs_lock:expr, $entity:expr, $component:ty) => {
-//         $ecs_lock
-//             .get_component_from_entity::<$component>($entity)
-//             .map(|component| unsafe { &mut *std::ptr::addr_of_mut!(*component.write().unwrap()) })
-//     };
-// }
-// https://doc.rust-lang.org/nomicon/unbounded-lifetimes.html
