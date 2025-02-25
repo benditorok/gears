@@ -131,12 +131,6 @@ impl GearsApp {
         self.run_async_systems(sa).await;
     }
 
-    /// Get the delta time channel.
-    /// This is used to communicate the delta time between the main thread and the renderer thread.
-    fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>> {
-        self.tx_dt.as_ref().map(|tx| tx.subscribe())
-    }
-
     /// Add a custom window to the app.
     ///
     /// # Arguments
@@ -169,6 +163,10 @@ impl GearsApp {
         let window = event_loop.create_window(window_attributes)?;
         let mut state = State::new(&window, &self.world).await;
 
+        if let Some(windows) = egui_windows {
+            state.add_windows(windows);
+        }
+
         // Grab the cursor upon initialization
         state.grab_cursor();
 
@@ -186,7 +184,7 @@ impl GearsApp {
         event_loop
             .run(move |event, ewlt| {
                 // Update systems
-                let mut system_accessors = systems::SystemAccessors::new(&self.world, &state, dt);
+                let system_accessors = systems::SystemAccessors::new(&self.world, &state, dt);
                 self.run_systems(&system_accessors);
 
                 match event {

@@ -308,6 +308,10 @@ impl<'a> State<'a> {
         self.is_state_paused.load(Ordering::Relaxed)
     }
 
+    pub fn add_windows(&mut self, egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>) {
+        self.egui_windows.extend(egui_windows);
+    }
+
     pub fn grab_cursor(&self) {
         self.window.set_cursor_grab(CursorGrabMode::Confined).ok();
         self.window.set_cursor_visible(false);
