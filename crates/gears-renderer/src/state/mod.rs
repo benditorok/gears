@@ -1,6 +1,6 @@
 mod init;
 mod resources;
-mod update;
+pub mod update;
 
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
@@ -28,7 +28,7 @@ use winit::{
 pub struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
@@ -41,7 +41,7 @@ pub struct State<'a> {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     light_entities: Option<Vec<Entity>>,
-    light_buffer: wgpu::Buffer,
+    pub light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     static_model_entities: Option<Vec<Entity>>,
     physics_entities: Option<Vec<Entity>>,

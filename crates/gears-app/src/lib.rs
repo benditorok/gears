@@ -1,5 +1,6 @@
 pub mod macros;
 pub mod prelude;
+pub mod systems;
 
 use gears_core::config::{self, Config};
 use gears_core::threadpool::ThreadPool;

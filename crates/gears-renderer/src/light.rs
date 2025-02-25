@@ -1,7 +1,7 @@
 use gears_ecs::Component;
 use gears_macro::Component;
 
-pub(crate) const NUM_MAX_LIGHTS: u32 = 20;
+pub const NUM_MAX_LIGHTS: u32 = 20;
 
 #[repr(u32)]
 pub(crate) enum LightType {
@@ -12,7 +12,7 @@ pub(crate) enum LightType {
 
 #[repr(C)]
 #[derive(Component, Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct LightUniform {
+pub struct LightUniform {
     pub position: [f32; 3],
     pub light_type: u32,
     pub color: [f32; 3],
@@ -36,7 +36,7 @@ impl Default for LightUniform {
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct LightData {
+pub struct LightData {
     pub lights: [LightUniform; NUM_MAX_LIGHTS as usize],
     pub num_lights: u32,
     pub _padding: [u32; 3], // Padding to align to 16 bytes
