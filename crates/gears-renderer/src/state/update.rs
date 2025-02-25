@@ -8,57 +8,57 @@ use gears_ecs::{
 use log::warn;
 use std::time::{self, Instant};
 
-/// Update the lights in the scene.
-pub(super) fn lights(state: &mut State) {
-    if let Some(light_entities) = &state.light_entities {
-        let mut light_uniforms: Vec<light::LightUniform> = Vec::new();
+// /// Update the lights in the scene.
+// pub(super) fn lights(state: &mut State) {
+//     if let Some(light_entities) = &state.light_entities {
+//         let mut light_uniforms: Vec<light::LightUniform> = Vec::new();
 
-        for entity in light_entities {
-            let pos = state
-                .world
-                .get_component::<components::transforms::Pos3>(*entity)
-                .unwrap();
-            let light_uniform = state
-                .world
-                .get_component::<light::LightUniform>(*entity)
-                .unwrap();
-            let light = state
-                .world
-                .get_component::<components::lights::Light>(*entity)
-                .unwrap();
+//         for entity in light_entities {
+//             let pos = state
+//                 .world
+//                 .get_component::<components::transforms::Pos3>(*entity)
+//                 .unwrap();
+//             let light_uniform = state
+//                 .world
+//                 .get_component::<light::LightUniform>(*entity)
+//                 .unwrap();
+//             let light = state
+//                 .world
+//                 .get_component::<components::lights::Light>(*entity)
+//                 .unwrap();
 
-            {
-                // TODO update the colors
-                let rlock_pos = pos.read().unwrap();
-                let mut wlock_light_uniform = light_uniform.write().unwrap();
+//             {
+//                 // TODO update the colors
+//                 let rlock_pos = pos.read().unwrap();
+//                 let mut wlock_light_uniform = light_uniform.write().unwrap();
 
-                wlock_light_uniform.position = [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z];
-            }
+//                 wlock_light_uniform.position = [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z];
+//             }
 
-            let rlock_light_uniform = light_uniform.read().unwrap();
+//             let rlock_light_uniform = light_uniform.read().unwrap();
 
-            light_uniforms.push(*rlock_light_uniform);
-        }
+//             light_uniforms.push(*rlock_light_uniform);
+//         }
 
-        let num_lights = light_uniforms.len() as u32;
+//         let num_lights = light_uniforms.len() as u32;
 
-        let light_data = light::LightData {
-            lights: {
-                let mut array = [light::LightUniform::default(); light::NUM_MAX_LIGHTS as usize];
-                for (i, light) in light_uniforms.iter().enumerate() {
-                    array[i] = *light;
-                }
-                array
-            },
-            num_lights,
-            _padding: [0; 3],
-        };
+//         let light_data = light::LightData {
+//             lights: {
+//                 let mut array = [light::LightUniform::default(); light::NUM_MAX_LIGHTS as usize];
+//                 for (i, light) in light_uniforms.iter().enumerate() {
+//                     array[i] = *light;
+//                 }
+//                 array
+//             },
+//             num_lights,
+//             _padding: [0; 3],
+//         };
 
-        state
-            .queue
-            .write_buffer(&state.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
-    }
-}
+//         state
+//             .queue
+//             .write_buffer(&state.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
+//     }
+// }
 
 /// Update the models in the scene.
 pub(super) fn models(state: &mut State) {

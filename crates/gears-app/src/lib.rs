@@ -26,7 +26,7 @@ pub struct GearsApp {
     tx_dt: Option<tokio::sync::broadcast::Sender<Dt>>,
     rx_dt: Option<tokio::sync::broadcast::Receiver<Dt>>,
     is_running: Arc<AtomicBool>,
-    systems: Vec<systems::System>,
+    //systems: Vec<systems::System>,
     async_systems: Vec<systems::AsyncSystem>,
 }
 
@@ -43,7 +43,7 @@ impl Default for GearsApp {
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
-            systems: systems.systems,
+            //systems: systems.systems,
             async_systems: systems.async_systems,
         }
     }
@@ -73,7 +73,7 @@ impl GearsApp {
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
-            systems: Vec::new(),
+            //systems: Vec::new(),
             async_systems: Vec::new(),
         }
     }
@@ -87,27 +87,20 @@ impl GearsApp {
         GearsApp::run_engine(self, windows).await
     }
 
-    /// Add a system to the world.
-    ///
-    /// # Arguments
-    ///
-    /// * `system` - The system to add.
-    pub fn add_system(&mut self, system: systems::System) {
-        self.systems.push(system);
-    }
+    // /// Add a system to the world.
+    // ///
+    // /// # Arguments
+    // ///
+    // /// * `system` - The system to add.
+    // pub fn add_system(&mut self, system: systems::System) {
+    //     self.systems.push(system);
+    // }
 
     pub fn add_async_system(&mut self, system: systems::AsyncSystem) {
         self.async_systems.push(system);
     }
 
-    /// Run all systems in the world.
-    pub fn run_systems(&self, sa: &systems::SystemAccessors) {
-        for system in &self.systems {
-            system.run(sa);
-        }
-    }
-
-    pub async fn run_async_systems(&self, sa: &systems::SystemAccessors<'_>) {
+    pub async fn run_systems(&self, sa: &systems::SystemAccessors<'_>) {
         let mut handles: Vec<tokio::task::JoinHandle<()>> = Vec::new();
 
         // Spawn all async systems
@@ -122,13 +115,6 @@ impl GearsApp {
         for handle in handles {
             let _ = handle.await;
         }
-    }
-
-    pub async fn run_all_systems(&self, sa: &systems::SystemAccessors<'_>) {
-        // Run sync systems first
-        self.run_systems(sa);
-        // Then run async systems
-        self.run_async_systems(sa).await;
     }
 
     /// Add a custom window to the app.
@@ -185,7 +171,7 @@ impl GearsApp {
             .run(move |event, ewlt| {
                 // Update systems
                 let system_accessors = systems::SystemAccessors::new(&self.world, &state, dt);
-                self.run_systems(&system_accessors);
+                futures::executor::block_on(self.run_systems(&system_accessors));
 
                 match event {
                     // todo HANDLE this on a separate thread

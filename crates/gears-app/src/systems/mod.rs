@@ -19,24 +19,6 @@ impl<'a> SystemAccessors<'a> {
     }
 }
 
-pub struct System {
-    pub name: &'static str,
-    pub run: Box<dyn Fn(&SystemAccessors) + Send + Sync + 'static>,
-}
-
-impl System {
-    pub fn new(name: &'static str, run: impl Fn(&SystemAccessors) + Send + Sync + 'static) -> Self {
-        Self {
-            name,
-            run: Box::new(run),
-        }
-    }
-
-    pub fn run(&self, sa: &SystemAccessors) {
-        (self.run)(sa);
-    }
-}
-
 pub struct AsyncSystem {
     pub name: &'static str,
     pub run: Box<
@@ -67,21 +49,20 @@ impl AsyncSystem {
 }
 
 pub struct SystemCollection {
-    pub systems: Vec<System>,
+    //pub systems: Vec<System>,
     pub async_systems: Vec<AsyncSystem>,
 }
 
 impl Default for SystemCollection {
     fn default() -> Self {
         Self {
-            systems: vec![System::new("update_lights", update_lights)],
-            async_systems: vec![],
+            async_systems: vec![AsyncSystem::new("update_lights", update_lights)],
         }
     }
 }
 
 /// Update the lights in the scene.
-pub fn update_lights(sa: &SystemAccessors) {
+pub fn update_lights(sa: &SystemAccessors) -> Box<dyn Future<Output = ()> + Send + Unpin> {
     use rayon::prelude::*;
 
     let light_entities = sa.world.get_entities_with_component::<Light>();
@@ -127,4 +108,6 @@ pub fn update_lights(sa: &SystemAccessors) {
         0,
         bytemuck::cast_slice(&[light_data]),
     );
+
+    Box::new(std::future::ready(()))
 }

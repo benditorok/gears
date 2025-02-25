@@ -1,8 +1,10 @@
 use cgmath::Rotation3;
 use egui::Align2;
+use gears_app::systems::SystemAccessors;
 use gears_app::{prelude::*, systems};
 use log::LevelFilter;
 use std::f32::consts::PI;
+use std::future::Future;
 use std::sync::mpsc;
 use std::time;
 
@@ -258,7 +260,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Start the timer
     let shoot_start_time = time::Instant::now();
-    let update = move |sa: &systems::SystemAccessors| {
+    let update = move |sa: &SystemAccessors| -> Box<dyn Future<Output = ()> + Send + Unpin> {
         // Send the frame time to the custom window
         w1_frame_tx.send(sa.dt).unwrap();
 
@@ -339,10 +341,12 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+
+        Box::new(std::future::ready(()))
     };
 
-    let update_sys = systems::System::new("update", update);
-    app.add_system(update_sys);
+    let update_sys = systems::AsyncSystem::new("update", update);
+    app.add_async_system(update_sys);
 
     // Run the application
     app.run().await

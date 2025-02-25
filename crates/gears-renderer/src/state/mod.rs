@@ -517,7 +517,7 @@ impl<'a> State<'a> {
             );
         }
 
-        update::lights(self);
+        //update::lights(self);
         update::models(self);
         update::physics_system(self, dt);
 
