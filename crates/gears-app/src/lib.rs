@@ -8,6 +8,7 @@ use gears_core::Dt;
 use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_renderer::state::State;
 use log::{info, warn};
+use std::future::Future;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time;
@@ -101,20 +102,22 @@ impl GearsApp {
     }
 
     pub async fn run_systems(&self, sa: &systems::SystemAccessors<'_>) {
-        let mut handles: Vec<tokio::task::JoinHandle<()>> = Vec::new();
+        log::debug!("Starting system execution cycle");
 
-        // Spawn all async systems
-        for system in &self.async_systems {
-            let future = system.run(sa);
-            handles.push(tokio::spawn(async move {
-                future.await;
-            }));
-        }
+        // Create futures for all systems
+        let futures: Vec<_> = self
+            .async_systems
+            .iter()
+            .map(|system| {
+                log::debug!("Preparing system: {}", system.name);
+                system.run(sa)
+            })
+            .collect();
 
-        // Wait for all systems to complete
-        for handle in handles {
-            let _ = handle.await;
-        }
+        // Run all futures concurrently and wait for completion
+        futures::future::join_all(futures).await;
+
+        log::debug!("All systems completed");
     }
 
     /// Add a custom window to the app.
@@ -169,11 +172,14 @@ impl GearsApp {
         // * Event loop
         event_loop
             .run(move |event, ewlt| {
-                // Update systems
-                let system_accessors = systems::SystemAccessors::new(&self.world, &state, dt);
-                futures::executor::block_on(self.run_systems(&system_accessors));
-
                 match event {
+                    Event::AboutToWait => {
+                        // Only run systems during the AboutToWait event
+                        let system_accessors =
+                            systems::SystemAccessors::new(&self.world, &state, dt);
+                        futures::executor::block_on(self.run_systems(&system_accessors));
+                        state.window().request_redraw();
+                    }
                     // todo HANDLE this on a separate thread
                     Event::DeviceEvent {
                         event: DeviceEvent::MouseMotion { delta },
@@ -252,10 +258,6 @@ impl GearsApp {
                             }
                             _ => {}
                         };
-                    }
-                    Event::AboutToWait => {
-                        // RedrawRequested will only trigger once unless manually requested.
-                        state.window().request_redraw();
                     }
                     _ => {}
                 }
