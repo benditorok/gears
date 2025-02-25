@@ -50,7 +50,7 @@ pub struct State<'a> {
     light_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: texture::Texture,
     window: &'a Window,
-    world: Arc<World>,
+    world: &'a World,
     mouse_pressed: bool,
     draw_colliders: bool,
     egui_renderer: EguiRenderer,
@@ -72,7 +72,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A new instance of the State.
-    pub async fn new(window: &'a Window, ecs: Arc<World>) -> State<'a> {
+    pub async fn new(window: &'a Window, world: &'a World) -> State<'a> {
         // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -291,7 +291,7 @@ impl<'a> State<'a> {
             light_bind_group_layout,
             depth_texture,
             window,
-            world: ecs,
+            world,
             mouse_pressed: false,
             draw_colliders: true,
             egui_renderer,
@@ -332,7 +332,7 @@ impl<'a> State<'a> {
             &self.device,
             &self.queue,
             &self.texture_bind_group_layout,
-            &self.world,
+            self.world,
         )
         .await;
 
@@ -340,7 +340,7 @@ impl<'a> State<'a> {
             &self.device,
             &self.queue,
             &self.texture_bind_group_layout,
-            &self.world,
+            self.world,
         )
         .await;
 

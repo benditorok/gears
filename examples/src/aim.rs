@@ -1,6 +1,6 @@
 use cgmath::Rotation3;
 use egui::Align2;
-use gears_app::prelude::*;
+use gears_app::{prelude::*, systems};
 use log::LevelFilter;
 use std::f32::consts::PI;
 use std::sync::mpsc;
@@ -258,11 +258,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Start the timer
     let shoot_start_time = time::Instant::now();
-
-    // Update loop
-    app.update_loop(move |world, dt| {
+    let update = move |sa: &systems::SystemAccessors| {
         // Send the frame time to the custom window
-        w1_frame_tx.send(dt).unwrap();
+        w1_frame_tx.send(sa.dt).unwrap();
 
         // ! Here we are inside a loop, so this has to lock on all iterations.
         let circle_speed = 8.0f32;
@@ -270,31 +268,31 @@ async fn main() -> anyhow::Result<()> {
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(pos3) = world.get_component::<Pos3>(*sphere) {
+            if let Some(pos3) = sa.world.get_component::<Pos3>(*sphere) {
                 let mut wlock_pos3 = pos3.write().unwrap();
 
                 wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                     (0.0, 1.0, 0.0).into(),
-                    cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
+                    cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed),
                 ) * wlock_pos3.pos;
             }
         }
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(pos3) = world.get_component::<Pos3>(red_light) {
+        if let Some(pos3) = sa.world.get_component::<Pos3>(red_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
             ) * wlock_pos3.pos;
         }
 
-        if let Some(pos3) = world.get_component::<Pos3>(blue_light) {
+        if let Some(pos3) = sa.world.get_component::<Pos3>(blue_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
             ) * wlock_pos3.pos;
         }
 
@@ -309,15 +307,16 @@ async fn main() -> anyhow::Result<()> {
         let elapsed = shoot_start_time.elapsed();
         if elapsed.as_secs() % 2 == 0 {
             {
-                let target_body = world
+                let target_body = sa
+                    .world
                     .get_component::<RigidBody<AABBCollisionBox>>(target)
                     .unwrap();
-                let target_health = world.get_component::<Health>(target).unwrap();
-                let target_pos3 = world.get_component::<Pos3>(target).unwrap();
+                let target_health = sa.world.get_component::<Health>(target).unwrap();
+                let target_pos3 = sa.world.get_component::<Pos3>(target).unwrap();
 
-                let player_view = world.get_component::<ViewController>(player).unwrap();
-                let player_weapon = world.get_component::<Weapon>(player).unwrap();
-                let player_pos3 = world.get_component::<Pos3>(player).unwrap();
+                let player_view = sa.world.get_component::<ViewController>(player).unwrap();
+                let player_weapon = sa.world.get_component::<Weapon>(player).unwrap();
+                let player_pos3 = sa.world.get_component::<Pos3>(player).unwrap();
 
                 let rlock_target_body = target_body.read().unwrap();
                 let mut wlock_target_health = target_health.write().unwrap();
@@ -340,8 +339,10 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-    })
-    .await?;
+    };
+
+    let update_sys = systems::System::new("update", update);
+    app.add_system(update_sys);
 
     // Run the application
     app.run().await

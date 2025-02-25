@@ -20,17 +20,32 @@ use winit::window::WindowAttributes;
 /// The application can also be used to create entities, add components, windows etc. to itself.
 pub struct GearsApp {
     config: Config,
-    world: Arc<World>,
+    world: World,
     pub thread_pool: ThreadPool,
     egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
     tx_dt: Option<tokio::sync::broadcast::Sender<Dt>>,
     rx_dt: Option<tokio::sync::broadcast::Receiver<Dt>>,
     is_running: Arc<AtomicBool>,
+    systems: Vec<systems::System>,
+    async_systems: Vec<systems::AsyncSystem>,
 }
 
 impl Default for GearsApp {
     fn default() -> Self {
-        GearsApp::new(Config::default())
+        let systems = systems::SystemCollection::default();
+        let (tx_dt, rx_dt) = broadcast::channel(64);
+
+        GearsApp {
+            config: config::Config::default(),
+            world: World::default(),
+            thread_pool: ThreadPool::new(8),
+            egui_windows: None,
+            tx_dt: Some(tx_dt),
+            rx_dt: Some(rx_dt),
+            is_running: Arc::new(AtomicBool::new(true)),
+            systems: systems.systems,
+            async_systems: systems.async_systems,
+        }
     }
 }
 
@@ -53,76 +68,73 @@ impl GearsApp {
         Self {
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            world: Arc::new(World::default()),
+            world: World::default(),
             egui_windows: None,
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
+            systems: Vec::new(),
+            async_systems: Vec::new(),
         }
     }
 
     /// Run the application and start the event loop.
     pub async fn run(&mut self) -> anyhow::Result<()> {
         info!("Starting Gears...");
-
-        let tx = self.tx_dt.take().unwrap();
+        let windows = self.egui_windows.take();
 
         // Run the event loop
-        GearsApp::run_engine(Arc::clone(&self.world), tx, self.egui_windows.take()).await
+        GearsApp::run_engine(self, windows).await
+    }
+
+    /// Add a system to the world.
+    ///
+    /// # Arguments
+    ///
+    /// * `system` - The system to add.
+    pub fn add_system(&mut self, system: systems::System) {
+        self.systems.push(system);
+    }
+
+    pub fn add_async_system(&mut self, system: systems::AsyncSystem) {
+        self.async_systems.push(system);
+    }
+
+    /// Run all systems in the world.
+    pub fn run_systems(&self, sa: &systems::SystemAccessors) {
+        for system in &self.systems {
+            system.run(sa);
+        }
+    }
+
+    pub async fn run_async_systems(&self, sa: &systems::SystemAccessors<'_>) {
+        let mut handles: Vec<tokio::task::JoinHandle<()>> = Vec::new();
+
+        // Spawn all async systems
+        for system in &self.async_systems {
+            let future = system.run(sa);
+            handles.push(tokio::spawn(async move {
+                future.await;
+            }));
+        }
+
+        // Wait for all systems to complete
+        for handle in handles {
+            let _ = handle.await;
+        }
+    }
+
+    pub async fn run_all_systems(&self, sa: &systems::SystemAccessors<'_>) {
+        // Run sync systems first
+        self.run_systems(sa);
+        // Then run async systems
+        self.run_async_systems(sa).await;
     }
 
     /// Get the delta time channel.
     /// This is used to communicate the delta time between the main thread and the renderer thread.
     fn get_dt_channel(&self) -> Option<broadcast::Receiver<Dt>> {
         self.tx_dt.as_ref().map(|tx| tx.subscribe())
-    }
-
-    /// Get a mutable reference to the ecs manager.
-    /// This can be used to access the ecs manager from outside the application.
-    ///
-    /// # Returns
-    ///
-    /// A mutable reference to the ecs manager.
-    pub fn get_ecs(&self) -> Arc<World> {
-        Arc::clone(&self.world)
-    }
-
-    /// This will create a new async task that will run the given update function on each update.
-    /// The function will be passed the ecs manager and the delta time.ű
-    /// **The update loop will run until the application is stopped.**
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The function to run on each update.
-    pub async fn update_loop<F>(&self, f: F) -> anyhow::Result<()>
-    where
-        F: Fn(Arc<World>, Dt) + Send + Sync + 'static,
-    {
-        let mut rx_dt = self
-            .get_dt_channel()
-            .ok_or_else(|| anyhow::anyhow!("No dt reciever channel exists"))?;
-
-        // let mut rx_event = self
-        //     .get_event_channel()
-        //     .ok_or_else(|| anyhow::anyhow!("No event reciever channel exists"))?;
-
-        let world = Arc::clone(&self.world);
-        let is_running = Arc::clone(&self.is_running);
-
-        tokio::spawn(async move {
-            while is_running.load(std::sync::atomic::Ordering::Relaxed) {
-                match rx_dt.recv().await {
-                    Ok(dt) => f(Arc::clone(&world), dt),
-                    Err(e) => {
-                        warn!("Failed to receive: {:?}", e);
-                    }
-                }
-            }
-
-            info!("Update loop stopped...");
-        });
-
-        Ok(())
     }
 
     /// Add a custom window to the app.
@@ -144,8 +156,7 @@ impl GearsApp {
     ///
     /// A future which can be awaited.
     async fn run_engine(
-        ecs: Arc<World>,
-        tx_dt: broadcast::Sender<Dt>,
+        &self,
         egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
     ) -> anyhow::Result<()> {
         // * Window creation
@@ -156,7 +167,7 @@ impl GearsApp {
             .with_window_icon(None);
 
         let window = event_loop.create_window(window_attributes)?;
-        let mut state = State::new(&window, ecs).await;
+        let mut state = State::new(&window, &self.world).await;
 
         // Grab the cursor upon initialization
         state.grab_cursor();
@@ -167,23 +178,16 @@ impl GearsApp {
             return Err(e);
         }
 
-        if let Some(egui_windows) = egui_windows {
-            state.egui_windows = egui_windows;
-        }
-
         let mut last_render_time = time::Instant::now();
+        let mut dt: time::Duration = time::Duration::from_secs_f32(0_f32);
+        let tx_dt = self.tx_dt.as_ref().unwrap();
 
         // * Event loop
         event_loop
             .run(move |event, ewlt| {
-                // if let Event::DeviceEvent {
-                //     event: DeviceEvent::MouseMotion{ delta, },
-                //     .. // We're not using device_id currently
-                // } = event {
-                //     if state.mouse_pressed {
-                //         state.camera_controller.process_mouse(delta.0, delta.1);
-                //     }
-                // }
+                // Update systems
+                let mut system_accessors = systems::SystemAccessors::new(&self.world, &state, dt);
+                self.run_systems(&system_accessors);
 
                 match event {
                     // todo HANDLE this on a separate thread
@@ -223,7 +227,7 @@ impl GearsApp {
 
                                 */
                                 let now = time::Instant::now();
-                                let dt = now - last_render_time;
+                                dt = now - last_render_time;
                                 last_render_time = now;
 
                                 // If the state is paused, busy wait
