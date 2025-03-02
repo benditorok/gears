@@ -3,7 +3,7 @@ use gears_ecs::Component;
 use gears_macro::Component;
 
 #[derive(Component, Debug)]
-pub(crate) struct Instance {
+pub struct Instance {
     pub position: cgmath::Vector3<f32>,
     pub rotation: cgmath::Quaternion<f32>,
 }
@@ -22,7 +22,7 @@ impl Instance {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 #[allow(dead_code)]
-pub(crate) struct InstanceRaw {
+pub struct InstanceRaw {
     pub model: [[f32; 4]; 4],
     pub normal: [[f32; 3]; 3],
 }

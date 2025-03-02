@@ -5,10 +5,11 @@ pub mod update;
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
 use crate::BufferComponent;
+use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
 use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
 use gears_ecs::{self, components, Entity, World};
-use gears_gui::EguiRenderer;
+use gears_gui::{EguiRenderer, EguiWindowCallback};
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
@@ -54,9 +55,8 @@ pub struct State<'a> {
     mouse_pressed: bool,
     draw_colliders: bool,
     egui_renderer: EguiRenderer,
-    pub egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>,
+    egui_windows: Arc<Mutex<Vec<EguiWindowCallback>>>,
     is_state_paused: AtomicBool,
-    time: Instant,
     collider_render_pipeline: wgpu::RenderPipeline,
     target_entities: Option<Vec<Entity>>,
 }
@@ -240,7 +240,7 @@ impl<'a> State<'a> {
 
         // * Initializing the egui renderer
         let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, window);
-        let egui_windows = vec![];
+        let egui_windows = Arc::new(Mutex::new(Vec::new()));
 
         // * Wireframe render pipeline
         let collider_render_pipeline = {
@@ -297,7 +297,6 @@ impl<'a> State<'a> {
             egui_renderer,
             egui_windows,
             is_state_paused: AtomicBool::new(false),
-            time: time::Instant::now(),
             collider_render_pipeline,
             player_entity: None,
             target_entities: None,
@@ -308,8 +307,8 @@ impl<'a> State<'a> {
         self.is_state_paused.load(Ordering::Relaxed)
     }
 
-    pub fn add_windows(&mut self, egui_windows: Vec<Box<dyn FnMut(&egui::Context)>>) {
-        self.egui_windows.extend(egui_windows);
+    pub fn add_windows(&mut self, egui_windows: Vec<EguiWindowCallback>) {
+        self.egui_windows.lock().extend(egui_windows);
     }
 
     pub fn grab_cursor(&self) {
@@ -518,7 +517,7 @@ impl<'a> State<'a> {
         }
 
         //update::lights(self);
-        update::models(self);
+        //update::models(self);
         update::physics_system(self, dt);
 
         Ok(())
@@ -622,7 +621,8 @@ impl<'a> State<'a> {
         }
 
         // ! Egui render pass for the custom UI windows
-        if !self.egui_windows.is_empty() {
+        let mut egui_windows = self.egui_windows.lock();
+        if !egui_windows.is_empty() {
             // * if a custom ui is present
             let screen_descriptor = ScreenDescriptor {
                 size_in_pixels: [self.config.width, self.config.height],
@@ -636,7 +636,7 @@ impl<'a> State<'a> {
                 self.window,
                 &view,
                 &screen_descriptor,
-                &mut self.egui_windows,
+                &mut egui_windows,
             );
         }
 

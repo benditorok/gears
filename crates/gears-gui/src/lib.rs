@@ -5,6 +5,8 @@ use egui_winit::State;
 use winit::event::WindowEvent;
 use winit::window::Window;
 
+pub type EguiWindowCallback = Box<dyn for<'a> FnMut(&'a egui::Context) + Send + 'static>;
+
 /// A wrapper around the egui-wgpu renderer that handles the egui context and renderer.
 ///
 /// This struct is responsible for handling events on the custom windows, and provides
@@ -193,7 +195,7 @@ impl EguiRenderer {
         window: &Window,
         window_surface_view: &TextureView,
         screen_descriptor: &ScreenDescriptor,
-        run_ui: &mut [Box<dyn FnMut(&egui::Context)>],
+        run_ui: &mut [EguiWindowCallback],
     ) {
         let raw_input = self.state.take_egui_input(window);
         self.state.egui_ctx().begin_pass(raw_input);

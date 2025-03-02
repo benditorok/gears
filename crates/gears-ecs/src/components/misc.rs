@@ -1,7 +1,10 @@
 use crate::Component;
 use core::time;
 use gears_macro::Component;
-use std::ops::Deref;
+use std::{
+    ops::Deref,
+    time::{Duration, Instant},
+};
 
 pub trait Tick {
     fn on_tick(&mut self, delta_time: time::Duration);
@@ -102,15 +105,27 @@ impl Health {
     }
 }
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone)]
 pub struct AnimationQueue {
+    pub time: Instant,
     animations: Vec<&'static str>,
-    pub(crate) is_current_finished: bool,
+    pub is_current_finished: bool,
+}
+
+impl Default for AnimationQueue {
+    fn default() -> Self {
+        Self {
+            time: Instant::now(),
+            animations: Vec::new(),
+            is_current_finished: false,
+        }
+    }
 }
 
 impl AnimationQueue {
     pub fn new(animations: Vec<&'static str>) -> Self {
         Self {
+            time: Instant::now(),
             animations,
             is_current_finished: false,
         }

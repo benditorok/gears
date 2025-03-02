@@ -6,6 +6,7 @@ use gears_core::config::{self, Config};
 use gears_core::threadpool::ThreadPool;
 use gears_core::Dt;
 use gears_ecs::{Component, Entity, EntityBuilder, World};
+use gears_gui::EguiWindowCallback;
 use gears_renderer::state::State;
 use log::{info, warn};
 use rayon::vec;
@@ -25,7 +26,7 @@ pub struct GearsApp {
     config: Config,
     world: World,
     pub thread_pool: ThreadPool,
-    egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
+    egui_windows: Option<Vec<EguiWindowCallback>>,
     is_running: Arc<AtomicBool>,
     internal_async_systems: systems::InternalSystemCollection,
     external_async_systems: systems::ExternalSystemCollection,
@@ -124,7 +125,7 @@ impl GearsApp {
     /// # Arguments
     ///
     /// * `window` - A function that will be called to render the window.
-    pub fn add_window(&mut self, window: Box<dyn FnMut(&egui::Context)>) {
+    pub fn add_window(&mut self, window: EguiWindowCallback) {
         if let Some(windows) = &mut self.egui_windows {
             windows.push(window);
         } else {
@@ -139,7 +140,7 @@ impl GearsApp {
     /// A future which can be awaited.
     async fn run_engine(
         &self,
-        egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
+        egui_windows: Option<Vec<EguiWindowCallback>>,
     ) -> anyhow::Result<()> {
         // * Window creation
         let event_loop = EventLoop::new()?;

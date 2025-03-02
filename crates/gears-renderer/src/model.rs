@@ -214,7 +214,7 @@ impl DrawWireframeMesh for wgpu::RenderPass<'_> {
 }
 
 #[derive(Debug)]
-pub(crate) enum Keyframes {
+pub enum Keyframes {
     Translation(Vec<Vec<f32>>),
     Rotation(Vec<Vec<f32>>), // Added Rotation variant
     Scale(Vec<Vec<f32>>),    // Added Scale variant
@@ -222,14 +222,14 @@ pub(crate) enum Keyframes {
 }
 
 #[derive(Debug)]
-pub(crate) struct AnimationClip {
+pub struct AnimationClip {
     pub name: String,
     pub keyframes: Keyframes,
     pub timestamps: Vec<f32>,
 }
 
 #[derive(Component)]
-pub(crate) struct Model {
+pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
     pub animations: Vec<AnimationClip>,
