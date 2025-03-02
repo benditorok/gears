@@ -62,10 +62,10 @@ pub(crate) struct InternalSystemCollection {
 impl Default for InternalSystemCollection {
     fn default() -> Self {
         Self {
-            async_systems: vec![AsyncSystem::new(
-                "update_lights",
-                update_systems::update_lights,
-            )],
+            async_systems: vec![
+                AsyncSystem::new("update_lights", update_systems::update_lights),
+                AsyncSystem::new("update_models", update_systems::update_models),
+            ],
         }
     }
 }
