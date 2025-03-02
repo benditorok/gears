@@ -2,7 +2,7 @@ use cgmath::Rotation3;
 use egui::Align2;
 
 use gears_app::{prelude::*, systems};
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use std::f32::consts::PI;
 use std::future::Future;
 use std::sync::mpsc;
@@ -259,12 +259,13 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Start the timer
-    let shoot_start_time = time::Instant::now();
     let update = move |sa: &SystemAccessors| -> Box<dyn Future<Output = ()> + Send + Unpin> {
         let (world, dt) = match sa {
             SystemAccessors::External { world, dt } => (world, dt),
             _ => return Box::new(std::future::ready(())),
         };
+
+        info!("Update system running in AIM example");
 
         // Send the frame time to the custom window
         w1_frame_tx.send(*dt).unwrap();
@@ -310,41 +311,41 @@ async fn main() -> anyhow::Result<()> {
         // ne blokkoljon
         // Kell vmi buffer az eventeknek
 
-        // Shoot every 2 seconds
-        let elapsed = shoot_start_time.elapsed();
-        if elapsed.as_secs() % 2 == 0 {
-            {
-                let target_body = world
-                    .get_component::<RigidBody<AABBCollisionBox>>(target)
-                    .unwrap();
-                let target_health = world.get_component::<Health>(target).unwrap();
-                let target_pos3 = world.get_component::<Pos3>(target).unwrap();
+        // // Shoot every 2 seconds
+        // let elapsed = shoot_start_time.elapsed();
+        // if elapsed.as_secs() % 2 == 0 {
+        //     {
+        //         let target_body = world
+        //             .get_component::<RigidBody<AABBCollisionBox>>(target)
+        //             .unwrap();
+        //         let target_health = world.get_component::<Health>(target).unwrap();
+        //         let target_pos3 = world.get_component::<Pos3>(target).unwrap();
 
-                let player_view = world.get_component::<ViewController>(player).unwrap();
-                let player_weapon = world.get_component::<Weapon>(player).unwrap();
-                let player_pos3 = world.get_component::<Pos3>(player).unwrap();
+        //         let player_view = world.get_component::<ViewController>(player).unwrap();
+        //         let player_weapon = world.get_component::<Weapon>(player).unwrap();
+        //         let player_pos3 = world.get_component::<Pos3>(player).unwrap();
 
-                let rlock_target_body = target_body.read().unwrap();
-                let mut wlock_target_health = target_health.write().unwrap();
-                let rlock_target_pos3 = target_pos3.read().unwrap();
+        //         let rlock_target_body = target_body.read().unwrap();
+        //         let mut wlock_target_health = target_health.write().unwrap();
+        //         let rlock_target_pos3 = target_pos3.read().unwrap();
 
-                let rlock_player_view = player_view.read().unwrap();
-                let rlock_player_weapon = player_weapon.read().unwrap();
-                let rlock_player_pos3 = player_pos3.read().unwrap();
+        //         let rlock_player_view = player_view.read().unwrap();
+        //         let rlock_player_weapon = player_weapon.read().unwrap();
+        //         let rlock_player_pos3 = player_pos3.read().unwrap();
 
-                rlock_player_weapon.shoot(
-                    &rlock_player_pos3,
-                    &rlock_player_view,
-                    &rlock_target_pos3,
-                    &rlock_target_body,
-                    &mut wlock_target_health,
-                );
+        //         rlock_player_weapon.shoot(
+        //             &rlock_player_pos3,
+        //             &rlock_player_view,
+        //             &rlock_target_pos3,
+        //             &rlock_target_body,
+        //             &mut wlock_target_health,
+        //         );
 
-                if !wlock_target_health.is_alive() {
-                    // Launch it up
-                }
-            }
-        }
+        //         if !wlock_target_health.is_alive() {
+        //             // Launch it up
+        //         }
+        //     }
+        // }
 
         Box::new(std::future::ready(()))
     };

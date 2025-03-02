@@ -173,6 +173,15 @@ impl GearsApp {
             .run(move |event, ewlt| {
                 match event {
                     Event::AboutToWait => {
+                        // Handle the paused state
+                        if state.is_paused() {
+                            // TODO DT is getting accumulated while in a paused state, fix this
+                            std::thread::sleep(std::time::Duration::from_millis(16)); // ~60 fps
+                            last_render_time = time::Instant::now(); // Reset time while paused
+                            dt = time::Duration::from_secs_f32(0.0);
+                            return;
+                        }
+
                         // Only run systems during the AboutToWait event
                         // Start with the internal systems
                         let system_accessors = systems::SystemAccessors::Internal {
@@ -197,14 +206,16 @@ impl GearsApp {
                         event: DeviceEvent::MouseMotion { delta },
                         ..
                     } => {
-                        // Handle the mouse motion for the camera if the state is NOT in a paused state
-                        //if !state.is_paused() {
+                        // Ignore mouse events if the app is paused ??
+                        if state.is_paused() {
+                            return;
+                        }
+
                         // TODO bench for performance??
                         if let Some(view_controller) = &state.view_controller {
                             let mut wlock_view_controller = view_controller.write().unwrap();
                             wlock_view_controller.process_mouse(delta.0, delta.1);
                         }
-                        //}
                     }
                     Event::WindowEvent {
                         ref event,
@@ -223,12 +234,6 @@ impl GearsApp {
                                 let now = time::Instant::now();
                                 dt = now - last_render_time;
                                 last_render_time = now;
-
-                                // If the state is paused, busy wait
-                                if state.is_paused() {
-                                    std::thread::sleep(std::time::Duration::from_millis(16)); // ~60 fps
-                                    return;
-                                }
 
                                 // Handle update errors
                                 if let Err(e) = futures::executor::block_on(state.update(dt)) {
