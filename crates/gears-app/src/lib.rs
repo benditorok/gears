@@ -26,8 +26,6 @@ pub struct GearsApp {
     world: World,
     pub thread_pool: ThreadPool,
     egui_windows: Option<Vec<Box<dyn FnMut(&egui::Context)>>>,
-    tx_dt: Option<tokio::sync::broadcast::Sender<Dt>>,
-    rx_dt: Option<tokio::sync::broadcast::Receiver<Dt>>,
     is_running: Arc<AtomicBool>,
     internal_async_systems: systems::InternalSystemCollection,
     external_async_systems: systems::ExternalSystemCollection,
@@ -35,15 +33,11 @@ pub struct GearsApp {
 
 impl Default for GearsApp {
     fn default() -> Self {
-        let (tx_dt, rx_dt) = broadcast::channel(64);
-
         GearsApp {
             config: config::Config::default(),
             world: World::default(),
             thread_pool: ThreadPool::new(8),
             egui_windows: None,
-            tx_dt: Some(tx_dt),
-            rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
             internal_async_systems: systems::InternalSystemCollection::default(),
             external_async_systems: systems::ExternalSystemCollection::default(),
@@ -65,15 +59,11 @@ impl GearsApp {
     pub fn new(config: config::Config) -> Self {
         assert!(config.threadpool_size >= 1);
 
-        let (tx_dt, rx_dt) = broadcast::channel(64);
-
         Self {
             thread_pool: ThreadPool::new(config.threadpool_size),
             config,
             world: World::default(),
             egui_windows: None,
-            tx_dt: Some(tx_dt),
-            rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
             internal_async_systems: systems::InternalSystemCollection::default(),
             external_async_systems: systems::ExternalSystemCollection::default(),
@@ -176,7 +166,6 @@ impl GearsApp {
 
         let mut last_render_time = time::Instant::now();
         let mut dt: time::Duration = time::Duration::from_secs_f32(0_f32);
-        let tx_dt = self.tx_dt.as_ref().unwrap();
 
         // * Event loop
         event_loop
@@ -230,14 +219,6 @@ impl GearsApp {
                             //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
                             // }
                             WindowEvent::RedrawRequested => {
-                                /*
-                                   TODO refactor
-                                   defer state.update to a tokio::task like in the user facing update loop
-                                   send dt -> recv dt -> update
-                                   shrink the update channel so if it the update sags behind it will wait before entering a new
-                                    draw call and sending the new render dt
-
-                                */
                                 let now = time::Instant::now();
                                 dt = now - last_render_time;
                                 last_render_time = now;
@@ -246,11 +227,6 @@ impl GearsApp {
                                 if state.is_paused() {
                                     std::thread::sleep(std::time::Duration::from_millis(16)); // ~60 fps
                                     return;
-                                }
-
-                                // Send the delta time using the broadcast channel
-                                if let Err(e) = tx_dt.send(dt) {
-                                    log::warn!("Failed to send delta time: {:?}", e);
                                 }
 
                                 // Handle update errors
