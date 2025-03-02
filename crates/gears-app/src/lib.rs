@@ -8,10 +8,12 @@ use gears_core::Dt;
 use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_renderer::state::State;
 use log::{info, warn};
+use rayon::vec;
 use std::future::Future;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time;
+use systems::SystemCollection;
 use tokio::sync::broadcast;
 use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::EventLoop;
@@ -27,13 +29,12 @@ pub struct GearsApp {
     tx_dt: Option<tokio::sync::broadcast::Sender<Dt>>,
     rx_dt: Option<tokio::sync::broadcast::Receiver<Dt>>,
     is_running: Arc<AtomicBool>,
-    //systems: Vec<systems::System>,
-    async_systems: Vec<systems::AsyncSystem>,
+    internal_async_systems: systems::InternalSystemCollection,
+    external_async_systems: systems::ExternalSystemCollection,
 }
 
 impl Default for GearsApp {
     fn default() -> Self {
-        let systems = systems::SystemCollection::default();
         let (tx_dt, rx_dt) = broadcast::channel(64);
 
         GearsApp {
@@ -44,8 +45,8 @@ impl Default for GearsApp {
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
-            //systems: systems.systems,
-            async_systems: systems.async_systems,
+            internal_async_systems: systems::InternalSystemCollection::default(),
+            external_async_systems: systems::ExternalSystemCollection::default(),
         }
     }
 }
@@ -74,8 +75,8 @@ impl GearsApp {
             tx_dt: Some(tx_dt),
             rx_dt: Some(rx_dt),
             is_running: Arc::new(AtomicBool::new(true)),
-            //systems: Vec::new(),
-            async_systems: Vec::new(),
+            internal_async_systems: systems::InternalSystemCollection::default(),
+            external_async_systems: systems::ExternalSystemCollection::default(),
         }
     }
 
@@ -98,21 +99,29 @@ impl GearsApp {
     // }
 
     pub fn add_async_system(&mut self, system: systems::AsyncSystem) {
-        self.async_systems.push(system);
+        self.external_async_systems.add_system(system);
     }
 
-    pub async fn run_systems(&self, sa: &systems::SystemAccessors<'_>) {
+    async fn run_systems(&self, sa: &systems::SystemAccessors<'_>) {
         log::debug!("Starting system execution cycle");
 
-        // Create futures for all systems
-        let futures: Vec<_> = self
-            .async_systems
-            .iter()
-            .map(|system| {
-                log::debug!("Preparing system: {}", system.name);
-                system.run(sa)
-            })
-            .collect();
+        let mut futures = vec![];
+
+        match sa {
+            systems::SystemAccessors::Internal { .. } => {
+                let mut futures = vec![];
+                futures.extend(self.internal_async_systems.systems().iter().map(|system| {
+                    log::debug!("Preparing internal system: {}", system.name);
+                    system.run(sa)
+                }));
+            }
+            systems::SystemAccessors::External { .. } => {
+                futures.extend(self.external_async_systems.systems().iter().map(|system| {
+                    log::debug!("Preparing external system: {}", system.name);
+                    system.run(sa)
+                }));
+            }
+        }
 
         // Run all futures concurrently and wait for completion
         futures::future::join_all(futures).await;
@@ -175,9 +184,22 @@ impl GearsApp {
                 match event {
                     Event::AboutToWait => {
                         // Only run systems during the AboutToWait event
-                        let system_accessors =
-                            systems::SystemAccessors::new(&self.world, &state, dt);
+                        // Start with the internal systems
+                        let system_accessors = systems::SystemAccessors::Internal {
+                            world: &self.world,
+                            state: &state,
+                            dt,
+                        };
                         futures::executor::block_on(self.run_systems(&system_accessors));
+
+                        // Then run the external systems
+                        let system_accessors = systems::SystemAccessors::External {
+                            world: &self.world,
+                            dt,
+                        };
+                        futures::executor::block_on(self.run_systems(&system_accessors));
+
+                        // Request a redraw
                         state.window().request_redraw();
                     }
                     // todo HANDLE this on a separate thread

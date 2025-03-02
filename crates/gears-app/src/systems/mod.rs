@@ -7,16 +7,16 @@ use gears_renderer::{light, state::State};
 use rayon::str;
 use std::future::Future;
 
-pub struct SystemAccessors<'a> {
-    pub world: &'a World,
-    pub state: &'a State<'a>,
-    pub dt: time::Duration,
-}
-
-impl<'a> SystemAccessors<'a> {
-    pub fn new(world: &'a World, state: &'a State<'a>, dt: time::Duration) -> SystemAccessors<'a> {
-        SystemAccessors { world, state, dt }
-    }
+pub enum SystemAccessors<'a> {
+    Internal {
+        world: &'a World,
+        state: &'a State<'a>,
+        dt: time::Duration,
+    },
+    External {
+        world: &'a World,
+        dt: time::Duration,
+    },
 }
 
 pub struct AsyncSystem {
@@ -48,37 +48,79 @@ impl AsyncSystem {
     }
 }
 
-pub struct SystemCollection {
-    //pub systems: Vec<System>,
+pub trait SystemCollection {
+    fn add_system(&mut self, system: AsyncSystem);
+    fn systems(&self) -> &[AsyncSystem];
+}
+
+pub(crate) struct InternalSystemCollection {
     pub async_systems: Vec<AsyncSystem>,
 }
 
-impl Default for SystemCollection {
+impl Default for InternalSystemCollection {
     fn default() -> Self {
         Self {
-            async_systems: vec![AsyncSystem::new("update_lights", update_lights)],
+            async_systems: vec![AsyncSystem::new("update_lights", internal_update_lights)],
         }
     }
 }
 
+impl SystemCollection for InternalSystemCollection {
+    fn add_system(&mut self, system: AsyncSystem) {
+        self.async_systems.push(system);
+    }
+
+    fn systems(&self) -> &[AsyncSystem] {
+        &self.async_systems
+    }
+}
+
+pub struct ExternalSystemCollection {
+    pub async_systems: Vec<AsyncSystem>,
+}
+
+impl Default for ExternalSystemCollection {
+    fn default() -> Self {
+        Self {
+            async_systems: vec![],
+        }
+    }
+}
+
+impl SystemCollection for ExternalSystemCollection {
+    fn add_system(&mut self, system: AsyncSystem) {
+        self.async_systems.push(system);
+    }
+
+    fn systems(&self) -> &[AsyncSystem] {
+        &self.async_systems
+    }
+}
+
 /// Update the lights in the scene.
-pub fn update_lights(sa: &SystemAccessors) -> Box<dyn Future<Output = ()> + Send + Unpin> {
+pub fn internal_update_lights(sa: &SystemAccessors) -> Box<dyn Future<Output = ()> + Send + Unpin> {
     use rayon::prelude::*;
 
-    let light_entities = sa.world.get_entities_with_component::<Light>();
+    // Early return if not using internal variant
+    let (world, state) = match sa {
+        SystemAccessors::Internal {
+            world,
+            state,
+            dt: _,
+        } => (world, state),
+        _ => return Box::new(std::future::ready(())),
+    };
+
+    let light_entities = world.get_entities_with_component::<Light>();
 
     // Collect light uniforms in parallel
     let light_uniforms: Vec<light::LightUniform> = light_entities
         .par_iter()
         .map(|&entity| {
-            let pos = sa
-                .world
+            let pos = world
                 .get_component::<components::transforms::Pos3>(entity)
                 .unwrap();
-            let light_uniform = sa
-                .world
-                .get_component::<light::LightUniform>(entity)
-                .unwrap();
+            let light_uniform = world.get_component::<light::LightUniform>(entity).unwrap();
 
             // Update the light
             {
@@ -103,11 +145,9 @@ pub fn update_lights(sa: &SystemAccessors) -> Box<dyn Future<Output = ()> + Send
         _padding: [0; 3],
     };
 
-    sa.state.queue.write_buffer(
-        &sa.state.light_buffer,
-        0,
-        bytemuck::cast_slice(&[light_data]),
-    );
+    state
+        .queue
+        .write_buffer(&state.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
 
     Box::new(std::future::ready(()))
 }
