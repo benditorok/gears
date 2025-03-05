@@ -5,6 +5,7 @@ use gears_app::{prelude::*, systems};
 use log::{info, LevelFilter};
 use std::f32::consts::PI;
 use std::future::Future;
+use std::pin::Pin;
 use std::sync::mpsc;
 use std::time;
 
@@ -258,19 +259,17 @@ async fn main() -> anyhow::Result<()> {
         Health::default(),
     );
 
-    // Start the timer
-    let update = move |sa: &SystemAccessors| -> Box<dyn Future<Output = ()> + Send + Unpin> {
+    // Systems can now be written with simple async closures
+    let update_sys = systems::system("update", async |sa| {
         let (world, dt) = match sa {
             SystemAccessors::External { world, dt } => (world, dt),
-            _ => return Box::new(std::future::ready(())),
+            _ => return,
         };
 
+        tokio::time::sleep(time::Duration::from_secs(1)).await;
         info!("Update system running in AIM example");
-
-        // Send the frame time to the custom window
         w1_frame_tx.send(*dt).unwrap();
 
-        // ! Here we are inside a loop, so this has to lock on all iterations.
         let circle_speed = 8.0f32;
         let light_speed_multiplier = 3.0f32;
 
@@ -278,14 +277,14 @@ async fn main() -> anyhow::Result<()> {
         for sphere in moving_spheres.iter() {
             if let Some(pos3) = world.get_component::<Pos3>(*sphere) {
                 let mut wlock_pos3 = pos3.write().unwrap();
-
                 wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                     (0.0, 1.0, 0.0).into(),
                     cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
                 ) * wlock_pos3.pos;
             }
         }
-        // Move the red and blue lights in a circle considering accumulated time
+
+        // Handle lights movement
         if let Some(pos3) = world.get_component::<Pos3>(red_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
@@ -303,54 +302,8 @@ async fn main() -> anyhow::Result<()> {
                 cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
             ) * wlock_pos3.pos;
         }
+    });
 
-        // SHOOTING TEST
-
-        // Kell egy channel amin keresztul lehet a state update() fnjenek kuldeni FnOnce-okat vagy FnMut??
-        // Tokio sync legyen (asnyc) mert az update() mar amugy is az
-        // ne blokkoljon
-        // Kell vmi buffer az eventeknek
-
-        // // Shoot every 2 seconds
-        // let elapsed = shoot_start_time.elapsed();
-        // if elapsed.as_secs() % 2 == 0 {
-        //     {
-        //         let target_body = world
-        //             .get_component::<RigidBody<AABBCollisionBox>>(target)
-        //             .unwrap();
-        //         let target_health = world.get_component::<Health>(target).unwrap();
-        //         let target_pos3 = world.get_component::<Pos3>(target).unwrap();
-
-        //         let player_view = world.get_component::<ViewController>(player).unwrap();
-        //         let player_weapon = world.get_component::<Weapon>(player).unwrap();
-        //         let player_pos3 = world.get_component::<Pos3>(player).unwrap();
-
-        //         let rlock_target_body = target_body.read().unwrap();
-        //         let mut wlock_target_health = target_health.write().unwrap();
-        //         let rlock_target_pos3 = target_pos3.read().unwrap();
-
-        //         let rlock_player_view = player_view.read().unwrap();
-        //         let rlock_player_weapon = player_weapon.read().unwrap();
-        //         let rlock_player_pos3 = player_pos3.read().unwrap();
-
-        //         rlock_player_weapon.shoot(
-        //             &rlock_player_pos3,
-        //             &rlock_player_view,
-        //             &rlock_target_pos3,
-        //             &rlock_target_body,
-        //             &mut wlock_target_health,
-        //         );
-
-        //         if !wlock_target_health.is_alive() {
-        //             // Launch it up
-        //         }
-        //     }
-        // }
-
-        Box::new(std::future::ready(()))
-    };
-
-    let update_sys = systems::AsyncSystem::new("update", update);
     app.add_async_system(update_sys);
 
     // Run the application

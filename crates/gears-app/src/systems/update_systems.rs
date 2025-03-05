@@ -1,21 +1,15 @@
 use super::SystemAccessors;
 use cgmath::VectorSpace;
-use core::time;
-use gears_ecs::{
-    components::{self, lights::Light, misc::Marker},
-    World,
-};
-use gears_renderer::{instance, light, model, state::State, BufferComponent};
+use gears_ecs::components::{self, lights::Light, misc::Marker};
+use gears_renderer::{instance, light, model, BufferComponent};
 use log::warn;
-use rayon::prelude::*;
-use rayon::{
-    iter::{IntoParallelRefIterator, ParallelIterator},
-    str,
-};
-use std::{future::Future, time::Instant};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::future::Future;
+use std::pin::Pin;
+use std::time::Instant;
 
 /// Update the lights in the scene.
-pub(super) fn update_lights(sa: &SystemAccessors) -> Box<dyn Future<Output = ()> + Send + Unpin> {
+pub(super) async fn update_lights<'a>(sa: &'a SystemAccessors<'a>) {
     // Early return if not using internal variant
     let (world, state) = match sa {
         SystemAccessors::Internal {
@@ -23,7 +17,7 @@ pub(super) fn update_lights(sa: &SystemAccessors) -> Box<dyn Future<Output = ()>
             state,
             dt: _,
         } => (world, state),
-        _ => return Box::new(std::future::ready(())),
+        _ => return,
     };
 
     let light_entities = world.get_entities_with_component::<Light>();
@@ -63,16 +57,14 @@ pub(super) fn update_lights(sa: &SystemAccessors) -> Box<dyn Future<Output = ()>
     state
         .queue
         .write_buffer(&state.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
-
-    Box::new(std::future::ready(()))
 }
 
 /// Update the models in the scene.
-pub(super) fn update_models(sa: &SystemAccessors) -> Box<dyn Future<Output = ()> + Send + Unpin> {
+pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) {
     // Early return if not using internal variant
     let (world, state, dt) = match sa {
         SystemAccessors::Internal { world, state, dt } => (world, state, dt),
-        _ => return Box::new(std::future::ready(())),
+        _ => return,
     };
 
     let model_entities = world.get_entities_with_component::<components::misc::StaticModelMarker>();
@@ -210,6 +202,4 @@ pub(super) fn update_models(sa: &SystemAccessors) -> Box<dyn Future<Output = ()>
             bytemuck::cast_slice(&[instance_raw]),
         );
     });
-
-    Box::new(std::future::ready(()))
 }
