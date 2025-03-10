@@ -267,8 +267,6 @@ async fn main() -> anyhow::Result<()> {
                 _ => return,
             };
 
-            tokio::time::sleep(time::Duration::from_secs(1)).await;
-            info!("Update system running in AIM example");
             w1_frame_tx.send(*dt).unwrap();
 
             let circle_speed = 8.0f32;

@@ -182,21 +182,26 @@ impl GearsApp {
                             return;
                         }
 
-                        // Only run systems during the AboutToWait event
-                        // Start with the internal systems
-                        let system_accessors = systems::SystemAccessors::Internal {
+                        // Run systems in a more efficient way
+                        // Create a future that runs both internal and external systems concurrently
+                        let external_sa = systems::SystemAccessors::External {
+                            world: &self.world,
+                            dt,
+                        };
+
+                        let internal_sa = systems::SystemAccessors::Internal {
                             world: &self.world,
                             state: &state,
                             dt,
                         };
-                        futures::executor::block_on(self.run_systems(&system_accessors));
 
-                        // Then run the external systems
-                        let system_accessors = systems::SystemAccessors::External {
-                            world: &self.world,
-                            dt,
-                        };
-                        futures::executor::block_on(self.run_systems(&system_accessors));
+                        // Run both system groups concurrently instead of sequentially
+                        futures::executor::block_on(async {
+                            futures::join!(
+                                self.run_systems(&external_sa),
+                                self.run_systems(&internal_sa)
+                            )
+                        });
 
                         // Request a redraw
                         state.window().request_redraw();
