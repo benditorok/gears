@@ -96,26 +96,26 @@ impl GearsApp {
     async fn run_systems(&self, sa: &systems::SystemAccessors<'_>) {
         log::debug!("Starting system execution cycle");
 
-        let mut futures = vec![];
-
         match sa {
             systems::SystemAccessors::Internal { .. } => {
-                let mut futures = vec![];
-                futures.extend(self.internal_async_systems.systems().iter().map(|system| {
-                    log::debug!("Preparing internal system: {}", system.name);
+                let futures = self.internal_async_systems.systems().iter().map(|system| {
+                    log::debug!("Preparing internal system: {}", system.name());
                     system.run(sa)
-                }));
+                });
+
+                // Run all futures concurrently and wait for completion
+                futures::future::join_all(futures).await;
             }
             systems::SystemAccessors::External { .. } => {
-                futures.extend(self.external_async_systems.systems().iter().map(|system| {
-                    log::debug!("Preparing external system: {}", system.name);
+                let futures = self.external_async_systems.systems().iter().map(|system| {
+                    log::debug!("Preparing external system: {}", system.name());
                     system.run(sa)
-                }));
+                });
+
+                // Run all futures concurrently and wait for completion
+                futures::future::join_all(futures).await;
             }
         }
-
-        // Run all futures concurrently and wait for completion
-        futures::future::join_all(futures).await;
 
         log::debug!("All systems completed");
     }

@@ -6,7 +6,6 @@ use gears_ecs::{
     World,
 };
 use gears_renderer::{light, state::State};
-use rayon::str;
 use std::{future::Future, pin::Pin};
 
 pub enum SystemAccessors<'a> {
@@ -21,117 +20,138 @@ pub enum SystemAccessors<'a> {
     },
 }
 
-// The core trait that both functions and closures will implement
-pub trait AsyncSystemFn {
-    fn call<'a>(
+// Modified trait for async systems with proper lifetime handling
+pub trait AsyncSystemFn: Send + Sync {
+    fn run<'a>(
         &'a self,
         sa: &'a SystemAccessors<'a>,
     ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 }
 
-// Store either a function pointer or a boxed closure
-pub enum AsyncSystem {
-    Fn {
-        name: &'static str,
-        run: fn(&SystemAccessors) -> Pin<Box<dyn Future<Output = ()> + Send>>,
-    },
-    Closure {
-        name: &'static str,
-        run: Box<dyn AsyncSystemFn + Send + Sync>,
-    },
+// Helper struct to implement AsyncSystemFn for closures
+pub struct AsyncFnPointer<F> {
+    func: F,
 }
 
-// Implement the trait for function pointers
-impl AsyncSystemFn for fn(&SystemAccessors) -> Pin<Box<dyn Future<Output = ()> + Send>> {
-    fn call<'a>(
-        &'a self,
-        sa: &'a SystemAccessors<'a>,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
-        self(sa)
-    }
-}
-
-// Implement the trait for async closures
-impl<F> AsyncSystemFn for F
+// Implementation for async closures
+impl<F, Fut> AsyncSystemFn for AsyncFnPointer<F>
 where
-    F: for<'a> Fn(&'a SystemAccessors<'a>) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>,
+    F: for<'r> Fn(&'r SystemAccessors<'r>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
 {
-    fn call<'a>(
+    fn run<'a>(
         &'a self,
         sa: &'a SystemAccessors<'a>,
     ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
-        self(sa)
+        // Create a future adapter that properly handles lifetimes
+        Box::pin(async move {
+            (self.func)(sa).await;
+        })
     }
+}
+
+// A new wrapper specifically for async closures
+pub struct AsyncClosureWrapper<F> {
+    func: F,
+}
+
+impl<F> AsyncSystemFn for AsyncClosureWrapper<F>
+where
+    F: for<'r> FnOnce(&'r SystemAccessors<'r>) -> Pin<Box<dyn Future<Output = ()> + Send + 'r>>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    fn run<'a>(
+        &'a self,
+        sa: &'a SystemAccessors<'a>,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+        // Clone the closure to move it into the async block
+        let func = self.func.clone();
+        Box::pin(async move {
+            func(sa).await;
+        })
+    }
+}
+
+// Wrapper for function pointers
+pub struct AsyncFnSystem<F> {
+    func: F,
+}
+
+// Implementation for direct function pointers
+impl<F> AsyncSystemFn for AsyncFnSystem<F>
+where
+    F: for<'r> Fn(&'r SystemAccessors<'r>) -> Pin<Box<dyn Future<Output = ()> + Send + 'r>>
+        + Send
+        + Sync
+        + 'static,
+{
+    fn run<'a>(
+        &'a self,
+        sa: &'a SystemAccessors<'a>,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+        (self.func)(sa)
+    }
+}
+
+// Unified system struct that contains name and boxed function
+pub struct AsyncSystem {
+    name: &'static str,
+    func: Box<dyn AsyncSystemFn + Send + Sync>,
 }
 
 impl AsyncSystem {
-    // Simple constructor for regular async functions
-    pub fn new_fn(
-        name: &'static str,
-        f: fn(&SystemAccessors) -> Pin<Box<dyn Future<Output = ()> + Send>>,
-    ) -> Self {
-        Self::Fn { name, run: f }
-    }
-
-    // Helper for async closures that handles the boxing
-    pub fn new_closure<F>(name: &'static str, f: F) -> Self
+    pub fn new<F>(name: &'static str, func: F) -> Self
     where
         F: AsyncSystemFn + Send + Sync + 'static,
     {
-        Self::Closure {
+        Self {
             name,
-            run: Box::new(f),
-        }
-    }
-
-    pub async fn run<'a>(&'a self, sa: &'a SystemAccessors<'a>) {
-        match self {
-            Self::Fn { run, .. } => run(sa).await,
-            Self::Closure { run, .. } => run.call(sa).await,
+            func: Box::new(func),
         }
     }
 
     pub fn name(&self) -> &'static str {
-        match self {
-            Self::Fn { name, .. } => name,
-            Self::Closure { name, .. } => name,
-        }
+        self.name
+    }
+
+    pub async fn run<'a>(&'a self, sa: &'a SystemAccessors<'a>) {
+        self.func.run(sa).await
     }
 }
 
-// Add this helper function
-fn into_system_future<F>(f: F) -> Pin<Box<dyn Future<Output = ()> + Send>>
+// Helper function for direct function pointers
+pub fn system_fn<F>(name: &'static str, func: F) -> AsyncSystem
 where
-    F: Future<Output = ()> + Send + 'static,
+    F: for<'r> Fn(&'r SystemAccessors<'r>) -> Pin<Box<dyn Future<Output = ()> + Send + 'r>>
+        + Send
+        + Sync
+        + 'static,
 {
-    Box::pin(f) as Pin<Box<dyn Future<Output = ()> + Send>>
+    AsyncSystem::new(name, AsyncFnSystem { func })
 }
 
-// Update the system helper function
-pub fn system<F, Fut>(name: &'static str, f: F) -> AsyncSystem
+// Helper function for async closures
+pub fn system<F, Fut>(name: &'static str, func: F) -> AsyncSystem
 where
-    F: for<'a> Fn(&'a SystemAccessors<'a>) -> Fut + Send + Sync + 'static,
+    F: for<'r> Fn(&'r SystemAccessors<'r>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
 {
-    AsyncSystem::new_closure(name, move |sa| {
-        into_system_future(async move { f(sa).await })
-    })
+    AsyncSystem::new(name, AsyncFnPointer { func })
 }
 
-// Usage examples:
-async fn test_system(sa: &SystemAccessors) {
-    // system logic here
-}
-
-// Register systems like this:
-fn register_systems(collection: &mut impl SystemCollection) {
-    // Regular async function
-    collection.add_system(AsyncSystem::new_fn("test", |sa| Box::pin(test_system(sa))));
-
-    // Async closure
-    collection.add_system(system("update", async move |sa| {
-        // system logic here
-    }));
+// Helper function specifically for async closures
+pub fn async_system<F>(name: &'static str, func: F) -> AsyncSystem
+where
+    F: for<'r> FnOnce(&'r SystemAccessors<'r>) -> Pin<Box<dyn Future<Output = ()> + Send + 'r>>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    AsyncSystem::new(name, AsyncClosureWrapper { func })
 }
 
 pub trait SystemCollection {
@@ -143,16 +163,15 @@ pub(crate) struct InternalSystemCollection {
     pub async_systems: Vec<AsyncSystem>,
 }
 
-// Update the default implementation to use the new enum
 impl Default for InternalSystemCollection {
     fn default() -> Self {
         Self {
             async_systems: vec![
-                // Regular async functions use from_fn
-                AsyncSystem::new_fn("update_lights", |sa| {
+                // Use separate wrappers for update_lights and update_models
+                system_fn("update_lights", |sa| {
                     Box::pin(update_systems::update_lights(sa))
                 }),
-                AsyncSystem::new_fn("update_models", |sa| {
+                system_fn("update_models", |sa| {
                     Box::pin(update_systems::update_models(sa))
                 }),
             ],
