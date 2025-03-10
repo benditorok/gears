@@ -203,90 +203,90 @@ use std::time::{self, Instant};
 //     }
 // }
 
-pub(super) fn physics_system(state: &mut State, dt: time::Duration) {
-    let dt = dt.as_secs_f32();
-    let mut physics_bodies = Vec::new();
+// pub(super) fn physics_system(state: &mut State, dt: time::Duration) {
+//     let dt = dt.as_secs_f32();
+//     let mut physics_bodies = Vec::new();
 
-    if let Some(player) = state.player_entity {
-        physics_bodies.push((
-            player,
-            state
-                .world
-                .get_component::<components::physics::RigidBody<AABBCollisionBox>>(player)
-                .unwrap(),
-            state
-                .world
-                .get_component::<components::transforms::Pos3>(player)
-                .unwrap(),
-        ));
-    }
+//     if let Some(player) = state.player_entity {
+//         physics_bodies.push((
+//             player,
+//             state
+//                 .world
+//                 .get_component::<components::physics::RigidBody<AABBCollisionBox>>(player)
+//                 .unwrap(),
+//             state
+//                 .world
+//                 .get_component::<components::transforms::Pos3>(player)
+//                 .unwrap(),
+//         ));
+//     }
 
-    if let Some(physics_entities) = &state.physics_entities {
-        for entity in physics_entities {
-            // TODO add an animation queue for physics entities as well
+//     if let Some(physics_entities) = &state.physics_entities {
+//         for entity in physics_entities {
+//             // TODO add an animation queue for physics entities as well
 
-            let physics_body = state
-                .world
-                .get_component::<components::physics::RigidBody<AABBCollisionBox>>(*entity)
-                .unwrap();
+//             let physics_body = state
+//                 .world
+//                 .get_component::<components::physics::RigidBody<AABBCollisionBox>>(*entity)
+//                 .unwrap();
 
-            let instance = state
-                .world
-                .get_component::<instance::Instance>(*entity)
-                .unwrap();
-            let buffer = state
-                .world
-                .get_component::<BufferComponent>(*entity)
-                .unwrap();
-            let pos3 = state
-                .world
-                .get_component::<components::transforms::Pos3>(*entity)
-                .unwrap();
+//             let instance = state
+//                 .world
+//                 .get_component::<instance::Instance>(*entity)
+//                 .unwrap();
+//             let buffer = state
+//                 .world
+//                 .get_component::<BufferComponent>(*entity)
+//                 .unwrap();
+//             let pos3 = state
+//                 .world
+//                 .get_component::<components::transforms::Pos3>(*entity)
+//                 .unwrap();
 
-            {
-                let mut wlock_instance = instance.write().unwrap();
-                let rlock_pos3 = pos3.read().unwrap();
+//             {
+//                 let mut wlock_instance = instance.write().unwrap();
+//                 let rlock_pos3 = pos3.read().unwrap();
 
-                wlock_instance.position = rlock_pos3.pos;
-                wlock_instance.rotation = rlock_pos3.rot
-            }
+//                 wlock_instance.position = rlock_pos3.pos;
+//                 wlock_instance.rotation = rlock_pos3.rot
+//             }
 
-            let instance_raw = instance.read().unwrap().to_raw();
-            state.queue.write_buffer(
-                &buffer.write().unwrap(),
-                0,
-                bytemuck::cast_slice(&[instance_raw]),
-            );
+//             let instance_raw = instance.read().unwrap().to_raw();
+//             state.queue.write_buffer(
+//                 &buffer.write().unwrap(),
+//                 0,
+//                 bytemuck::cast_slice(&[instance_raw]),
+//             );
 
-            physics_bodies.push((*entity, physics_body, pos3));
-        }
-    }
+//             physics_bodies.push((*entity, physics_body, pos3));
+//         }
+//     }
 
-    // Update positions and velocities based on acceleration
-    for (entity, physics_body, pos3) in &physics_bodies {
-        let mut wlock_physics_body = physics_body.write().unwrap();
-        let mut wlock_pos3 = pos3.write().unwrap();
+//     // Update positions and velocities based on acceleration
+//     for (entity, physics_body, pos3) in &physics_bodies {
+//         let mut wlock_physics_body = physics_body.write().unwrap();
+//         let mut wlock_pos3 = pos3.write().unwrap();
 
-        wlock_physics_body.update_pos(&mut wlock_pos3, dt);
-    }
+//         wlock_physics_body.update_pos(&mut wlock_pos3, dt);
+//     }
 
-    // Check for collisions and resolve them
-    for i in 0..physics_bodies.len() {
-        for j in (i + 1)..physics_bodies.len() {
-            let (_entity_a, physics_body_a, pos3_a) = &physics_bodies[i];
-            let (_entity_b, physics_body_b, pos3_b) = &physics_bodies[j];
+//     // Check for collisions and resolve them
+//     for i in 0..physics_bodies.len() {
+//         for j in (i + 1)..physics_bodies.len() {
+//             let (_entity_a, physics_body_a, pos3_a) = &physics_bodies[i];
+//             let (_entity_b, physics_body_b, pos3_b) = &physics_bodies[j];
 
-            let mut wlock_physics_body_a = physics_body_a.write().unwrap();
-            let mut wlock_physics_body_b = physics_body_b.write().unwrap();
-            let mut wlock_pos3_a = pos3_a.write().unwrap();
-            let mut wlock_pos3_b = pos3_b.write().unwrap();
+//             let mut wlock_physics_body_a = physics_body_a.write().unwrap();
+//             let mut wlock_physics_body_b = physics_body_b.write().unwrap();
+//             let mut wlock_pos3_a = pos3_a.write().unwrap();
+//             let mut wlock_pos3_b = pos3_b.write().unwrap();
 
-            components::physics::RigidBody::check_and_resolve_collision(
-                &mut wlock_physics_body_a,
-                &mut wlock_pos3_a,
-                &mut wlock_physics_body_b,
-                &mut wlock_pos3_b,
-            );
-        }
-    }
-}
+//             components::physics::RigidBody::check_and_resolve_collision(
+//                 &mut wlock_physics_body_a,
+//                 &mut wlock_pos3_a,
+//                 &mut wlock_physics_body_b,
+//                 &mut wlock_pos3_b,
+//             );
+//         }
+//     }
+// }

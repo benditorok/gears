@@ -1,5 +1,6 @@
 use super::SystemAccessors;
 use cgmath::VectorSpace;
+use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::components::{self, lights::Light, misc::Marker};
 use gears_renderer::{instance, light, model, BufferComponent};
 use log::warn;
@@ -201,5 +202,79 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) {
             0,
             bytemuck::cast_slice(&[instance_raw]),
         );
+    });
+}
+pub(super) async fn physics_system<'a>(sa: &'a SystemAccessors<'a>) {
+    // Early return if not using internal variant
+    let (world, state, dt) = match sa {
+        SystemAccessors::Internal { world, state, dt } => (world, state, dt),
+        _ => return,
+    };
+
+    let dt = dt.as_secs_f32();
+    let mut physics_bodies = Vec::new();
+
+    // Get all entities with RigidBody component
+    let physics_entities =
+        world.get_entities_with_component::<components::physics::RigidBody<AABBCollisionBox>>();
+
+    physics_entities.iter().for_each(|&entity| {
+        let physics_body = world
+            .get_component::<components::physics::RigidBody<AABBCollisionBox>>(entity)
+            .unwrap();
+        let pos3 = world
+            .get_component::<components::transforms::Pos3>(entity)
+            .unwrap();
+
+        // Update positions and velocities based on acceleration
+        {
+            let mut wlock_physics_body = physics_body.write().unwrap();
+            let mut wlock_pos3 = pos3.write().unwrap();
+            wlock_physics_body.update_pos(&mut wlock_pos3, dt);
+        }
+
+        physics_bodies.push((entity, physics_body, pos3));
+    });
+
+    // Check for collisions and resolve them
+    for i in 0..physics_bodies.len() {
+        for j in (i + 1)..physics_bodies.len() {
+            let (_entity_a, physics_body_a, pos3_a) = &physics_bodies[i];
+            let (_entity_b, physics_body_b, pos3_b) = &physics_bodies[j];
+
+            let mut wlock_physics_body_a = physics_body_a.write().unwrap();
+            let mut wlock_physics_body_b = physics_body_b.write().unwrap();
+            let mut wlock_pos3_a = pos3_a.write().unwrap();
+            let mut wlock_pos3_b = pos3_b.write().unwrap();
+
+            components::physics::RigidBody::check_and_resolve_collision(
+                &mut wlock_physics_body_a,
+                &mut wlock_pos3_a,
+                &mut wlock_physics_body_b,
+                &mut wlock_pos3_b,
+            );
+        }
+    }
+
+    // Update instance data
+    physics_entities.iter().for_each(|&entity| {
+        if let (Some(instance), Some(buffer), Some(pos3)) = (
+            world.get_component::<instance::Instance>(entity),
+            world.get_component::<BufferComponent>(entity),
+            world.get_component::<components::transforms::Pos3>(entity),
+        ) {
+            let mut wlock_instance = instance.write().unwrap();
+            let rlock_pos3 = pos3.read().unwrap();
+
+            wlock_instance.position = rlock_pos3.pos;
+            wlock_instance.rotation = rlock_pos3.rot;
+
+            let instance_raw = wlock_instance.to_raw();
+            state.queue.write_buffer(
+                &buffer.write().unwrap(),
+                0,
+                bytemuck::cast_slice(&[instance_raw]),
+            );
+        }
     });
 }
