@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use egui::Context;
 use egui_wgpu::wgpu::{CommandEncoder, Device, Queue, StoreOp, TextureFormat, TextureView};
 use egui_wgpu::{wgpu, Renderer, ScreenDescriptor};
@@ -12,7 +14,7 @@ pub type EguiWindowCallback = Box<dyn for<'a> FnMut(&'a egui::Context) + Send + 
 /// This struct is responsible for handling events on the custom windows, and provides
 /// methods to interact with the egui context and renderer.
 pub struct EguiRenderer {
-    state: State,
+    state: Arc<Mutex<State>>,
     renderer: Renderer,
     frame_started: bool,
 }
@@ -53,19 +55,10 @@ impl EguiRenderer {
         );
 
         EguiRenderer {
-            state: egui_state,
+            state: Arc::new(Mutex::new(egui_state)),
             renderer: egui_renderer,
             frame_started: false,
         }
-    }
-
-    /// Get a reference to the egui context.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the egui context.
-    pub fn context(&self) -> &Context {
-        self.state.egui_ctx()
     }
 
     /// Handle input events on the window.
@@ -81,7 +74,7 @@ impl EguiRenderer {
     ///
     /// True if the event was consumed by the egui context.
     pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) -> bool {
-        let response = self.state.on_window_event(window, event);
+        let response = self.state.lock().unwrap().on_window_event(window, event);
         response.consumed
     }
 
@@ -90,8 +83,8 @@ impl EguiRenderer {
     /// # Arguments
     ///
     /// * `v` - The pixels per point value.
-    pub fn ppp(&mut self, v: f32) {
-        self.context().set_pixels_per_point(v);
+    pub fn ppp(state: &mut State, v: f32) {
+        state.egui_ctx().set_pixels_per_point(v);
     }
 
     /// Begin a new frame.
@@ -100,8 +93,9 @@ impl EguiRenderer {
     ///
     /// * `window` - The window to render to.
     pub fn begin_frame(&mut self, window: &Window) {
-        let raw_input = self.state.take_egui_input(window);
-        self.state.egui_ctx().begin_pass(raw_input);
+        let mut state = self.state.lock().unwrap();
+        let raw_input = state.take_egui_input(window);
+        state.egui_ctx().begin_pass(raw_input);
         self.frame_started = true;
     }
 
@@ -133,17 +127,17 @@ impl EguiRenderer {
             panic!("begin_frame must be called before end_frame_and_draw can be called!");
         }
 
-        self.ppp(screen_descriptor.pixels_per_point);
+        let mut state = self.state.lock().unwrap();
 
-        let full_output = self.state.egui_ctx().end_pass();
+        Self::ppp(&mut state, screen_descriptor.pixels_per_point);
 
-        self.state
-            .handle_platform_output(window, full_output.platform_output);
+        let full_output = state.egui_ctx().end_pass();
 
-        let tris = self
-            .state
+        state.handle_platform_output(window, full_output.platform_output);
+
+        let tris = state
             .egui_ctx()
-            .tessellate(full_output.shapes, self.state.egui_ctx().pixels_per_point());
+            .tessellate(full_output.shapes, state.egui_ctx().pixels_per_point());
         for (id, image_delta) in &full_output.textures_delta.set {
             self.renderer
                 .update_texture(device, queue, *id, image_delta);
@@ -197,28 +191,30 @@ impl EguiRenderer {
         screen_descriptor: &ScreenDescriptor,
         run_ui: &mut [EguiWindowCallback],
     ) {
-        let raw_input = self.state.take_egui_input(window);
-        self.state.egui_ctx().begin_pass(raw_input);
+        let mut state = self.state.lock().unwrap();
+
+        Self::ppp(&mut state, screen_descriptor.pixels_per_point);
+
+        let raw_input = state.take_egui_input(window);
+        state.egui_ctx().begin_pass(raw_input);
         self.frame_started = true;
 
-        self.ppp(screen_descriptor.pixels_per_point);
+        Self::ppp(&mut state, screen_descriptor.pixels_per_point);
 
-        let ctx = self.state.egui_ctx();
+        let ctx = state.egui_ctx();
 
         // Render the windows
         for ui_fn in run_ui {
             ui_fn(ctx);
         }
 
-        let full_output = self.state.egui_ctx().end_pass();
+        let full_output = state.egui_ctx().end_pass();
 
-        self.state
-            .handle_platform_output(window, full_output.platform_output);
+        state.handle_platform_output(window, full_output.platform_output);
 
-        let tris = self
-            .state
+        let tris = state
             .egui_ctx()
-            .tessellate(full_output.shapes, self.state.egui_ctx().pixels_per_point());
+            .tessellate(full_output.shapes, state.egui_ctx().pixels_per_point());
         for (id, image_delta) in &full_output.textures_delta.set {
             self.renderer
                 .update_texture(device, queue, *id, image_delta);
