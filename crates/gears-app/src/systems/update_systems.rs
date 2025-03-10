@@ -257,7 +257,7 @@ pub(super) async fn physics_system<'a>(sa: &'a SystemAccessors<'a>) {
     }
 
     // Update instance data
-    physics_entities.iter().for_each(|&entity| {
+    physics_entities.par_iter().for_each(|&entity| {
         if let (Some(instance), Some(buffer), Some(pos3)) = (
             world.get_component::<instance::Instance>(entity),
             world.get_component::<BufferComponent>(entity),
@@ -270,6 +270,7 @@ pub(super) async fn physics_system<'a>(sa: &'a SystemAccessors<'a>) {
             wlock_instance.rotation = rlock_pos3.rot;
 
             let instance_raw = wlock_instance.to_raw();
+
             state.queue.write_buffer(
                 &buffer.write().unwrap(),
                 0,
