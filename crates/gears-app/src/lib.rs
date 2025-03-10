@@ -168,16 +168,34 @@ impl GearsApp {
         let mut last_render_time = time::Instant::now();
         let mut dt: time::Duration = time::Duration::from_secs_f32(0_f32);
 
+        // Track the previous pause state to detect transitions
+        let mut was_paused = false;
+
         // * Event loop
         event_loop
             .run(move |event, ewlt| {
                 match event {
                     Event::AboutToWait => {
+                        let is_paused = state.is_paused();
+
+                        // Detect pause state transitions
+                        if is_paused != was_paused {
+                            // State changed - reset timing to prevent large deltas
+                            last_render_time = time::Instant::now();
+                            dt = time::Duration::from_secs_f32(0.0);
+                            was_paused = is_paused;
+
+                            if is_paused {
+                                log::debug!("Game paused - resetting delta time");
+                            } else {
+                                log::debug!("Game unpaused - resetting delta time");
+                            }
+                        }
+
                         // Handle the paused state
-                        if state.is_paused() {
-                            // TODO DT is getting accumulated while in a paused state, fix this
+                        if is_paused {
+                            // While paused, maintain a small constant dt for UI updates
                             std::thread::sleep(std::time::Duration::from_millis(16)); // ~60 fps
-                            last_render_time = time::Instant::now(); // Reset time while paused
                             dt = time::Duration::from_secs_f32(0.0);
                             return;
                         }
@@ -237,7 +255,17 @@ impl GearsApp {
                             // }
                             WindowEvent::RedrawRequested => {
                                 let now = time::Instant::now();
-                                dt = now - last_render_time;
+
+                                // Limit the maximum delta time to prevent large jumps
+                                // This helps if the game was paused or if there was a lag spike
+                                let elapsed = now - last_render_time;
+                                dt = if elapsed > time::Duration::from_millis(100) {
+                                    // Cap at 100ms (10 fps) to prevent large movements
+                                    time::Duration::from_millis(100)
+                                } else {
+                                    elapsed
+                                };
+
                                 last_render_time = now;
 
                                 // Handle update errors
