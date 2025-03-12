@@ -1,6 +1,5 @@
 mod init;
 mod resources;
-pub mod update;
 
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
