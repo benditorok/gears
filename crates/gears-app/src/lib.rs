@@ -8,7 +8,7 @@ use gears_core::Dt;
 use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_gui::EguiWindowCallback;
 use gears_renderer::state::State;
-use log::{info, warn};
+use log::{debug, info, warn};
 use rayon::vec;
 use std::future::Future;
 use std::sync::atomic::AtomicBool;
@@ -94,13 +94,19 @@ impl GearsApp {
     }
 
     async fn run_systems(&self, sa: &systems::SystemAccessors<'_>) {
-        log::debug!("Starting system execution cycle");
+        debug!("Starting system execution cycle");
 
         match sa {
             systems::SystemAccessors::Internal { .. } => {
                 let futures = self.internal_async_systems.systems().iter().map(|system| {
-                    log::debug!("Preparing internal system: {}", system.name());
-                    system.run(sa)
+                    debug!("Preparing internal system: {}", system.name());
+                    async move {
+                        let result = system.run(sa).await;
+                        if let Err(err) = &result {
+                            log::error!("Internal system '{}' failed: {}", system.name(), err);
+                        }
+                        result
+                    }
                 });
 
                 // Run all futures concurrently and wait for completion
@@ -108,8 +114,14 @@ impl GearsApp {
             }
             systems::SystemAccessors::External { .. } => {
                 let futures = self.external_async_systems.systems().iter().map(|system| {
-                    log::debug!("Preparing external system: {}", system.name());
-                    system.run(sa)
+                    debug!("Preparing external system: {}", system.name());
+                    async move {
+                        let result = system.run(sa).await;
+                        if let Err(err) = &result {
+                            log::error!("External system '{}' failed: {}", system.name(), err);
+                        }
+                        result
+                    }
                 });
 
                 // Run all futures concurrently and wait for completion
@@ -117,7 +129,7 @@ impl GearsApp {
             }
         }
 
-        log::debug!("All systems completed");
+        debug!("All systems completed");
     }
 
     /// Add a custom window to the app.

@@ -1,6 +1,7 @@
 use cgmath::Rotation3;
 use egui::Align2;
 
+use gears_app::systems::SystemError;
 use gears_app::{prelude::*, systems};
 use log::{info, LevelFilter};
 use std::f32::consts::PI;
@@ -267,10 +268,12 @@ async fn main() -> anyhow::Result<()> {
             async move {
                 let (world, dt) = match sa {
                     SystemAccessors::External { world, dt } => (world, dt),
-                    _ => return,
+                    _ => return Ok(()),
                 };
 
-                w1_frame_tx.send(*dt).unwrap();
+                w1_frame_tx
+                    .send(*dt)
+                    .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
                 let circle_speed = 8.0f32;
                 let light_speed_multiplier = 3.0f32;
@@ -304,6 +307,8 @@ async fn main() -> anyhow::Result<()> {
                         cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
                     ) * wlock_pos3.pos;
                 }
+
+                Ok(())
             }
         })
     });

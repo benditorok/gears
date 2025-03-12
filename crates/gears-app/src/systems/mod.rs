@@ -1,3 +1,4 @@
+mod error;
 mod update_systems;
 
 use core::time;
@@ -7,6 +8,8 @@ use gears_ecs::{
 };
 use gears_renderer::state::State;
 use std::{future::Future, pin::Pin};
+
+pub use error::{SystemError, SystemResult};
 
 /// System accessors allow systems to access different parts of the engine
 /// depending on whether they are internal or external systems
@@ -29,7 +32,7 @@ pub trait AsyncSystemFn: Send + Sync {
     fn run<'a>(
         &'a self,
         sa: &'a SystemAccessors<'a>,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
+    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>>;
 }
 
 // Separate wrapper types for each implementation - without storing the future type
@@ -48,22 +51,22 @@ pub(crate) struct AsyncBoxFnWrapper<F> {
 impl<F, Fut> AsyncSystemFn for AsyncFnWrapper<F>
 where
     F: for<'r> Fn(&'r SystemAccessors<'r>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
+    Fut: Future<Output = SystemResult<()>> + Send + 'static,
 {
     fn run<'a>(
         &'a self,
         sa: &'a SystemAccessors<'a>,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
-        Box::pin(async move {
-            (self.func)(sa).await;
-        })
+    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>> {
+        Box::pin(async move { (self.func)(sa).await })
     }
 }
 
 // Implementation for boxed futures
 impl<F> AsyncSystemFn for AsyncBoxFnWrapper<F>
 where
-    F: for<'r> Fn(&'r SystemAccessors<'r>) -> Pin<Box<dyn Future<Output = ()> + Send + 'r>>
+    F: for<'r> Fn(
+            &'r SystemAccessors<'r>,
+        ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'r>>
         + Send
         + Sync
         + 'static,
@@ -71,7 +74,7 @@ where
     fn run<'a>(
         &'a self,
         sa: &'a SystemAccessors<'a>,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>> {
         (self.func)(sa)
     }
 }
@@ -100,7 +103,7 @@ impl AsyncSystem {
     }
 
     /// Run the system with the given system accessors
-    pub async fn run<'a>(&'a self, sa: &'a SystemAccessors<'a>) {
+    pub async fn run<'a>(&'a self, sa: &'a SystemAccessors<'a>) -> SystemResult<()> {
         self.func.run(sa).await
     }
 }
@@ -109,7 +112,7 @@ impl AsyncSystem {
 pub fn system<F, Fut>(name: &'static str, func: F) -> AsyncSystem
 where
     F: for<'r> Fn(&'r SystemAccessors<'r>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
+    Fut: Future<Output = SystemResult<()>> + Send + 'static,
 {
     AsyncSystem::new(name, AsyncFnWrapper { func })
 }
@@ -117,7 +120,9 @@ where
 /// Helper function for creating systems from functions that return boxed futures
 pub fn async_system<F>(name: &'static str, func: F) -> AsyncSystem
 where
-    F: for<'r> Fn(&'r SystemAccessors<'r>) -> Pin<Box<dyn Future<Output = ()> + Send + 'r>>
+    F: for<'r> Fn(
+            &'r SystemAccessors<'r>,
+        ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'r>>
         + Send
         + Sync
         + 'static,

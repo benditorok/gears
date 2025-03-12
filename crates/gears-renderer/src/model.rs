@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{format, Debug, Error};
 
 use super::texture;
 use gears_ecs::{
@@ -246,11 +246,11 @@ impl Debug for Model {
 }
 
 impl Model {
-    pub fn get_animation(&self, name: &str) -> anyhow::Result<&AnimationClip> {
+    pub fn get_animation(&self, name: &str) -> Result<&AnimationClip, String> {
         self.animations
             .iter()
             .find(|clip| clip.name == name)
-            .ok_or_else(|| anyhow::anyhow!("Animation with name {} not found in model", name))
+            .ok_or_else(|| format!("Animation with name {} not found in model", name))
     }
 }
 
