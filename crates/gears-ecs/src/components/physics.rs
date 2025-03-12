@@ -1,11 +1,17 @@
 use super::transforms::{Pos, Pos3};
 use crate::Component;
-use cgmath::InnerSpace;
+use cgmath::{InnerSpace, Zero};
 use gears_macro::Component;
 use std::fmt::Debug;
 
 const MAX_HORIZONTAL_VELOCITY: f32 = 20.0;
 const MAX_VERTICAL_VELOCITY: f32 = 40.0;
+// Added constants for collision resolution tuning
+const POSITION_CORRECTION_FACTOR: f32 = 0.4; // How much to correct position overlap (0-1)
+const POSITION_CORRECTION_SLOP: f32 = 0.01; // Small penetration allowed for stability
+const RESTITUTION_COEFFICIENT: f32 = 0.2; // Reduced bounciness
+const FRICTION_COEFFICIENT: f32 = 0.8; // Friction coefficient
+const VELOCITY_THRESHOLD: f32 = 0.05; // Threshold for resting contact
 
 pub trait CollisionBox {
     fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool;
@@ -55,32 +61,22 @@ impl CollisionBox for AABBCollisionBox {
         let overlap_y = (a_max.y.min(b_max.y)) - (a_min.y.max(b_min.y));
         let overlap_z = (a_max.z.min(b_max.z)) - (a_min.z.max(b_min.z));
 
-        // Find axis of minimum penetration
-        let (min_overlap, axis) = if overlap_x < overlap_y && overlap_x < overlap_z {
-            (overlap_x, 0)
-        } else if overlap_y < overlap_z {
-            (overlap_y, 1)
+        // Calculate center points for better normal direction
+        let a_center = (a_min + a_max) * 0.5;
+        let b_center = (b_min + b_max) * 0.5;
+        let center_diff = b_center - a_center;
+
+        // Find axis of minimum penetration with direction awareness
+        let (min_overlap, normal) = if overlap_x <= overlap_y && overlap_x <= overlap_z {
+            let dir = if center_diff.x > 0.0 { 1.0 } else { -1.0 };
+            (overlap_x, cgmath::Vector3::new(dir, 0.0, 0.0))
+        } else if overlap_y <= overlap_z {
+            let dir = if center_diff.y > 0.0 { 1.0 } else { -1.0 };
+            (overlap_y, cgmath::Vector3::new(0.0, dir, 0.0))
         } else {
-            (overlap_z, 2)
+            let dir = if center_diff.z > 0.0 { 1.0 } else { -1.0 };
+            (overlap_z, cgmath::Vector3::new(0.0, 0.0, dir))
         };
-
-        let center_diff = obj_b_pos3.pos - obj_a_pos3.pos;
-        let normal = match axis {
-            0 => cgmath::Vector3::new(if center_diff.x > 0.0 { 1.0 } else { -1.0 }, 0.0, 0.0),
-            1 => cgmath::Vector3::new(0.0, if center_diff.y > 0.0 { 1.0 } else { -1.0 }, 0.0),
-            _ => cgmath::Vector3::new(0.0, 0.0, if center_diff.z > 0.0 { 1.0 } else { -1.0 }),
-        };
-
-        let relative_velocity = obj_b.velocity - obj_a.velocity;
-        let vel_along_normal = relative_velocity.dot(normal);
-
-        // Only resolve collision if objects are moving toward each other
-        if vel_along_normal > 0.0 {
-            return;
-        }
-
-        let restitution = 0.3; // Reduced bounciness further
-        let friction = 0.8; // Add friction coefficient
 
         let inv_mass_a = if obj_a.is_static {
             0.0
@@ -92,48 +88,81 @@ impl CollisionBox for AABBCollisionBox {
         } else {
             1.0 / obj_b.mass
         };
+        let total_inv_mass = inv_mass_a + inv_mass_b;
 
-        // Separate objects based on overlap
+        if total_inv_mass <= 0.0 {
+            return;
+        } // Both static, nothing to do
+
+        // Calculate relative velocity
+        let relative_velocity = obj_b.velocity - obj_a.velocity;
+        let vel_along_normal = relative_velocity.dot(normal);
+
+        // Check if objects are separating
+        if vel_along_normal > 0.0 {
+            return;
+        }
+
+        // Apply position correction to prevent sinking (Baumgarte stabilization)
+        if min_overlap > POSITION_CORRECTION_SLOP {
+            let correction_magnitude = (min_overlap - POSITION_CORRECTION_SLOP)
+                * POSITION_CORRECTION_FACTOR
+                / total_inv_mass;
+            let correction = normal * correction_magnitude;
+
+            if !obj_a.is_static {
+                obj_a_pos3.pos -= correction * inv_mass_a;
+            }
+            if !obj_b.is_static {
+                obj_b_pos3.pos += correction * inv_mass_b;
+            }
+        }
+
+        // Apply impulse resolution with better handling for near-zero velocities
+        let restitution = if vel_along_normal.abs() < VELOCITY_THRESHOLD {
+            0.0 // No restitution for slow collisions to prevent bouncing when almost at rest
+        } else {
+            RESTITUTION_COEFFICIENT
+        };
+
+        // Calculate impulse scalar
+        let impulse_scalar = -(1.0 + restitution) * vel_along_normal / total_inv_mass;
+
+        // Apply impulse
+        let impulse = normal * impulse_scalar;
         if !obj_a.is_static {
-            obj_a_pos3.pos -= normal * min_overlap * (inv_mass_a / (inv_mass_a + inv_mass_b));
+            obj_a.velocity -= impulse * inv_mass_a;
         }
         if !obj_b.is_static {
-            obj_b_pos3.pos += normal * min_overlap * (inv_mass_b / (inv_mass_a + inv_mass_b));
+            obj_b.velocity += impulse * inv_mass_b;
         }
 
-        // Apply impulse only if relative velocity is above threshold
-        let velocity_threshold = 0.1;
-        if vel_along_normal.abs() > velocity_threshold {
-            let impulse_scalar =
-                -(1.0 + restitution) * vel_along_normal / (inv_mass_a + inv_mass_b);
-            let impulse = normal * impulse_scalar;
+        // Apply friction with improved model
+        let tangent_velocity = relative_velocity - normal * vel_along_normal;
+        let tangent_speed = tangent_velocity.magnitude();
+
+        if tangent_speed > 0.001 {
+            let tangent = tangent_velocity / tangent_speed;
+            let friction_impulse = FRICTION_COEFFICIENT * impulse_scalar.abs();
+
+            // Apply friction impulse with clamping to prevent energy gain
+            let max_friction = tangent_speed; // Limit friction to current tangent velocity
+            let effective_friction_impulse = friction_impulse.min(max_friction * total_inv_mass);
 
             if !obj_a.is_static {
-                obj_a.velocity -= impulse * inv_mass_a;
-                // Apply friction
-                let tangent_velocity = relative_velocity - (normal * vel_along_normal);
-                if tangent_velocity.magnitude() > 0.0 {
-                    obj_a.velocity -=
-                        tangent_velocity.normalize() * friction * impulse_scalar.abs() * inv_mass_a;
-                }
+                obj_a.velocity -= tangent * effective_friction_impulse * inv_mass_a;
             }
             if !obj_b.is_static {
-                obj_b.velocity += impulse * inv_mass_b;
-                // Apply friction
-                let tangent_velocity = relative_velocity - (normal * vel_along_normal);
-                if tangent_velocity.magnitude() > 0.0 {
-                    obj_b.velocity +=
-                        tangent_velocity.normalize() * friction * impulse_scalar.abs() * inv_mass_b;
-                }
+                obj_b.velocity += tangent * effective_friction_impulse * inv_mass_b;
             }
-        } else {
-            // If velocity is below threshold, stop the movement along the collision normal
-            if !obj_a.is_static {
-                obj_a.velocity -= normal * vel_along_normal * 0.5;
-            }
-            if !obj_b.is_static {
-                obj_b.velocity += normal * vel_along_normal * 0.5;
-            }
+        }
+
+        // Stabilize very slow movements to prevent jittering
+        if !obj_a.is_static && obj_a.velocity.magnitude() < VELOCITY_THRESHOLD * 0.5 {
+            obj_a.velocity = cgmath::Vector3::zero();
+        }
+        if !obj_b.is_static && obj_b.velocity.magnitude() < VELOCITY_THRESHOLD * 0.5 {
+            obj_b.velocity = cgmath::Vector3::zero();
         }
     }
 }
@@ -201,13 +230,13 @@ impl<T: CollisionBox> RigidBody<T> {
 
             // Use different damping coefficients based on acceleration state
             let damping_coefficient = if is_accelerating {
-                2.0 // Normal damping when accelerating
+                1.8 // Slightly reduced damping when accelerating for smoother motion
             } else {
-                6.0 // Strong damping when no acceleration
+                4.0 // Reduced strong damping when no acceleration to prevent abrupt stops
             };
 
             let damping_factor = (-damping_coefficient * dt).exp();
-            let min_velocity = 0.01;
+            let min_velocity = 0.005; // Reduced threshold for smoother transitions
 
             // Update velocity based on acceleration
             self.velocity += self.acceleration * dt;
@@ -217,20 +246,8 @@ impl<T: CollisionBox> RigidBody<T> {
 
             // Set velocity to zero if it's below the minimum threshold
             if self.velocity.magnitude() < min_velocity {
-                self.velocity = cgmath::Vector3::new(0.0, 0.0, 0.0);
+                self.velocity = cgmath::Vector3::zero();
             }
-
-            // // Print debug information
-            // println!(
-            //     "Velocity: ({:.2}, {:.2}, {:.2}), Acceleration: ({:.2}, {:.2}, {:.2}), Is Accelerating: {}",
-            //     self.velocity.x,
-            //     self.velocity.y,
-            //     self.velocity.z,
-            //     self.acceleration.x,
-            //     self.acceleration.y,
-            //     self.acceleration.z,
-            //     is_accelerating
-            // );
 
             // Update position based on velocity
             pos3.pos += self.velocity * dt;
