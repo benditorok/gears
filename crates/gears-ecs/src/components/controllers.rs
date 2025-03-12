@@ -13,12 +13,9 @@ use winit::{event::ElementState, keyboard::KeyCode};
 const MOVE_ACCELERATION: f32 = 15.0;
 const JUMP_FORCE: f32 = 20.0;
 const GROUND_CHECK_DISTANCE: f32 = 0.15;
-// Increase air control for better jumping movement
-const AIR_CONTROL_FACTOR: f32 = 0.4; // Increased from 0.2
-                                     // Time player needs to be considered grounded before jumping again
-const GROUNDED_TIME_THRESHOLD: Duration = Duration::from_millis(100);
-// Time to wait between jumps to prevent bouncing
-const JUMP_COOLDOWN: Duration = Duration::from_millis(200);
+const AIR_CONTROL_FACTOR: f32 = 0.4;
+const GROUNDED_TIME_THRESHOLD: Duration = Duration::from_millis(50);
+const JUMP_COOLDOWN: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum JumpState {

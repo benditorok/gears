@@ -8,14 +8,16 @@ const MAX_HORIZONTAL_VELOCITY: f32 = 20.0;
 const MAX_VERTICAL_VELOCITY: f32 = 40.0;
 const POSITION_CORRECTION_FACTOR: f32 = 0.4;
 const POSITION_CORRECTION_SLOP: f32 = 0.01;
-const RESTITUTION_COEFFICIENT: f32 = 0.2;
 const FRICTION_COEFFICIENT: f32 = 0.8;
 const VELOCITY_THRESHOLD: f32 = 0.05;
 
-// Adjust gravity parameters for better jump feel
-const GRAVITY_ACCELERATION: f32 = 28.0; // Slightly reduced gravity
-const FALL_MULTIPLIER: f32 = 1.75; // Even stronger falling for better feel
-const APEX_MULTIPLIER: f32 = 0.6; // Apply reduced gravity at jump apex for more "floaty" feel
+// Default restitution moved to object-specific property
+const DEFAULT_RESTITUTION: f32 = 0.2;
+
+// Gravity parameters
+const GRAVITY_ACCELERATION: f32 = 28.0;
+const FALL_MULTIPLIER: f32 = 1.75;
+const APEX_MULTIPLIER: f32 = 0.6;
 
 pub trait CollisionBox {
     fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool;
@@ -122,11 +124,11 @@ impl CollisionBox for AABBCollisionBox {
             }
         }
 
-        // Apply impulse resolution with better handling for near-zero velocities
+        // Use the average restitution of the two objects
         let restitution = if vel_along_normal.abs() < VELOCITY_THRESHOLD {
             0.0 // No restitution for slow collisions to prevent bouncing when almost at rest
         } else {
-            RESTITUTION_COEFFICIENT
+            (obj_a.restitution + obj_b.restitution) * 0.5 // Average restitution of both objects
         };
 
         // Calculate impulse scalar
@@ -178,6 +180,8 @@ pub struct RigidBody<T: CollisionBox> {
     pub acceleration: cgmath::Vector3<f32>,
     pub collision_box: T,
     pub is_static: bool,
+    /// Restitution coefficient (bounciness) - 0.0 means no bounce, 1.0 means perfect bounce
+    pub restitution: f32,
 }
 
 impl Component for RigidBody<AABBCollisionBox> {}
@@ -193,6 +197,7 @@ impl Default for RigidBody<AABBCollisionBox> {
                 max: cgmath::Vector3::new(0.5, 0.5, 0.5),
             },
             is_static: false,
+            restitution: DEFAULT_RESTITUTION,
         }
     }
 }
@@ -210,6 +215,7 @@ impl<T: CollisionBox> RigidBody<T> {
             acceleration,
             collision_box,
             is_static: false,
+            restitution: DEFAULT_RESTITUTION,
         }
     }
 
@@ -220,6 +226,7 @@ impl<T: CollisionBox> RigidBody<T> {
             acceleration: cgmath::Vector3::new(0.0, 0.0, 0.0),
             collision_box,
             is_static: true,
+            restitution: DEFAULT_RESTITUTION,
         }
     }
 

@@ -30,6 +30,7 @@ impl Default for Player {
                 max: cgmath::Vector3::new(0.5, 2.0, 0.5),
             },
             is_static: false,
+            restitution: 0.0,
         };
 
         let view_controller = ViewController::new(0.8, 1.8);
