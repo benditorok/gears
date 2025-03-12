@@ -478,7 +478,7 @@ impl<'a> State<'a> {
             wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
 
             if let Some(movement_controller) = &self.movement_controller {
-                let rlock_movement_controller = movement_controller.read().unwrap();
+                let mut wlock_movement_controller = movement_controller.write().unwrap();
                 if let Some(rigid_body) = self
                     .world
                     .get_component::<components::physics::RigidBody<AABBCollisionBox>>(
@@ -487,14 +487,14 @@ impl<'a> State<'a> {
                 {
                     let mut wlock_rigid_body = rigid_body.write().unwrap();
 
-                    rlock_movement_controller.update_pos(
+                    wlock_movement_controller.update_pos(
                         &wlock_view_controller,
                         &mut wlock_pos3,
                         Some(&mut wlock_rigid_body),
                         dt.as_secs_f32(),
                     );
                 } else {
-                    rlock_movement_controller.update_pos(
+                    wlock_movement_controller.update_pos(
                         &wlock_view_controller,
                         &mut wlock_pos3,
                         None::<&mut gears_ecs::components::physics::RigidBody<AABBCollisionBox>>,

@@ -7,12 +7,26 @@ use cgmath::{InnerSpace, Point3, Rotation3, Vector3};
 use gears_core::SAFE_FRAC_PI_2;
 use gears_macro::Component;
 use log::info;
+use std::time::{Duration, Instant};
 use winit::{event::ElementState, keyboard::KeyCode};
 
-const MOVE_ACCELERATION: f32 = 15.0; // Reduced from 50.0
-const JUMP_FORCE: f32 = 20.0; // Reduced from 10.0
-const GROUND_CHECK_DISTANCE: f32 = 0.1;
-const AIR_CONTROL_FACTOR: f32 = 0.2; // Reduced from 0.3
+const MOVE_ACCELERATION: f32 = 15.0;
+const JUMP_FORCE: f32 = 20.0;
+const GROUND_CHECK_DISTANCE: f32 = 0.15;
+// Increase air control for better jumping movement
+const AIR_CONTROL_FACTOR: f32 = 0.4; // Increased from 0.2
+                                     // Time player needs to be considered grounded before jumping again
+const GROUNDED_TIME_THRESHOLD: Duration = Duration::from_millis(100);
+// Time to wait between jumps to prevent bouncing
+const JUMP_COOLDOWN: Duration = Duration::from_millis(200);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum JumpState {
+    Grounded,
+    Rising,
+    Falling,
+    JumpReleased,
+}
 
 #[derive(Component, Debug, Clone)]
 pub struct MovementController {
@@ -24,6 +38,12 @@ pub struct MovementController {
     amount_backward: f32,
     amount_up: f32,
     amount_down: f32,
+    jump_state: JumpState,
+    prev_jump_pressed: bool,
+    // Track time-based events for more reliable jump detection
+    grounded_time: Option<Instant>, // When player first contacted ground
+    last_jump_time: Option<Instant>, // When player last jumped
+    can_jump: bool,                 // Flag to determine if player can jump
 }
 
 impl Default for MovementController {
@@ -37,6 +57,11 @@ impl Default for MovementController {
             amount_backward: 0.0,
             amount_up: 0.0,
             amount_down: 0.0,
+            jump_state: JumpState::Grounded,
+            prev_jump_pressed: false,
+            grounded_time: None,
+            last_jump_time: None,
+            can_jump: true,
         }
     }
 }
@@ -52,6 +77,11 @@ impl MovementController {
             amount_backward: 0.0,
             amount_up: 0.0,
             amount_down: 0.0,
+            jump_state: JumpState::Grounded,
+            prev_jump_pressed: false,
+            grounded_time: None,
+            last_jump_time: None,
+            can_jump: true,
         }
     }
 
@@ -77,6 +107,15 @@ impl MovementController {
             true
         } else if key == self.keycodes.up {
             self.amount_up = amount;
+
+            // Improved jump button handling
+            if state == ElementState::Released {
+                // When jump key is released, track it to allow for next jump
+                if self.jump_state == JumpState::Rising || self.jump_state == JumpState::Falling {
+                    self.jump_state = JumpState::JumpReleased;
+                }
+            }
+            self.prev_jump_pressed = state == ElementState::Pressed;
             true
         } else if key == self.keycodes.down {
             self.amount_down = amount;
@@ -86,8 +125,44 @@ impl MovementController {
         }
     }
 
+    fn check_ground_contact(&mut self, rb: &RigidBody<impl CollisionBox>) -> bool {
+        // Consider the player grounded if:
+        // 1. They have a small negative (or zero) y velocity (falling very slowly or stationary)
+        // 2. AND they've been in this state for a certain amount of time
+        let is_almost_stationary_vertically = rb.velocity.y > -0.5 && rb.velocity.y < 0.2;
+
+        if is_almost_stationary_vertically {
+            // Starting or continuing ground contact
+            if self.grounded_time.is_none() {
+                self.grounded_time = Some(Instant::now());
+            }
+
+            // Check if they've been grounded long enough
+            if let Some(grounded_since) = self.grounded_time {
+                if grounded_since.elapsed() >= GROUNDED_TIME_THRESHOLD {
+                    return true;
+                }
+            }
+        } else {
+            // Not on ground, reset tracking
+            self.grounded_time = None;
+        }
+
+        false
+    }
+
+    // Helper function to safely normalize a vector or return zero if magnitude is too small
+    fn normalize_or_zero(vec: Vector3<f32>) -> Vector3<f32> {
+        let mag = vec.magnitude();
+        if mag > 0.0001 {
+            vec / mag // Safe normalization
+        } else {
+            Vector3::new(0.0, 0.0, 0.0) // Return zero vector
+        }
+    }
+
     pub fn update_pos(
-        &self,
+        &mut self,
         view_controller: &ViewController,
         pos3: &mut Pos3,
         rigid_body: Option<&mut RigidBody<impl CollisionBox>>,
@@ -108,26 +183,78 @@ impl MovementController {
                 movement = movement.normalize();
             }
 
-            // Check if on ground (simple ray cast down)
-            let is_grounded = rb.velocity.y.abs() < GROUND_CHECK_DISTANCE && rb.velocity.y <= 0.0;
+            // Check ground contact using the new method
+            let is_grounded = self.check_ground_contact(rb);
 
-            // Apply movement directly to velocity instead of acceleration
-            let movement_factor = if is_grounded { 1.0 } else { AIR_CONTROL_FACTOR };
+            // Update jump state
+            match self.jump_state {
+                JumpState::Rising if rb.velocity.y <= 0.0 => {
+                    self.jump_state = JumpState::Falling;
+                }
+                JumpState::Falling | JumpState::JumpReleased if is_grounded => {
+                    self.jump_state = JumpState::Grounded;
+                    // Reset jump cooldown when truly landing
+                    self.can_jump = true;
+                }
+                _ => {}
+            }
+
+            // Apply movement with improved air control
             let target_velocity = movement * MOVE_ACCELERATION;
 
-            // Only modify horizontal velocity (x and z components)
-            rb.velocity.x = target_velocity.x * movement_factor;
-            rb.velocity.z = target_velocity.z * movement_factor;
+            // Apply different movement logic based on grounded state
+            if is_grounded {
+                // Direct control on ground
+                rb.velocity.x = target_velocity.x;
+                rb.velocity.z = target_velocity.z;
+            } else {
+                // More responsive air control by blending with current velocity
+                // instead of completely replacing it
+                if movement.magnitude() > 0.0 {
+                    // Only apply air acceleration when there's input
+                    rb.velocity.x = rb.velocity.x * (1.0 - AIR_CONTROL_FACTOR)
+                        + target_velocity.x * AIR_CONTROL_FACTOR;
+                    rb.velocity.z = rb.velocity.z * (1.0 - AIR_CONTROL_FACTOR)
+                        + target_velocity.z * AIR_CONTROL_FACTOR;
+                }
 
-            // Handle jumping
-            if is_grounded && self.amount_up > 0.0 {
+                // Add a small boost when changing direction in air for better feel
+                if movement.magnitude() > 0.1 {
+                    // Using our safe normalization helper
+                    let current_dir =
+                        Self::normalize_or_zero(Vector3::new(rb.velocity.x, 0.0, rb.velocity.z));
+                    let input_dir = Self::normalize_or_zero(Vector3::new(
+                        target_velocity.x,
+                        0.0,
+                        target_velocity.z,
+                    ));
+
+                    // If changing direction substantially, add a small directional boost
+                    if current_dir.dot(input_dir) < 0.0 && current_dir.magnitude() > 0.1 {
+                        rb.velocity.x += input_dir.x * 1.0; // Small directional boost
+                        rb.velocity.z += input_dir.z * 1.0;
+                    }
+                }
+            }
+
+            // Handle jumping with cooldown to prevent repeated jumps
+            let can_jump = is_grounded && self.can_jump;
+            let jump_cooldown_elapsed = self
+                .last_jump_time
+                .map_or(true, |time| time.elapsed() >= JUMP_COOLDOWN);
+
+            if can_jump && jump_cooldown_elapsed && self.amount_up > 0.0 && self.prev_jump_pressed {
                 rb.velocity.y = JUMP_FORCE;
+                self.jump_state = JumpState::Rising;
+                self.last_jump_time = Some(Instant::now());
+                self.grounded_time = None;
+                self.can_jump = false; // Require key release before next jump
             }
 
             // Cap velocity after applying changes
             rb.cap_velocity();
         } else {
-            // Flying movement
+            // Flying movement (unchanged)
             let movement = forward * (self.amount_forward - self.amount_backward) * self.speed * dt
                 + right * (self.amount_right - self.amount_left) * self.speed * dt
                 + up * (self.amount_up - self.amount_down) * self.speed * dt;

@@ -6,12 +6,16 @@ use std::fmt::Debug;
 
 const MAX_HORIZONTAL_VELOCITY: f32 = 20.0;
 const MAX_VERTICAL_VELOCITY: f32 = 40.0;
-// Added constants for collision resolution tuning
-const POSITION_CORRECTION_FACTOR: f32 = 0.4; // How much to correct position overlap (0-1)
-const POSITION_CORRECTION_SLOP: f32 = 0.01; // Small penetration allowed for stability
-const RESTITUTION_COEFFICIENT: f32 = 0.2; // Reduced bounciness
-const FRICTION_COEFFICIENT: f32 = 0.8; // Friction coefficient
-const VELOCITY_THRESHOLD: f32 = 0.05; // Threshold for resting contact
+const POSITION_CORRECTION_FACTOR: f32 = 0.4;
+const POSITION_CORRECTION_SLOP: f32 = 0.01;
+const RESTITUTION_COEFFICIENT: f32 = 0.2;
+const FRICTION_COEFFICIENT: f32 = 0.8;
+const VELOCITY_THRESHOLD: f32 = 0.05;
+
+// Adjust gravity parameters for better jump feel
+const GRAVITY_ACCELERATION: f32 = 28.0; // Slightly reduced gravity
+const FALL_MULTIPLIER: f32 = 1.75; // Even stronger falling for better feel
+const APEX_MULTIPLIER: f32 = 0.6; // Apply reduced gravity at jump apex for more "floaty" feel
 
 pub trait CollisionBox {
     fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool;
@@ -226,23 +230,51 @@ impl<T: CollisionBox> RigidBody<T> {
     pub fn update_pos(&mut self, pos3: &mut Pos3, dt: f32) {
         if !self.is_static {
             let acceleration_threshold = 0.01;
+            let falling = self.velocity.y < 0.0;
+            let near_apex = self.velocity.y.abs() < 2.0 && self.velocity.y > 0.0;
+
+            // Apply gravity with adaptive system for better jump feel
+            if !self.is_static {
+                // Choose gravity multiplier based on state
+                let gravity_multiplier = if falling {
+                    FALL_MULTIPLIER
+                } else if near_apex {
+                    APEX_MULTIPLIER // Lighter gravity at the peak of jump for hang time
+                } else {
+                    1.0
+                };
+
+                // Apply gravity with appropriate multiplier
+                self.velocity.y -= GRAVITY_ACCELERATION * gravity_multiplier * dt;
+            }
+
             let is_accelerating = self.acceleration.magnitude() > acceleration_threshold;
 
-            // Use different damping coefficients based on acceleration state
+            // Adjust damping for different states
             let damping_coefficient = if is_accelerating {
-                1.8 // Slightly reduced damping when accelerating for smoother motion
+                1.6 // Reduced damping when accelerating for more responsive movement
+            } else if falling {
+                1.8 // Slightly reduced damping when falling for better control
             } else {
-                4.0 // Reduced strong damping when no acceleration to prevent abrupt stops
+                3.5 // Reduced general damping for better responsiveness
             };
 
             let damping_factor = (-damping_coefficient * dt).exp();
-            let min_velocity = 0.005; // Reduced threshold for smoother transitions
+            let min_velocity = 0.005;
 
-            // Update velocity based on acceleration
-            self.velocity += self.acceleration * dt;
+            // Apply selective damping based on movement state
+            if falling {
+                // Apply damping only to horizontal components when falling
+                self.velocity.x *= damping_factor;
+                self.velocity.z *= damping_factor;
+            } else {
+                // Apply full damping when not falling
+                self.velocity *= damping_factor;
+            }
 
-            // Apply damping to velocity
-            self.velocity *= damping_factor;
+            // Add acceleration to velocity (for non-gravity forces)
+            self.velocity.x += self.acceleration.x * dt;
+            self.velocity.z += self.acceleration.z * dt;
 
             // Set velocity to zero if it's below the minimum threshold
             if self.velocity.magnitude() < min_velocity {
