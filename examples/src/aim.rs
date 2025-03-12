@@ -3,10 +3,8 @@ use egui::Align2;
 
 use gears_app::systems::SystemError;
 use gears_app::{prelude::*, systems};
-use log::{info, LevelFilter};
+use log::LevelFilter;
 use std::f32::consts::PI;
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::mpsc;
 use std::time;
 

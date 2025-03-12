@@ -2,10 +2,7 @@ mod error;
 mod update_systems;
 
 use core::time;
-use gears_ecs::{
-    components::{self},
-    World,
-};
+use gears_ecs::World;
 use gears_renderer::state::State;
 use std::{future::Future, pin::Pin};
 
@@ -170,17 +167,11 @@ impl SystemCollection for InternalSystemCollection {
 }
 
 /// Collection of external systems provided by the user
+#[derive(Default)]
 pub struct ExternalSystemCollection {
     pub(crate) async_systems: Vec<AsyncSystem>,
 }
 
-impl Default for ExternalSystemCollection {
-    fn default() -> Self {
-        Self {
-            async_systems: vec![],
-        }
-    }
-}
 
 impl SystemCollection for ExternalSystemCollection {
     fn add_system(&mut self, system: AsyncSystem) {

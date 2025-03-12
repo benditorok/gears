@@ -1,6 +1,6 @@
 use super::{
     misc::Health,
-    physics::{AABBCollisionBox, CollisionBox, RigidBody},
+    physics::{CollisionBox, RigidBody},
 };
 use crate::{components::controllers::ViewController, components::transforms::Pos3, Component};
 use gears_macro::Component;

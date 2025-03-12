@@ -1,6 +1,6 @@
 use super::model;
 use super::State;
-use super::{instance, light, resources};
+use super::{instance, light};
 use crate::resources::{load_model_gltf, load_model_obj};
 use crate::BufferComponent;
 use cgmath::prelude::*;

@@ -3,7 +3,7 @@ use core::time;
 use gears_macro::Component;
 use std::{
     ops::Deref,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 pub trait Tick {

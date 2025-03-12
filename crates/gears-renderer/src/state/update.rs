@@ -1,12 +1,3 @@
-use super::{instance, light, model, State};
-use crate::BufferComponent;
-use cgmath::VectorSpace;
-use gears_ecs::{
-    components::{self, misc::Marker, physics::AABBCollisionBox},
-    Component,
-};
-use log::warn;
-use std::time::{self, Instant};
 
 // /// Update the lights in the scene.
 // pub(super) fn lights(state: &mut State) {

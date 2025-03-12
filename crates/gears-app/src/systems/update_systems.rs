@@ -1,12 +1,9 @@
 use super::{SystemAccessors, SystemError, SystemResult};
 use cgmath::VectorSpace;
 use gears_ecs::components::physics::AABBCollisionBox;
-use gears_ecs::components::{self, lights::Light, misc::Marker};
+use gears_ecs::components::{self, lights::Light};
 use gears_renderer::{instance, light, model, BufferComponent};
-use log::warn;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::future::Future;
-use std::pin::Pin;
 use std::time::Instant;
 
 /// Update the lights in the scene.
@@ -150,7 +147,7 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
 
                     let animation = &rlock_model
                         .get_animation(selected_animation)
-                        .map_err(|e| SystemError::Animation(e))?;
+                        .map_err(SystemError::Animation)?;
                     let mut current_keyframe_index = 0;
 
                     // Find the two keyframes surrounding the current_time

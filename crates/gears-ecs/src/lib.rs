@@ -5,11 +5,9 @@ use dashmap::DashMap;
 use log::debug;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
-use std::future::Future;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
-use tokio::task::JoinHandle;
 
 /// The EntityBuilder trait is responsible for creating entities and adding components to them.
 pub trait EntityBuilder {

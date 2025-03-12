@@ -238,7 +238,7 @@ impl MovementController {
             let can_jump = is_grounded && self.can_jump;
             let jump_cooldown_elapsed = self
                 .last_jump_time
-                .map_or(true, |time| time.elapsed() >= JUMP_COOLDOWN);
+                .is_none_or(|time| time.elapsed() >= JUMP_COOLDOWN);
 
             if can_jump && jump_cooldown_elapsed && self.amount_up > 0.0 && self.prev_jump_pressed {
                 rb.velocity.y = JUMP_FORCE;

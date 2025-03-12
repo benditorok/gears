@@ -1,4 +1,4 @@
-use std::fmt::{format, Debug, Error};
+use std::fmt::Debug;
 
 use super::texture;
 use gears_ecs::{

@@ -1,4 +1,4 @@
-use super::transforms::{Pos, Pos3};
+use super::transforms::Pos3;
 use crate::Component;
 use cgmath::{InnerSpace, Zero};
 use gears_macro::Component;

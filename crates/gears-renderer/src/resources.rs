@@ -237,7 +237,7 @@ pub(crate) async fn load_model_gltf(
                 // };
             }
             gltf::buffer::Source::Uri(uri) => {
-                let uri_path = get_resource_path(&model_root_dir.join(uri).to_str().unwrap());
+                let uri_path = get_resource_path(model_root_dir.join(uri).to_str().unwrap());
                 let bin = load_binary_path(uri_path).await?;
                 buffer_data.push(bin);
             }
@@ -360,7 +360,7 @@ pub(crate) async fn load_model_gltf(
             }
             // Removed mime_type
             gltf::image::Source::Uri { uri, .. } => {
-                let uri_path = get_resource_path(&model_root_dir.join(uri).to_str().unwrap());
+                let uri_path = get_resource_path(model_root_dir.join(uri).to_str().unwrap());
                 let diffuse_texture = load_texture_path(uri_path, device, queue).await?;
                 // Removed the invalid cloning line:
                 // diffuse_texture.view = diffuse_texture.view.clone();
