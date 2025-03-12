@@ -151,6 +151,9 @@ impl Default for InternalSystemCollection {
                 async_system("update_models", |sa| {
                     Box::pin(update_systems::update_models(sa))
                 }),
+                async_system("physics_system", |sa| {
+                    Box::pin(update_systems::physics_system(sa))
+                }),
             ],
         }
     }
