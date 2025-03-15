@@ -8,7 +8,7 @@ use gears_ecs::components::misc::Marker;
 use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::{
     components::{self},
-    Entity, World,
+    World,
 };
 use log::info;
 use std::sync::Arc;
@@ -185,7 +185,7 @@ pub(super) async fn models(
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
     world: &World,
-) -> Vec<Entity> {
+) {
     let model_entities = world.get_entities_with_component::<components::misc::StaticModelMarker>();
 
     for entity in model_entities.iter() {
@@ -275,8 +275,6 @@ pub(super) async fn models(
         world.add_component(*entity, instance);
         world.add_component(*entity, BufferComponent(instance_buffer));
     }
-
-    model_entities
 }
 
 pub(super) async fn physics_models(
@@ -284,7 +282,7 @@ pub(super) async fn physics_models(
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
     world: &World,
-) -> Vec<Entity> {
+) {
     let physics_entities = world.get_entities_with_component::<components::misc::RigidBodyMarker>();
 
     for entity in physics_entities.iter() {
@@ -326,7 +324,6 @@ pub(super) async fn physics_models(
 
         // TODO rename instance to model::ModelUniform
         let mut instance = {
-            let rlock_physics_body = physics_body.read().unwrap();
             let rlock_pos3 = pos3.read().unwrap();
             instance::Instance {
                 position: rlock_pos3.pos,
@@ -382,8 +379,6 @@ pub(super) async fn physics_models(
         let wireframe = model::WireframeMesh::new(device, &physics_body.read().unwrap());
         world.add_component(*entity, wireframe);
     }
-
-    physics_entities
 }
 
 pub(super) fn targets(state: &mut State) {

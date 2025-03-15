@@ -6,9 +6,10 @@ use super::{camera, instance, light, texture};
 use crate::BufferComponent;
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
-use gears_ecs::components::physics::AABBCollisionBox;
+use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
 use gears_ecs::{self, components, Entity, World};
 use gears_gui::{EguiRenderer, EguiWindowCallback};
+use std::any::Any;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
@@ -43,9 +44,6 @@ pub struct State<'a> {
     light_entities: Option<Vec<Entity>>,
     pub light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
-    static_model_entities: Option<Vec<Entity>>,
-    physics_entities: Option<Vec<Entity>>,
-    drawable_entities: Option<Vec<Entity>>,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: texture::Texture,
@@ -284,9 +282,6 @@ impl<'a> State<'a> {
             light_entities: None,
             light_buffer,
             light_bind_group,
-            static_model_entities: None,
-            physics_entities: None,
-            drawable_entities: None,
             light_bind_group_layout,
             depth_texture,
             window,
@@ -328,30 +323,20 @@ impl<'a> State<'a> {
 
         init::targets(self);
         init::lights(self);
-
-        // Load models and handle potential errors
-        let model_entities = init::models(
+        init::models(
             &self.device,
             &self.queue,
             &self.texture_bind_group_layout,
             self.world,
         )
         .await;
-
-        let physics_entities = init::physics_models(
+        init::physics_models(
             &self.device,
             &self.queue,
             &self.texture_bind_group_layout,
             self.world,
         )
         .await;
-
-        self.static_model_entities = Some(model_entities.clone());
-        self.physics_entities = Some(physics_entities.clone());
-
-        let mut drawable_entities = model_entities;
-        drawable_entities.extend(physics_entities);
-        self.drawable_entities = Some(drawable_entities);
 
         Ok(())
     }
@@ -569,19 +554,18 @@ impl<'a> State<'a> {
             });
 
             // ! Render models if any are present
-            if let Some(model_entities) = &self.drawable_entities {
+            let models = self.world.get_entities_with_component::<model::Model>();
+            if !models.is_empty() {
                 render_pass.set_model_pipeline(
                     &self.render_pipeline,
                     &self.camera_bind_group,
                     &self.light_bind_group,
                 );
 
-                for entity in model_entities {
-                    let model = self.world.get_component::<model::Model>(*entity).unwrap();
-                    let instance_buffer = self
-                        .world
-                        .get_component::<BufferComponent>(*entity)
-                        .unwrap();
+                for entity in models {
+                    let model = self.world.get_component::<model::Model>(entity).unwrap();
+                    let instance_buffer =
+                        self.world.get_component::<BufferComponent>(entity).unwrap();
 
                     let rlock_model = model.read().unwrap();
                     let rlock_instance_buffer = instance_buffer.read().unwrap();
@@ -591,30 +575,29 @@ impl<'a> State<'a> {
             }
 
             // ! Render collision boxes if enabled
-            if self.draw_colliders {
-                if let Some(physics_entities) = &self.physics_entities {
-                    render_pass.set_wireframe_pipeline(
-                        &self.collider_render_pipeline,
-                        &self.camera_bind_group,
-                    );
+            let wireframes = self
+                .world
+                .get_entities_with_component::<model::WireframeMesh>();
+            if self.draw_colliders && !wireframes.is_empty() {
+                render_pass.set_wireframe_pipeline(
+                    &self.collider_render_pipeline,
+                    &self.camera_bind_group,
+                );
 
-                    for entity in physics_entities {
-                        let wireframe = self
-                            .world
-                            .get_component::<model::WireframeMesh>(*entity)
-                            .unwrap();
-                        // Use the same instance buffer that's used for the physics body
-                        let instance_buffer = self
-                            .world
-                            .get_component::<BufferComponent>(*entity)
-                            .unwrap();
+                for entity in wireframes {
+                    let wireframe = self
+                        .world
+                        .get_component::<model::WireframeMesh>(entity)
+                        .unwrap();
+                    // Use the same instance buffer that's used for the physics body
+                    let instance_buffer =
+                        self.world.get_component::<BufferComponent>(entity).unwrap();
 
-                        // Lock and read components
-                        let wireframe = wireframe.read().unwrap();
-                        let instance_buffer = instance_buffer.read().unwrap();
+                    // Lock and read components
+                    let wireframe = wireframe.read().unwrap();
+                    let instance_buffer = instance_buffer.read().unwrap();
 
-                        render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
-                    }
+                    render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
                 }
             }
         }

@@ -245,7 +245,7 @@ impl GearsApp {
                         // TODO bench for performance??
                         if let Some(view_controller) = &state.view_controller {
                             let mut wlock_view_controller = view_controller.write().unwrap();
-                            wlock_view_controller.process_mouse(delta.0, delta.1, dt.as_secs_f32());
+                            wlock_view_controller.process_mouse(delta.0, delta.1);
                         }
                     }
                     Event::WindowEvent {
