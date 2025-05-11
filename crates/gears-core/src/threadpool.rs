@@ -1,7 +1,7 @@
 use log::info;
 use std::{
     sync::atomic::{AtomicBool, Ordering},
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     thread,
 };
 
@@ -21,17 +21,19 @@ impl Worker {
         receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
         stop_flag: Arc<AtomicBool>,
     ) -> Worker {
-        let thread = thread::spawn(move || loop {
-            let message = receiver.lock().unwrap().recv();
+        let thread = thread::spawn(move || {
+            loop {
+                let message = receiver.lock().unwrap().recv();
 
-            match message {
-                Ok(job) => {
-                    info!("Worker {id} got a job; executing.");
-                    job(Arc::clone(&stop_flag));
-                }
-                Err(_) => {
-                    info!("Worker {id} disconnected; shutting down.");
-                    break;
+                match message {
+                    Ok(job) => {
+                        info!("Worker {id} got a job; executing.");
+                        job(Arc::clone(&stop_flag));
+                    }
+                    Err(_) => {
+                        info!("Worker {id} disconnected; shutting down.");
+                        break;
+                    }
                 }
             }
         });
