@@ -2,7 +2,7 @@ use cgmath::{Quaternion, Rotation3, Vector3};
 use egui::Align2;
 use gears_app::{prelude::*, systems};
 use log::LevelFilter;
-use std::sync::mpsc;
+use std::sync::{Arc, Mutex, mpsc};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -132,11 +132,13 @@ async fn main() -> anyhow::Result<()> {
             });
     }));
 
-    let time_started = std::time::Instant::now();
+    // Use accumulated game time that respects pause state
+    let accumulated_time = Arc::new(Mutex::new(0.0f32));
 
     let update_sys = systems::async_system("update", move |sa| {
         Box::pin({
             let w1_frame_tx = w1_frame_tx.clone();
+            let accumulated_time = accumulated_time.clone();
 
             async move {
                 let (world, dt) = match sa {
@@ -144,7 +146,12 @@ async fn main() -> anyhow::Result<()> {
                     _ => return Ok(()),
                 };
 
-                let elapsed_time = time_started.elapsed().as_secs_f32();
+                // Update accumulated time only when not paused
+                let elapsed_time = {
+                    let mut time = accumulated_time.lock().unwrap();
+                    *time += dt.as_secs_f32();
+                    *time
+                };
 
                 // Create animations for the helmet by modifying the position and rotation
                 if let Some(pos3) = world.get_component::<Pos3>(animated_helmet) {
@@ -190,29 +197,44 @@ async fn main() -> anyhow::Result<()> {
         })
     });
 
+    // Track accumulated time for GLTF animations
+    let gltf_accumulated_time = Arc::new(Mutex::new(0.0f32));
+
     // Run gltf animations
     let model_animation_sys = systems::async_system("gltf_animations", move |sa| {
-        Box::pin(async move {
-            let (world, dt) = match sa {
-                SystemAccessors::External { world, dt } => (world, dt),
-                _ => return Ok(()),
-            };
+        Box::pin({
+            let gltf_accumulated_time = gltf_accumulated_time.clone();
 
-            // Animate the cube with GLTF animation every 5 seconds
-            if time_started.elapsed().as_secs() % 5 == 0 {
-                if let Some(animation_queue) = world.get_component::<AnimationQueue>(animated_cube)
-                {
-                    let mut queue = animation_queue.write().unwrap();
-                    if !queue.has_queued_animations() {
-                        queue.push("animation_AnimatedCube".to_string());
-                        queue.set_transition_duration(0.5);
-                        queue.set_auto_transition(true);
-                        log::info!("Started cube GLTF animation");
+            async move {
+                let (world, dt) = match sa {
+                    SystemAccessors::External { world, dt } => (world, dt),
+                    _ => return Ok(()),
+                };
+
+                // Update accumulated time only when not paused
+                let elapsed_time = {
+                    let mut time = gltf_accumulated_time.lock().unwrap();
+                    *time += dt.as_secs_f32();
+                    *time
+                };
+
+                // Animate the cube with GLTF animation every 5 seconds
+                if (elapsed_time as u64) % 5 == 0 && dt.as_secs_f32() > 0.0 {
+                    if let Some(animation_queue) =
+                        world.get_component::<AnimationQueue>(animated_cube)
+                    {
+                        let mut queue = animation_queue.write().unwrap();
+                        if !queue.has_queued_animations() {
+                            queue.push("animation_AnimatedCube".to_string());
+                            queue.set_transition_duration(0.5);
+                            queue.set_auto_transition(true);
+                            log::info!("Started cube GLTF animation");
+                        }
                     }
                 }
-            }
 
-            Ok(())
+                Ok(())
+            }
         })
     });
 
