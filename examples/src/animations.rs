@@ -1,6 +1,6 @@
+use cgmath::{Quaternion, Rotation3, Vector3};
 use egui::Align2;
 use gears_app::{prelude::*, systems};
-use gears_renderer::animation;
 use log::LevelFilter;
 use std::sync::mpsc;
 
@@ -26,16 +26,16 @@ async fn main() -> anyhow::Result<()> {
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
 
     // ! Entities
-    // Add FPS camera
+    // Add FPS camera positioned to view all models
     new_entity!(
         app,
         CameraMarker,
         Name("FPS Camera"),
-        Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+        Pos3::new(cgmath::Vector3::new(0.0, 3.0, 8.0,)),
         ViewController::new_look_at(
-            cgmath::Point3::new(30.0, 20.0, 30.0),
-            cgmath::Point3::new(0.0, 0.0, 0.0),
-            0.8,
+            cgmath::Point3::new(0.0, 3.0, 8.0),
+            cgmath::Point3::new(0.0, 1.0, 0.0),
+            0.5,
             0.0,
         ),
         MovementController::default(),
@@ -66,27 +66,40 @@ async fn main() -> anyhow::Result<()> {
         .add_component(Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
         .build();
 
+    // Add the animated cube (original example)
     let animated_cube = new_entity!(
         app,
         StaticModelMarker,
-        Name("test"),
+        Name("Animated Cube"),
         ModelSource::Gltf("gltf/cube/AnimatedCube.gltf"),
-        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        Pos3::new(cgmath::Vector3::new(-3.0, 0.0, 0.0)),
         AnimationQueue::default(),
     );
 
-    new_entity!(
+    // Add another helmet with procedural animation
+    let animated_helmet = new_entity!(
         app,
         StaticModelMarker,
-        Name("test"),
+        Name("Animated Helmet"),
         ModelSource::Gltf("gltf/helmet/DamagedHelmet.gltf"),
-        Pos3::new(cgmath::Vector3::new(0.0, 5.0, 0.0)),
+        Pos3::new(cgmath::Vector3::new(3.0, 0.0, 0.0)),
+        AnimationQueue::default(),
     );
 
+    // Add a second cube for comparison (static)
     new_entity!(
         app,
         StaticModelMarker,
-        Name("Sphere1"),
+        Name("Static Cube"),
+        ModelSource::Gltf("gltf/cube/AnimatedCube.gltf"),
+        Pos3::new(cgmath::Vector3::new(0.0, 3.0, 0.0)),
+    );
+
+    // Add a sphere for reference
+    new_entity!(
+        app,
+        StaticModelMarker,
+        Name("Reference Sphere"),
         ModelSource::Obj("models/sphere/sphere.obj"),
         Pos3::new(cgmath::Vector3::new(0.0, 0.0, 5.0)),
     );
@@ -108,18 +121,14 @@ async fn main() -> anyhow::Result<()> {
                     ui.label(format!("FPS: {:.0}", 1.0 / dt.as_secs_f32()));
                 }
 
-                // ui.separator();
-                // ui.heading("New Animation System Features:");
-                // ui.label("• Advanced keyframe interpolation");
-                // ui.label("• Multiple animation targets (translation, rotation, scale)");
-                // ui.label("• Animation blending and layering");
-                // ui.label("• State machine support");
-                // ui.label("• Timeline editing capabilities");
-                // ui.label("• Transition control and smoothing");
+                ui.separator();
+                ui.heading("Animation System Demo");
 
-                // ui.separator();
-                // ui.label("Watch the animated cube to see the new system in action!");
-                // ui.end_row();
+                ui.label("Models in Scene:");
+                ui.label("Animated Cube (left) - GLTF rotation animation");
+                ui.label("Animated Helmet (right) - Procedural animations");
+                ui.label("Static Cube (top) - No animation");
+                ui.label("Reference Sphere (back) - Static object");
             });
     }));
 
@@ -135,38 +144,80 @@ async fn main() -> anyhow::Result<()> {
                     _ => return Ok(()),
                 };
 
-                if time_started.elapsed().as_secs() % 5 == 0 {
-                    let animation_queue = world
-                        .get_component::<AnimationQueue>(animated_cube)
-                        .unwrap();
+                let elapsed_time = time_started.elapsed().as_secs_f32();
 
-                    let mut queue = animation_queue.write().unwrap();
+                // Create animations for the helmet by modifying the position and rotation
+                if let Some(pos3) = world.get_component::<Pos3>(animated_helmet) {
+                    let mut pos_guard = pos3.write().unwrap();
 
-                    // Demonstrate new animation system features
-                    if !queue.has_queued_animations() {
-                        queue.push("animation_AnimatedCube".to_string());
-                        queue.set_transition_duration(0.5); // 500ms transition
-                        queue.set_auto_transition(true);
+                    // Create a complex animation pattern for the mercenary
+                    let base_y = 0.0;
+                    let time_scale = 2.0;
 
-                        log::info!("Queued animation with new system features");
-                    }
+                    // Bouncing motion (Y-axis)
+                    let bounce_height = 0.8;
+                    let bounce_speed = time_scale * 3.0;
+                    let y_offset = bounce_height * (elapsed_time * bounce_speed).sin().abs();
+
+                    // Circular motion (X-Z plane)
+                    let circle_radius = 1.5;
+                    let circle_speed = time_scale * 0.8;
+                    let circle_x = 3.0 + circle_radius * (elapsed_time * circle_speed).cos();
+                    let circle_z = circle_radius * (elapsed_time * circle_speed).sin();
+
+                    // Update position with procedural animation
+                    pos_guard.pos = Vector3::new(circle_x, base_y + y_offset, circle_z);
+
+                    // Create dynamic rotation animation with complex motion
+                    let rotation_speed = time_scale * 0.8;
+                    let pitch = 0.2 * (elapsed_time * rotation_speed * 1.7).sin();
+                    let yaw = elapsed_time * rotation_speed * 0.5;
+                    let roll = 0.15 * (elapsed_time * rotation_speed * 2.3).cos();
+
+                    // Apply rotation using quaternions for smooth interpolation
+                    let rotation_y = Quaternion::from_angle_y(cgmath::Rad(yaw));
+                    let rotation_x = Quaternion::from_angle_x(cgmath::Rad(pitch));
+                    let rotation_z = Quaternion::from_angle_z(cgmath::Rad(roll));
+
+                    pos_guard.rot = rotation_y * rotation_x * rotation_z;
                 }
 
-                // Demonstrate animation system features every 10 seconds
-                if time_started.elapsed().as_secs() % 10 == 0 {
-                    // log::info!("Animation System Demo:");
-                    // log::info!("- Smooth keyframe interpolation active");
-                    // log::info!("- Quaternion slerp for rotations");
-                    // log::info!("- Vector3 lerp for translations");
-                    // log::info!("- Automatic transition handling");
-                }
+                // Send frame time for UI
+                let _ = w1_frame_tx.send(*dt);
 
                 Ok(())
             }
         })
     });
 
+    // Run gltf animations
+    let model_animation_sys = systems::async_system("gltf_animations", move |sa| {
+        Box::pin(async move {
+            let (world, dt) = match sa {
+                SystemAccessors::External { world, dt } => (world, dt),
+                _ => return Ok(()),
+            };
+
+            // Animate the cube with GLTF animation every 5 seconds
+            if time_started.elapsed().as_secs() % 5 == 0 {
+                if let Some(animation_queue) = world.get_component::<AnimationQueue>(animated_cube)
+                {
+                    let mut queue = animation_queue.write().unwrap();
+                    if !queue.has_queued_animations() {
+                        queue.push("animation_AnimatedCube".to_string());
+                        queue.set_transition_duration(0.5);
+                        queue.set_auto_transition(true);
+                        log::info!("Started cube GLTF animation");
+                    }
+                }
+            }
+
+            Ok(())
+        })
+    });
+
     app.add_async_system(update_sys);
+    app.add_async_system(model_animation_sys);
 
     // Run the application
     app.run().await
