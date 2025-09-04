@@ -1,6 +1,6 @@
-//! Advanced animation system for the Gears game engine.
+//! Animation system
 //!
-//! This module provides a comprehensive animation system with support for:
+//! This module supports:
 //! - Animation states and transitions
 //! - Animation blending and mixing
 //! - Multiple interpolation modes
