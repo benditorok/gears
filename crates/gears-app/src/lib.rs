@@ -8,8 +8,8 @@ use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_gui::EguiWindowCallback;
 use gears_renderer::state::State;
 use log::{debug, info};
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time;
 use systems::SystemCollection;
 use winit::event::{DeviceEvent, Event, WindowEvent};
@@ -229,7 +229,6 @@ impl GearsApp {
                             )
                         });
 
-                        // Request a redraw
                         state.window().request_redraw();
                     }
                     // todo HANDLE this on a separate thread
@@ -262,6 +261,11 @@ impl GearsApp {
                             //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
                             // }
                             WindowEvent::RedrawRequested => {
+                                // Skip update and render when paused
+                                if state.is_paused() {
+                                    return;
+                                }
+
                                 let now = time::Instant::now();
 
                                 // Limit the maximum delta time to prevent large jumps
