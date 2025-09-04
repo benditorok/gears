@@ -649,7 +649,7 @@ mod tests {
 
         assert_eq!(sm.current_state(), Some(&"idle".to_string()));
 
-        sm.transition_to("run", None).unwrap();
+        sm.transition_to("run", Some(0.0)).unwrap();
         assert_eq!(sm.current_state(), Some(&"run".to_string()));
     }
 }
