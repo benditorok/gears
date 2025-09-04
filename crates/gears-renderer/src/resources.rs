@@ -1,4 +1,4 @@
-use super::{model, texture};
+use super::{animation, model, texture};
 use anyhow::Context;
 use gltf::Gltf;
 use log::{info, warn};
@@ -202,7 +202,7 @@ pub(crate) async fn load_model_obj(
     Ok(model::Model {
         meshes,
         materials,
-        animations: Vec::new(),
+        animations: Vec::new(), // Simple OBJ files don't have animations
     })
 }
 
@@ -244,20 +244,30 @@ pub(crate) async fn load_model_gltf(
         }
     }
 
-    // Load animations
-    let mut animation_clips = Vec::new();
-    for animation in gltf.animations() {
-        for channel in animation.channels() {
+    // Load animations using the new animation system
+    let mut animation_clips: Vec<animation::AnimationClip> = Vec::new();
+    for gltf_animation in gltf.animations() {
+        let animation_name = gltf_animation.name().unwrap_or("Default").to_string();
+        log::info!("Loading GLTF animation: {}", animation_name);
+
+        let mut clip = animation::AnimationClip::new(&animation_name);
+        let mut max_duration = 0.0f32;
+
+        for channel in gltf_animation.channels() {
             let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
+
+            // Read timestamps
             let timestamps = if let Some(inputs) = reader.read_inputs() {
                 match inputs {
                     gltf::accessor::Iter::Standard(times) => {
                         let times: Vec<f32> = times.collect();
-                        info!("Times: {:?}", &times);
                         times
                     }
                     gltf::accessor::Iter::Sparse(_) => {
-                        warn!("Sparse keyframes not supported");
+                        warn!(
+                            "Sparse keyframes not supported for animation '{}'",
+                            animation_name
+                        );
                         Vec::new()
                     }
                 }
@@ -265,36 +275,76 @@ pub(crate) async fn load_model_gltf(
                 Vec::new()
             };
 
-            let keyframes = if let Some(outputs) = reader.read_outputs() {
-                match outputs {
-                    gltf::animation::util::ReadOutputs::Translations(translation) => {
-                        let translation_vec =
-                            translation.map(|tr| tr.into()).collect::<Vec<Vec<f32>>>();
-                        model::Keyframes::Translation(translation_vec)
-                    }
-                    gltf::animation::util::ReadOutputs::Rotations(rotation) => {
-                        let rotation_vec = rotation
-                            .into_f32()
-                            .map(|rot| rot.into())
-                            .collect::<Vec<Vec<f32>>>();
-                        model::Keyframes::Rotation(rotation_vec)
-                    }
-                    gltf::animation::util::ReadOutputs::Scales(scale) => {
-                        let scale_vec = scale.map(|s| s.into()).collect::<Vec<Vec<f32>>>();
-                        model::Keyframes::Scale(scale_vec)
-                    }
-                    _ => model::Keyframes::Other,
-                }
-            } else {
-                model::Keyframes::Other
+            // Determine animation target
+            let target = match channel.target().property() {
+                gltf::animation::Property::Translation => animation::AnimationTarget::Translation,
+                gltf::animation::Property::Rotation => animation::AnimationTarget::Rotation,
+                gltf::animation::Property::Scale => animation::AnimationTarget::Scale,
+                _ => continue,
             };
 
-            animation_clips.push(model::AnimationClip {
-                name: animation.name().unwrap_or("Default").to_string(),
-                keyframes,
-                timestamps,
-            });
+            // Create animation track
+            let mut track = if target == animation::AnimationTarget::Rotation {
+                animation::AnimationTrack::new_rotation_track()
+            } else {
+                animation::AnimationTrack::new()
+            };
+
+            // Read keyframe data
+            if let Some(outputs) = reader.read_outputs() {
+                match outputs {
+                    gltf::animation::util::ReadOutputs::Translations(translations) => {
+                        for (time, translation) in timestamps.iter().zip(translations) {
+                            let value = animation::AnimationValue::Vector3(cgmath::Vector3::new(
+                                translation[0],
+                                translation[1],
+                                translation[2],
+                            ));
+                            track.add_keyframe(animation::Keyframe::new(*time, value));
+                            max_duration = max_duration.max(*time);
+                        }
+                    }
+                    gltf::animation::util::ReadOutputs::Rotations(rotations) => {
+                        let rotations_f32 = rotations.into_f32();
+                        for (time, rotation) in timestamps.iter().zip(rotations_f32) {
+                            let value =
+                                animation::AnimationValue::Quaternion(cgmath::Quaternion::new(
+                                    rotation[3],
+                                    rotation[0],
+                                    rotation[1],
+                                    rotation[2],
+                                ));
+                            track.add_keyframe(animation::Keyframe::new(*time, value));
+                            max_duration = max_duration.max(*time);
+                        }
+                    }
+                    gltf::animation::util::ReadOutputs::Scales(scales) => {
+                        for (time, scale) in timestamps.iter().zip(scales) {
+                            let value = animation::AnimationValue::Vector3(cgmath::Vector3::new(
+                                scale[0], scale[1], scale[2],
+                            ));
+                            track.add_keyframe(animation::Keyframe::new(*time, value));
+                            max_duration = max_duration.max(*time);
+                        }
+                    }
+                    _ => {
+                        warn!("Unsupported animation output type for '{}'", animation_name);
+                        continue;
+                    }
+                }
+            } else {
+                continue;
+            }
+
+            // Add track to clip
+            clip.add_track(target.clone(), track);
         }
+
+        // Set clip duration
+        clip.duration = max_duration;
+
+        // Store new animation clip directly
+        animation_clips.push(clip);
     }
 
     // Load materials

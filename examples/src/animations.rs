@@ -1,7 +1,8 @@
+use cgmath::{Quaternion, Rotation3, Vector3};
 use egui::Align2;
 use gears_app::{prelude::*, systems};
 use log::LevelFilter;
-use std::sync::mpsc;
+use std::sync::{Arc, Mutex, mpsc};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -16,6 +17,8 @@ async fn main() -> anyhow::Result<()> {
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);
     env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
+    env_builder.filter_module("wgpu_hal", log::LevelFilter::Warn);
+    env_builder.filter_module("wgpu_core", log::LevelFilter::Warn);
     env_builder.init();
 
     let mut app = GearsApp::default();
@@ -23,16 +26,16 @@ async fn main() -> anyhow::Result<()> {
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
 
     // ! Entities
-    // Add FPS camera
+    // Add FPS camera positioned to view all models
     new_entity!(
         app,
         CameraMarker,
         Name("FPS Camera"),
-        Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+        Pos3::new(cgmath::Vector3::new(0.0, 3.0, 8.0,)),
         ViewController::new_look_at(
-            cgmath::Point3::new(30.0, 20.0, 30.0),
-            cgmath::Point3::new(0.0, 0.0, 0.0),
-            0.8,
+            cgmath::Point3::new(0.0, 3.0, 8.0),
+            cgmath::Point3::new(0.0, 1.0, 0.0),
+            0.5,
             0.0,
         ),
         MovementController::default(),
@@ -63,27 +66,40 @@ async fn main() -> anyhow::Result<()> {
         .add_component(Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
         .build();
 
+    // Add the animated cube (original example)
     let animated_cube = new_entity!(
         app,
         StaticModelMarker,
-        Name("test"),
+        Name("Animated Cube"),
         ModelSource::Gltf("gltf/cube/AnimatedCube.gltf"),
-        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        Pos3::new(cgmath::Vector3::new(-3.0, 0.0, 0.0)),
         AnimationQueue::default(),
     );
 
-    new_entity!(
+    // Add another helmet with procedural animation
+    let animated_helmet = new_entity!(
         app,
         StaticModelMarker,
-        Name("test"),
+        Name("Animated Helmet"),
         ModelSource::Gltf("gltf/helmet/DamagedHelmet.gltf"),
-        Pos3::new(cgmath::Vector3::new(0.0, 5.0, 0.0)),
+        Pos3::new(cgmath::Vector3::new(3.0, 0.0, 0.0)),
+        AnimationQueue::default(),
     );
 
+    // Add a second cube for comparison (static)
     new_entity!(
         app,
         StaticModelMarker,
-        Name("Sphere1"),
+        Name("Static Cube"),
+        ModelSource::Gltf("gltf/cube/AnimatedCube.gltf"),
+        Pos3::new(cgmath::Vector3::new(0.0, 3.0, 0.0)),
+    );
+
+    // Add a sphere for reference
+    new_entity!(
+        app,
+        StaticModelMarker,
+        Name("Reference Sphere"),
         ModelSource::Obj("models/sphere/sphere.obj"),
         Pos3::new(cgmath::Vector3::new(0.0, 0.0, 5.0)),
     );
@@ -92,7 +108,7 @@ async fn main() -> anyhow::Result<()> {
     // Information about the renderer
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
     app.add_window(Box::new(move |ui| {
-        egui::Window::new("Renderer info")
+        egui::Window::new("Animation System Demo")
             .default_open(true)
             .max_width(1000.0)
             .max_height(800.0)
@@ -104,15 +120,25 @@ async fn main() -> anyhow::Result<()> {
                     ui.label(format!("Frame time: {:.2} ms", dt.as_secs_f32() * 1000.0));
                     ui.label(format!("FPS: {:.0}", 1.0 / dt.as_secs_f32()));
                 }
-                ui.end_row();
+
+                ui.separator();
+                ui.heading("Animation System Demo");
+
+                ui.label("Models in Scene:");
+                ui.label("Animated Cube (left) - GLTF rotation animation");
+                ui.label("Animated Helmet (right) - Procedural animations");
+                ui.label("Static Cube (top) - No animation");
+                ui.label("Reference Sphere (back) - Static object");
             });
     }));
 
-    let time_started = std::time::Instant::now();
+    // Use accumulated game time that respects pause state
+    let accumulated_time = Arc::new(Mutex::new(0.0f32));
 
     let update_sys = systems::async_system("update", move |sa| {
         Box::pin({
             let w1_frame_tx = w1_frame_tx.clone();
+            let accumulated_time = accumulated_time.clone();
 
             async move {
                 let (world, dt) = match sa {
@@ -120,15 +146,91 @@ async fn main() -> anyhow::Result<()> {
                     _ => return Ok(()),
                 };
 
-                if time_started.elapsed().as_secs() % 3 == 0 {
-                    let animation_queue = world
-                        .get_component::<AnimationQueue>(animated_cube)
-                        .unwrap();
+                // Update accumulated time only when not paused
+                let elapsed_time = {
+                    let mut time = accumulated_time.lock().unwrap();
+                    *time += dt.as_secs_f32();
+                    *time
+                };
 
-                    animation_queue
-                        .write()
-                        .unwrap()
-                        .push("animation_AnimatedCube");
+                // Create animations for the helmet by modifying the position and rotation
+                if let Some(pos3) = world.get_component::<Pos3>(animated_helmet) {
+                    let mut pos_guard = pos3.write().unwrap();
+
+                    // Create a complex animation pattern for the mercenary
+                    let base_y = 0.0;
+                    let time_scale = 2.0;
+
+                    // Bouncing motion (Y-axis)
+                    let bounce_height = 0.8;
+                    let bounce_speed = time_scale * 3.0;
+                    let y_offset = bounce_height * (elapsed_time * bounce_speed).sin().abs();
+
+                    // Circular motion (X-Z plane)
+                    let circle_radius = 1.5;
+                    let circle_speed = time_scale * 0.8;
+                    let circle_x = 3.0 + circle_radius * (elapsed_time * circle_speed).cos();
+                    let circle_z = circle_radius * (elapsed_time * circle_speed).sin();
+
+                    // Update position with procedural animation
+                    pos_guard.pos = Vector3::new(circle_x, base_y + y_offset, circle_z);
+
+                    // Create dynamic rotation animation with complex motion
+                    let rotation_speed = time_scale * 0.8;
+                    let pitch = 0.2 * (elapsed_time * rotation_speed * 1.7).sin();
+                    let yaw = elapsed_time * rotation_speed * 0.5;
+                    let roll = 0.15 * (elapsed_time * rotation_speed * 2.3).cos();
+
+                    // Apply rotation using quaternions for smooth interpolation
+                    let rotation_y = Quaternion::from_angle_y(cgmath::Rad(yaw));
+                    let rotation_x = Quaternion::from_angle_x(cgmath::Rad(pitch));
+                    let rotation_z = Quaternion::from_angle_z(cgmath::Rad(roll));
+
+                    pos_guard.rot = rotation_y * rotation_x * rotation_z;
+                }
+
+                // Send frame time for UI
+                let _ = w1_frame_tx.send(*dt);
+
+                Ok(())
+            }
+        })
+    });
+
+    // Track accumulated time for GLTF animations
+    let gltf_accumulated_time = Arc::new(Mutex::new(0.0f32));
+
+    // Run gltf animations
+    let model_animation_sys = systems::async_system("gltf_animations", move |sa| {
+        Box::pin({
+            let gltf_accumulated_time = gltf_accumulated_time.clone();
+
+            async move {
+                let (world, dt) = match sa {
+                    SystemAccessors::External { world, dt } => (world, dt),
+                    _ => return Ok(()),
+                };
+
+                // Update accumulated time only when not paused
+                let elapsed_time = {
+                    let mut time = gltf_accumulated_time.lock().unwrap();
+                    *time += dt.as_secs_f32();
+                    *time
+                };
+
+                // Animate the cube with GLTF animation every 5 seconds
+                if (elapsed_time as u64) % 5 == 0 && dt.as_secs_f32() > 0.0 {
+                    if let Some(animation_queue) =
+                        world.get_component::<AnimationQueue>(animated_cube)
+                    {
+                        let mut queue = animation_queue.write().unwrap();
+                        if !queue.has_queued_animations() {
+                            queue.push("animation_AnimatedCube".to_string());
+                            queue.set_transition_duration(0.5);
+                            queue.set_auto_transition(true);
+                            log::info!("Started cube GLTF animation");
+                        }
+                    }
                 }
 
                 Ok(())
@@ -137,6 +239,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     app.add_async_system(update_sys);
+    app.add_async_system(model_animation_sys);
 
     // Run the application
     app.run().await

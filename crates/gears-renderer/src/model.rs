@@ -2,8 +2,8 @@ use std::fmt::Debug;
 
 use super::texture;
 use gears_ecs::{
-    components::{self, physics::AABBCollisionBox},
     Component,
+    components::{self, physics::AABBCollisionBox},
 };
 use gears_macro::Component;
 use wgpu::util::DeviceExt;
@@ -213,26 +213,12 @@ impl DrawWireframeMesh for wgpu::RenderPass<'_> {
     }
 }
 
-#[derive(Debug)]
-pub enum Keyframes {
-    Translation(Vec<Vec<f32>>),
-    Rotation(Vec<Vec<f32>>), // Added Rotation variant
-    Scale(Vec<Vec<f32>>),    // Added Scale variant
-    Other,
-}
-
-#[derive(Debug)]
-pub struct AnimationClip {
-    pub name: String,
-    pub keyframes: Keyframes,
-    pub timestamps: Vec<f32>,
-}
 
 #[derive(Component)]
 pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
-    pub animations: Vec<AnimationClip>,
+    pub animations: Vec<super::animation::AnimationClip>,
 }
 
 impl Debug for Model {
@@ -246,7 +232,7 @@ impl Debug for Model {
 }
 
 impl Model {
-    pub fn get_animation(&self, name: &str) -> Result<&AnimationClip, String> {
+    pub fn get_animation(&self, name: &str) -> Result<&super::animation::AnimationClip, String> {
         self.animations
             .iter()
             .find(|clip| clip.name == name)

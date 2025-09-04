@@ -1,10 +1,7 @@
 use crate::Component;
 use core::time;
 use gears_macro::Component;
-use std::{
-    ops::Deref,
-    time::Instant,
-};
+use std::{ops::Deref, time::Instant};
 
 pub trait Tick {
     fn on_tick(&mut self, delta_time: time::Duration);
@@ -108,8 +105,11 @@ impl Health {
 #[derive(Component, Debug, Clone)]
 pub struct AnimationQueue {
     pub time: Instant,
-    animations: Vec<&'static str>,
+    animations: Vec<String>,
     pub is_current_finished: bool,
+    pub current_animation: Option<String>,
+    pub transition_duration: f32,
+    pub auto_transition: bool,
 }
 
 impl Default for AnimationQueue {
@@ -118,26 +118,77 @@ impl Default for AnimationQueue {
             time: Instant::now(),
             animations: Vec::new(),
             is_current_finished: false,
+            current_animation: None,
+            transition_duration: 0.2,
+            auto_transition: true,
         }
     }
 }
 
 impl AnimationQueue {
-    pub fn new(animations: Vec<&'static str>) -> Self {
+    pub fn new(animations: Vec<String>) -> Self {
         Self {
             time: Instant::now(),
             animations,
             is_current_finished: false,
+            current_animation: None,
+            transition_duration: 0.2,
+            auto_transition: true,
         }
     }
 
-    pub fn push(&mut self, animation: &'static str) {
-        if !self.animations.contains(&animation) {
-            self.animations.push(animation);
+    pub fn push(&mut self, animation: impl Into<String>) {
+        let animation_name = animation.into();
+        if !self.animations.contains(&animation_name) {
+            self.animations.push(animation_name);
         }
     }
 
-    pub fn pop(&mut self) -> Option<&'static str> {
+    pub fn pop(&mut self) -> Option<String> {
         self.animations.pop()
+    }
+
+    pub fn play_animation(&mut self, animation: impl Into<String>) {
+        self.current_animation = Some(animation.into());
+        self.time = Instant::now();
+        self.is_current_finished = false;
+    }
+
+    pub fn stop_current(&mut self) {
+        self.current_animation = None;
+        self.is_current_finished = true;
+    }
+
+    pub fn has_queued_animations(&self) -> bool {
+        !self.animations.is_empty()
+    }
+
+    pub fn current_animation(&self) -> Option<&String> {
+        self.current_animation.as_ref()
+    }
+
+    pub fn set_transition_duration(&mut self, duration: f32) {
+        self.transition_duration = duration.max(0.0);
+    }
+
+    pub fn set_auto_transition(&mut self, auto: bool) {
+        self.auto_transition = auto;
+    }
+
+    pub fn play_next(&mut self) -> Option<String> {
+        if let Some(next_animation) = self.pop() {
+            self.play_animation(next_animation.clone());
+            Some(next_animation)
+        } else {
+            None
+        }
+    }
+
+    pub fn clear_queue(&mut self) {
+        self.animations.clear();
+    }
+
+    pub fn queue_length(&self) -> usize {
+        self.animations.len()
     }
 }

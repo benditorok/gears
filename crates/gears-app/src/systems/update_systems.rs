@@ -1,8 +1,8 @@
 use super::{SystemAccessors, SystemError, SystemResult};
-use cgmath::VectorSpace;
+
 use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::components::{self, lights::Light};
-use gears_renderer::{instance, light, model, BufferComponent};
+use gears_renderer::{BufferComponent, animation, instance, light, model};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::time::Instant;
 
@@ -130,127 +130,101 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
             })?;
             let animation_queue = world.get_component::<components::misc::AnimationQueue>(entity);
 
-            // ! Animations testing
+            // New animation system handling
             if let Some(animation_queue) = animation_queue {
-                // * This will run if an animation is queued
                 let mut wlock_animation_queue = animation_queue.write().map_err(|e| {
                     SystemError::ComponentAccess(format!("Failed to write AnimationQueue: {}", e))
                 })?;
 
-                if let Some(selected_animation) = wlock_animation_queue.pop() {
+                // Check if we need to start a new animation
+                if wlock_animation_queue.current_animation().is_none()
+                    && wlock_animation_queue.has_queued_animations()
+                {
+                    if let Some(next_animation) = wlock_animation_queue.play_next() {
+                        log::info!("Starting animation: {}", next_animation);
+                    }
+                }
+
+                // Process current animation if one is playing
+                if let Some(current_anim_name) = wlock_animation_queue.current_animation() {
                     let rlock_model = model.read().map_err(|e| {
                         SystemError::ComponentAccess(format!("Failed to read Model: {}", e))
                     })?;
 
-                    // Get the current time of the animation
-                    let current_time = wlock_animation_queue.time.elapsed().as_secs_f32();
+                    // Find the animation in the model
+                    if let Ok(animation_clip) = rlock_model.get_animation(current_anim_name) {
+                        // Get current animation time
+                        let current_time = wlock_animation_queue.time.elapsed().as_secs_f32();
 
-                    let animation = &rlock_model
-                        .get_animation(selected_animation)
-                        .map_err(SystemError::Animation)?;
-                    let mut current_keyframe_index = 0;
-
-                    // Find the two keyframes surrounding the current_time
-                    for (i, timestamp) in animation.timestamps.iter().enumerate() {
-                        if *timestamp > current_time {
-                            current_keyframe_index = i - 1;
-                            break;
+                        // Log animation progress every second for visibility
+                        if current_time as i32 != ((current_time - 0.016) as i32) {
+                            log::info!(
+                                "Animation '{}' progress: {:.1}s / {:.1}s ({:.0}%)",
+                                current_anim_name,
+                                current_time,
+                                animation_clip.duration,
+                                (current_time / animation_clip.duration * 100.0).min(100.0)
+                            );
                         }
-                        current_keyframe_index = i;
-                    }
 
-                    // Loop the animation
-                    if current_keyframe_index >= animation.timestamps.len() - 1 {
-                        wlock_animation_queue.time = Instant::now();
-                        current_keyframe_index = 0;
-                    }
+                        // Check if animation is finished
+                        if current_time >= animation_clip.duration {
+                            wlock_animation_queue.is_current_finished = true;
 
-                    let next_keyframe_index = current_keyframe_index + 1;
-                    if next_keyframe_index >= animation.timestamps.len() {
-                        return Err(SystemError::Animation(
-                            "Invalid animation keyframe index".to_string(),
-                        ));
-                    }
-                    let t0 = animation.timestamps[current_keyframe_index];
-                    let t1 = animation.timestamps[next_keyframe_index];
-                    let factor = (current_time - t0) / (t1 - t0);
-
-                    // TODO animations should also take positions into consideration while playing
-                    let current_animation = &animation.keyframes;
-                    match current_animation {
-                        model::Keyframes::Translation(frames) => {
-                            let start_frame = &frames[current_keyframe_index];
-                            let end_frame = &frames[next_keyframe_index];
-
-                            // Ensure frames have exactly 3 elements
-                            if start_frame.len() == 3 && end_frame.len() == 3 {
-                                let start = cgmath::Vector3::new(
-                                    start_frame[0],
-                                    start_frame[1],
-                                    start_frame[2],
-                                );
-                                let end =
-                                    cgmath::Vector3::new(end_frame[0], end_frame[1], end_frame[2]);
-                                let interpolated = start.lerp(end, factor);
-                                let mut wlock_instance = instance.write().map_err(|e| {
-                                    SystemError::ComponentAccess(format!(
-                                        "Failed to write Instance: {}",
-                                        e
-                                    ))
-                                })?;
-                                wlock_instance.position = interpolated;
+                            if wlock_animation_queue.auto_transition
+                                && wlock_animation_queue.has_queued_animations()
+                            {
+                                // Auto-play next animation
+                                if let Some(next_animation) = wlock_animation_queue.play_next() {
+                                    log::info!(
+                                        "Auto-transitioning to animation: {}",
+                                        next_animation
+                                    );
+                                }
                             } else {
-                                return Err(SystemError::Animation(
-                                    "Translation frames do not have exactly 3 elements".to_string(),
-                                ));
+                                // Stop current animation
+                                wlock_animation_queue.stop_current();
+                            }
+                        } else {
+                            // Sample the animation at current time
+                            let animation_values = animation_clip.sample(current_time);
+
+                            let mut wlock_instance = instance.write().map_err(|e| {
+                                SystemError::ComponentAccess(format!(
+                                    "Failed to write Instance: {}",
+                                    e
+                                ))
+                            })?;
+
+                            // Apply animation values to instance
+                            for (target, value) in animation_values {
+                                match target {
+                                    animation::AnimationTarget::Translation => {
+                                        if let Some(translation) = value.as_vector3() {
+                                            wlock_instance.position = translation;
+                                        }
+                                    }
+                                    animation::AnimationTarget::Rotation => {
+                                        if let Some(rotation) = value.as_quaternion() {
+                                            wlock_instance.rotation = rotation;
+                                        }
+                                    }
+                                    animation::AnimationTarget::Scale => {
+                                        // Handle scale if needed in the future
+                                    }
+                                    animation::AnimationTarget::Custom(_) => {
+                                        // Handle custom properties if needed
+                                    }
+                                }
                             }
                         }
-                        model::Keyframes::Rotation(quats) => {
-                            let start_quat = &quats[current_keyframe_index];
-                            let end_quat = &quats[next_keyframe_index];
+                    } else {
+                        // Animation not found, fall back to position
+                        log::warn!(
+                            "Animation '{}' not found in model, falling back to Pos3",
+                            current_anim_name
+                        );
 
-                            // Ensure quaternions have exactly 4 elements
-                            if start_quat.len() == 4 && end_quat.len() == 4 {
-                                let start = cgmath::Quaternion::new(
-                                    start_quat[0],
-                                    start_quat[1],
-                                    start_quat[2],
-                                    start_quat[3],
-                                );
-                                let end = cgmath::Quaternion::new(
-                                    end_quat[0],
-                                    end_quat[1],
-                                    end_quat[2],
-                                    end_quat[3],
-                                );
-                                let interpolated = start.slerp(end, factor);
-                                let mut wlock_instance = instance.write().map_err(|e| {
-                                    SystemError::ComponentAccess(format!(
-                                        "Failed to write Instance: {}",
-                                        e
-                                    ))
-                                })?;
-                                wlock_instance.rotation = interpolated;
-                            } else {
-                                return Err(SystemError::Animation(
-                                    "Rotation quaternions do not have exactly 4 elements"
-                                        .to_string(),
-                                ));
-                            }
-                        }
-                        model::Keyframes::Scale(_) => {
-                            // Handle scale interpolation if necessary
-                        }
-                        model::Keyframes::Other => {
-                            return Err(SystemError::Animation(
-                                "Other animation types are not supported yet".to_string(),
-                            ));
-                        }
-                    }
-                } else {
-                    // If the AnimationQueue is empty
-                    // ! Do not remove, causes deadlock if the lock is held for more
-                    {
                         let mut wlock_instance = instance.write().map_err(|e| {
                             SystemError::ComponentAccess(format!("Failed to write Instance: {}", e))
                         })?;
@@ -261,11 +235,8 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
                         wlock_instance.position = rlock_pos3.pos;
                         wlock_instance.rotation = rlock_pos3.rot;
                     }
-                }
-            } else {
-                // If there is no AnimationQueue
-                // ! Do not remove, causes deadlock if the lock is held for more
-                {
+                } else {
+                    // No animation playing, use position component
                     let mut wlock_instance = instance.write().map_err(|e| {
                         SystemError::ComponentAccess(format!("Failed to write Instance: {}", e))
                     })?;
@@ -276,6 +247,17 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
                     wlock_instance.position = rlock_pos3.pos;
                     wlock_instance.rotation = rlock_pos3.rot;
                 }
+            } else {
+                // No AnimationQueue component, use position directly
+                let mut wlock_instance = instance.write().map_err(|e| {
+                    SystemError::ComponentAccess(format!("Failed to write Instance: {}", e))
+                })?;
+                let rlock_pos3 = pos3.read().map_err(|e| {
+                    SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
+                })?;
+
+                wlock_instance.position = rlock_pos3.pos;
+                wlock_instance.rotation = rlock_pos3.rot;
             }
 
             let instance_raw = instance

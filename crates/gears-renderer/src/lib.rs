@@ -1,3 +1,4 @@
+pub mod animation;
 pub mod camera;
 pub mod instance;
 pub mod light;
