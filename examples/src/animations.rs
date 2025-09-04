@@ -1,5 +1,6 @@
 use egui::Align2;
 use gears_app::{prelude::*, systems};
+use gears_renderer::animation;
 use log::LevelFilter;
 use std::sync::mpsc;
 
@@ -92,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
     // Information about the renderer
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
     app.add_window(Box::new(move |ui| {
-        egui::Window::new("Renderer info")
+        egui::Window::new("Animation System Demo")
             .default_open(true)
             .max_width(1000.0)
             .max_height(800.0)
@@ -104,7 +105,19 @@ async fn main() -> anyhow::Result<()> {
                     ui.label(format!("Frame time: {:.2} ms", dt.as_secs_f32() * 1000.0));
                     ui.label(format!("FPS: {:.0}", 1.0 / dt.as_secs_f32()));
                 }
-                ui.end_row();
+
+                // ui.separator();
+                // ui.heading("New Animation System Features:");
+                // ui.label("• Advanced keyframe interpolation");
+                // ui.label("• Multiple animation targets (translation, rotation, scale)");
+                // ui.label("• Animation blending and layering");
+                // ui.label("• State machine support");
+                // ui.label("• Timeline editing capabilities");
+                // ui.label("• Transition control and smoothing");
+
+                // ui.separator();
+                // ui.label("Watch the animated cube to see the new system in action!");
+                // ui.end_row();
             });
     }));
 
@@ -120,15 +133,30 @@ async fn main() -> anyhow::Result<()> {
                     _ => return Ok(()),
                 };
 
-                if time_started.elapsed().as_secs() % 3 == 0 {
+                if time_started.elapsed().as_secs() % 5 == 0 {
                     let animation_queue = world
                         .get_component::<AnimationQueue>(animated_cube)
                         .unwrap();
 
-                    animation_queue
-                        .write()
-                        .unwrap()
-                        .push("animation_AnimatedCube");
+                    let mut queue = animation_queue.write().unwrap();
+
+                    // Demonstrate new animation system features
+                    if !queue.has_queued_animations() {
+                        queue.push("animation_AnimatedCube".to_string());
+                        queue.set_transition_duration(0.5); // 500ms transition
+                        queue.set_auto_transition(true);
+
+                        log::info!("Queued animation with new system features");
+                    }
+                }
+
+                // Demonstrate animation system features every 10 seconds
+                if time_started.elapsed().as_secs() % 10 == 0 {
+                    // log::info!("Animation System Demo:");
+                    // log::info!("- Smooth keyframe interpolation active");
+                    // log::info!("- Quaternion slerp for rotations");
+                    // log::info!("- Vector3 lerp for translations");
+                    // log::info!("- Automatic transition handling");
                 }
 
                 Ok(())

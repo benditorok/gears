@@ -804,6 +804,7 @@ dependencies = [
  "env_logger",
  "futures",
  "gears-app",
+ "gears-renderer",
  "log",
  "rand",
  "tokio",
