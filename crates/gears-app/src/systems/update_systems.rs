@@ -1,5 +1,5 @@
 use super::{SystemAccessors, SystemError, SystemResult};
-use cgmath::VectorSpace;
+
 use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::components::{self, lights::Light};
 use gears_renderer::{BufferComponent, animation, instance, light, model};
@@ -152,10 +152,7 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
                     })?;
 
                     // Find the animation in the model
-                    if let Ok(legacy_animation) = rlock_model.get_animation(current_anim_name) {
-                        // Convert legacy animation to new format
-                        let new_animation_clip = legacy_animation.to_new_animation_clip();
-
+                    if let Ok(animation_clip) = rlock_model.get_animation(current_anim_name) {
                         // Get current animation time
                         let current_time = wlock_animation_queue.time.elapsed().as_secs_f32();
 
@@ -165,13 +162,13 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
                                 "Animation '{}' progress: {:.1}s / {:.1}s ({:.0}%)",
                                 current_anim_name,
                                 current_time,
-                                new_animation_clip.duration,
-                                (current_time / new_animation_clip.duration * 100.0).min(100.0)
+                                animation_clip.duration,
+                                (current_time / animation_clip.duration * 100.0).min(100.0)
                             );
                         }
 
                         // Check if animation is finished
-                        if current_time >= new_animation_clip.duration {
+                        if current_time >= animation_clip.duration {
                             wlock_animation_queue.is_current_finished = true;
 
                             if wlock_animation_queue.auto_transition
@@ -190,7 +187,7 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
                             }
                         } else {
                             // Sample the animation at current time
-                            let animation_values = new_animation_clip.sample(current_time);
+                            let animation_values = animation_clip.sample(current_time);
 
                             let mut wlock_instance = instance.write().map_err(|e| {
                                 SystemError::ComponentAccess(format!(

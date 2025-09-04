@@ -202,7 +202,7 @@ pub(crate) async fn load_model_obj(
     Ok(model::Model {
         meshes,
         materials,
-        animations: Vec::new(),
+        animations: Vec::new(), // Simple OBJ files don't have animations
     })
 }
 
@@ -245,7 +245,7 @@ pub(crate) async fn load_model_gltf(
     }
 
     // Load animations using the new animation system
-    let mut animation_clips = Vec::new();
+    let mut animation_clips: Vec<animation::AnimationClip> = Vec::new();
     for gltf_animation in gltf.animations() {
         let animation_name = gltf_animation.name().unwrap_or("Default").to_string();
         log::info!("Loading GLTF animation: {}", animation_name);
@@ -343,51 +343,8 @@ pub(crate) async fn load_model_gltf(
         // Set clip duration
         clip.duration = max_duration;
 
-        // Convert to old format for compatibility (temporary)
-        // We need to create proper legacy data instead of placeholder
-        let legacy_clip = if let Some(translation_track) =
-            clip.get_track(&animation::AnimationTarget::Translation)
-        {
-            let mut translation_frames = Vec::new();
-            let mut timestamps = Vec::new();
-
-            for keyframe in &translation_track.keyframes {
-                if let Some(vec3) = keyframe.value.as_vector3() {
-                    translation_frames.push(vec![vec3.x, vec3.y, vec3.z]);
-                    timestamps.push(keyframe.time);
-                }
-            }
-
-            model::AnimationClip {
-                name: clip.name.clone(),
-                keyframes: model::Keyframes::Translation(translation_frames),
-                timestamps,
-            }
-        } else if let Some(rotation_track) = clip.get_track(&animation::AnimationTarget::Rotation) {
-            let mut rotation_frames = Vec::new();
-            let mut timestamps = Vec::new();
-
-            for keyframe in &rotation_track.keyframes {
-                if let Some(quat) = keyframe.value.as_quaternion() {
-                    rotation_frames.push(vec![quat.v.x, quat.v.y, quat.v.z, quat.s]);
-                    timestamps.push(keyframe.time);
-                }
-            }
-
-            model::AnimationClip {
-                name: clip.name.clone(),
-                keyframes: model::Keyframes::Rotation(rotation_frames),
-                timestamps,
-            }
-        } else {
-            model::AnimationClip {
-                name: clip.name.clone(),
-                keyframes: model::Keyframes::Other,
-                timestamps: Vec::new(),
-            }
-        };
-
-        animation_clips.push(legacy_clip);
+        // Store new animation clip directly
+        animation_clips.push(clip);
     }
 
     // Load materials

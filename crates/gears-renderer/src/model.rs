@@ -213,92 +213,12 @@ impl DrawWireframeMesh for wgpu::RenderPass<'_> {
     }
 }
 
-#[derive(Debug)]
-pub enum Keyframes {
-    Translation(Vec<Vec<f32>>),
-    Rotation(Vec<Vec<f32>>), // Added Rotation variant
-    Scale(Vec<Vec<f32>>),    // Added Scale variant
-    Other,
-}
-
-#[derive(Debug)]
-pub struct AnimationClip {
-    pub name: String,
-    pub keyframes: Keyframes,
-    pub timestamps: Vec<f32>,
-}
-
-impl AnimationClip {
-    /// Convert to the new animation system clip
-    pub fn to_new_animation_clip(&self) -> super::animation::AnimationClip {
-        let mut clip = super::animation::AnimationClip::new(&self.name);
-
-        match &self.keyframes {
-            Keyframes::Translation(frames) => {
-                let mut track = super::animation::AnimationTrack::new();
-                for (i, frame) in frames.iter().enumerate() {
-                    if let Some(&time) = self.timestamps.get(i) {
-                        if frame.len() >= 3 {
-                            let value = super::animation::AnimationValue::Vector3(
-                                cgmath::Vector3::new(frame[0], frame[1], frame[2]),
-                            );
-                            track.add_keyframe(super::animation::Keyframe::new(time, value));
-                        }
-                    }
-                }
-                clip.add_track(super::animation::AnimationTarget::Translation, track);
-            }
-            Keyframes::Rotation(frames) => {
-                let mut track = super::animation::AnimationTrack::new_rotation_track();
-                for (i, frame) in frames.iter().enumerate() {
-                    if let Some(&time) = self.timestamps.get(i) {
-                        if frame.len() >= 4 {
-                            let value = super::animation::AnimationValue::Quaternion(
-                                cgmath::Quaternion::new(frame[3], frame[0], frame[1], frame[2]),
-                            );
-                            track.add_keyframe(super::animation::Keyframe::new(time, value));
-                        }
-                    }
-                }
-                clip.add_track(super::animation::AnimationTarget::Rotation, track);
-            }
-            Keyframes::Scale(frames) => {
-                let mut track = super::animation::AnimationTrack::new();
-                for (i, frame) in frames.iter().enumerate() {
-                    if let Some(&time) = self.timestamps.get(i) {
-                        if frame.len() >= 3 {
-                            let value = super::animation::AnimationValue::Vector3(
-                                cgmath::Vector3::new(frame[0], frame[1], frame[2]),
-                            );
-                            track.add_keyframe(super::animation::Keyframe::new(time, value));
-                        }
-                    }
-                }
-                clip.add_track(super::animation::AnimationTarget::Scale, track);
-            }
-            Keyframes::Other => {
-                // No conversion for unknown types
-            }
-        }
-
-        // Set duration from timestamps
-        if let Some(&max_time) = self
-            .timestamps
-            .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-        {
-            clip.duration = max_time;
-        }
-
-        clip
-    }
-}
 
 #[derive(Component)]
 pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
-    pub animations: Vec<AnimationClip>,
+    pub animations: Vec<super::animation::AnimationClip>,
 }
 
 impl Debug for Model {
@@ -312,7 +232,7 @@ impl Debug for Model {
 }
 
 impl Model {
-    pub fn get_animation(&self, name: &str) -> Result<&AnimationClip, String> {
+    pub fn get_animation(&self, name: &str) -> Result<&super::animation::AnimationClip, String> {
         self.animations
             .iter()
             .find(|clip| clip.name == name)
