@@ -147,17 +147,27 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
 
                 // Process current animation if one is playing
                 if let Some(current_anim_name) = wlock_animation_queue.current_animation() {
+                    log::debug!("Processing animation: {}", current_anim_name);
+
                     let rlock_model = model.read().map_err(|e| {
                         SystemError::ComponentAccess(format!("Failed to read Model: {}", e))
                     })?;
 
                     // Find the animation in the model
                     if let Ok(legacy_animation) = rlock_model.get_animation(current_anim_name) {
+                        log::debug!("Found legacy animation: {}", current_anim_name);
+
                         // Convert legacy animation to new format
                         let new_animation_clip = legacy_animation.to_new_animation_clip();
+                        log::debug!(
+                            "Converted to new format. Duration: {}, Track count: {}",
+                            new_animation_clip.duration,
+                            new_animation_clip.track_count()
+                        );
 
                         // Get current animation time
                         let current_time = wlock_animation_queue.time.elapsed().as_secs_f32();
+                        log::debug!("Current animation time: {}", current_time);
 
                         // Check if animation is finished
                         if current_time >= new_animation_clip.duration {
@@ -180,6 +190,11 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
                         } else {
                             // Sample the animation at current time
                             let animation_values = new_animation_clip.sample(current_time);
+                            log::debug!(
+                                "Sampled {} animation values at time {}",
+                                animation_values.len(),
+                                current_time
+                            );
 
                             let mut wlock_instance = instance.write().map_err(|e| {
                                 SystemError::ComponentAccess(format!(
@@ -190,15 +205,26 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
 
                             // Apply animation values to instance
                             for (target, value) in animation_values {
+                                log::debug!("Applying animation target: {:?}", target);
                                 match target {
                                     animation::AnimationTarget::Translation => {
                                         if let Some(translation) = value.as_vector3() {
+                                            log::debug!("Setting translation: {:?}", translation);
                                             wlock_instance.position = translation;
+                                        } else {
+                                            log::warn!(
+                                                "Failed to extract Vector3 from translation value"
+                                            );
                                         }
                                     }
                                     animation::AnimationTarget::Rotation => {
                                         if let Some(rotation) = value.as_quaternion() {
+                                            log::debug!("Setting rotation: {:?}", rotation);
                                             wlock_instance.rotation = rotation;
+                                        } else {
+                                            log::warn!(
+                                                "Failed to extract Quaternion from rotation value"
+                                            );
                                         }
                                     }
                                     animation::AnimationTarget::Scale => {
@@ -216,6 +242,11 @@ pub(super) async fn update_models<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
                         }
                     } else {
                         // Animation not found, fall back to position
+                        log::warn!(
+                            "Animation '{}' not found in model, falling back to Pos3",
+                            current_anim_name
+                        );
+
                         let mut wlock_instance = instance.write().map_err(|e| {
                             SystemError::ComponentAccess(format!("Failed to write Instance: {}", e))
                         })?;

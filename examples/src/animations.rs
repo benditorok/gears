@@ -13,10 +13,12 @@ async fn main() -> anyhow::Result<()> {
         std::io::stdin().read_line(&mut input).unwrap();
     }));
 
-    // Initialize the logger
+    // Initialize the logger with debug level for animation debugging
     let mut env_builder = env_logger::Builder::new();
-    env_builder.filter_level(LevelFilter::Info);
+    env_builder.filter_level(LevelFilter::Debug);
     env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
+    env_builder.filter_module("wgpu_hal", log::LevelFilter::Warn);
+    env_builder.filter_module("wgpu_core", log::LevelFilter::Warn);
     env_builder.init();
 
     let mut app = GearsApp::default();

@@ -232,9 +232,12 @@ impl AnimationClip {
     /// Convert to the new animation system clip
     pub fn to_new_animation_clip(&self) -> super::animation::AnimationClip {
         let mut clip = super::animation::AnimationClip::new(&self.name);
+        log::debug!("Converting legacy animation '{}' to new format", self.name);
+        log::debug!("Legacy animation has {} timestamps", self.timestamps.len());
 
         match &self.keyframes {
             Keyframes::Translation(frames) => {
+                log::debug!("Converting {} translation keyframes", frames.len());
                 let mut track = super::animation::AnimationTrack::new();
                 for (i, frame) in frames.iter().enumerate() {
                     if let Some(&time) = self.timestamps.get(i) {
@@ -243,12 +246,28 @@ impl AnimationClip {
                                 cgmath::Vector3::new(frame[0], frame[1], frame[2]),
                             );
                             track.add_keyframe(super::animation::Keyframe::new(time, value));
+                            log::debug!(
+                                "Added translation keyframe at time {}: [{}, {}, {}]",
+                                time,
+                                frame[0],
+                                frame[1],
+                                frame[2]
+                            );
+                        } else {
+                            log::warn!(
+                                "Translation frame {} has insufficient elements: {}",
+                                i,
+                                frame.len()
+                            );
                         }
+                    } else {
+                        log::warn!("No timestamp for translation frame {}", i);
                     }
                 }
                 clip.add_track(super::animation::AnimationTarget::Translation, track);
             }
             Keyframes::Rotation(frames) => {
+                log::debug!("Converting {} rotation keyframes", frames.len());
                 let mut track = super::animation::AnimationTrack::new_rotation_track();
                 for (i, frame) in frames.iter().enumerate() {
                     if let Some(&time) = self.timestamps.get(i) {
@@ -257,12 +276,29 @@ impl AnimationClip {
                                 cgmath::Quaternion::new(frame[3], frame[0], frame[1], frame[2]),
                             );
                             track.add_keyframe(super::animation::Keyframe::new(time, value));
+                            log::debug!(
+                                "Added rotation keyframe at time {}: [{}, {}, {}, {}]",
+                                time,
+                                frame[0],
+                                frame[1],
+                                frame[2],
+                                frame[3]
+                            );
+                        } else {
+                            log::warn!(
+                                "Rotation frame {} has insufficient elements: {}",
+                                i,
+                                frame.len()
+                            );
                         }
+                    } else {
+                        log::warn!("No timestamp for rotation frame {}", i);
                     }
                 }
                 clip.add_track(super::animation::AnimationTarget::Rotation, track);
             }
             Keyframes::Scale(frames) => {
+                log::debug!("Converting {} scale keyframes", frames.len());
                 let mut track = super::animation::AnimationTrack::new();
                 for (i, frame) in frames.iter().enumerate() {
                     if let Some(&time) = self.timestamps.get(i) {
@@ -271,13 +307,31 @@ impl AnimationClip {
                                 cgmath::Vector3::new(frame[0], frame[1], frame[2]),
                             );
                             track.add_keyframe(super::animation::Keyframe::new(time, value));
+                            log::debug!(
+                                "Added scale keyframe at time {}: [{}, {}, {}]",
+                                time,
+                                frame[0],
+                                frame[1],
+                                frame[2]
+                            );
+                        } else {
+                            log::warn!(
+                                "Scale frame {} has insufficient elements: {}",
+                                i,
+                                frame.len()
+                            );
                         }
+                    } else {
+                        log::warn!("No timestamp for scale frame {}", i);
                     }
                 }
                 clip.add_track(super::animation::AnimationTarget::Scale, track);
             }
             Keyframes::Other => {
-                // No conversion for unknown types
+                log::warn!(
+                    "Cannot convert animation '{}' - keyframes type is 'Other'",
+                    self.name
+                );
             }
         }
 
@@ -289,6 +343,12 @@ impl AnimationClip {
         {
             clip.duration = max_time;
         }
+
+        log::debug!(
+            "Conversion complete. Final clip duration: {}, track count: {}",
+            clip.duration,
+            clip.track_count()
+        );
 
         clip
     }

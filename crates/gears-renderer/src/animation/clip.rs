@@ -55,14 +55,17 @@ impl AnimationClip {
         if track.duration() > self.duration {
             self.duration = track.duration();
         }
-        self.tracks.insert(target, track);
+        self.tracks.insert(target.clone(), track);
         self
     }
 
     /// Add an event to this clip
     pub fn add_event(&mut self, event: AnimationEvent) -> &mut Self {
         // Keep events sorted by time for efficient processing
-        let insert_pos = self.events.iter().position(|e| e.time > event.time)
+        let insert_pos = self
+            .events
+            .iter()
+            .position(|e| e.time > event.time)
             .unwrap_or(self.events.len());
         self.events.insert(insert_pos, event);
         self
@@ -219,7 +222,8 @@ impl AnimationClip {
         }
 
         // Filter events
-        clip.events = self.events
+        clip.events = self
+            .events
             .iter()
             .filter(|event| event.time >= start_time && event.time <= end_time)
             .map(|event| AnimationEvent {
