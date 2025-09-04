@@ -100,6 +100,18 @@ impl Health {
     pub fn is_alive(&self) -> bool {
         self.health > 0.0
     }
+
+    pub fn get_health(&self) -> f32 {
+        self.health
+    }
+
+    pub fn get_max_health(&self) -> f32 {
+        self.max_health
+    }
+
+    pub fn set_health(&mut self, health: f32) {
+        self.health = health.clamp(0.0, self.max_health);
+    }
 }
 
 #[derive(Component, Debug, Clone)]
