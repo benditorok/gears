@@ -298,15 +298,50 @@ impl FiniteStateMachine {
     }
 
     /// Update hierarchical sub-states
-    fn update_hierarchical_state(&mut self, state_id: StateId, _dt: Duration) {
+    fn update_hierarchical_state(&mut self, state_id: StateId, dt: Duration) {
         if let Some(state) = self.states.get_mut(state_id) {
-            if let Some(_sub_states) = state.get_sub_states() {
-                if let Some(_current_sub_state) = state.get_current_sub_state() {
-                    // This is a simplified approach - in a full implementation,
-                    // you'd want to handle sub-state updates more thoroughly
-                    // For now, we'll leave this as a hook for future expansion
+            if let Some(_) = state.get_sub_states() {
+                if let Some(current_sub_state) = state.get_current_sub_state() {
+                    // Check for sub-state transitions first
+                    if let Some(sub_states) = state.get_sub_states() {
+                        if let Some(sub_state) = sub_states.get(current_sub_state) {
+                            if let Some(next_sub_state) = sub_state.check_transitions(&self.context)
+                            {
+                                self.transition_sub_state(state_id, next_sub_state);
+                            }
+                        }
+                    }
                 }
             }
+        }
+    }
+
+    /// Transition to a sub-state within a hierarchical state
+    fn transition_sub_state(&mut self, parent_state_id: StateId, new_sub_state_id: StateId) {
+        if let Some(parent_state) = self.states.get_mut(parent_state_id) {
+            // Exit current sub-state
+            if let Some(current_sub_state_id) = parent_state.get_current_sub_state() {
+                if let Some(sub_states) = parent_state.get_sub_states() {
+                    if let Some(current_sub_state) = sub_states.get(current_sub_state_id) {
+                        // Note: We can't call on_exit here due to borrowing rules
+                        // This is handled in the HierarchicalState implementation
+                    }
+                }
+                // Remove the old sub-state from stack
+                if let Some(last) = self.context.state_stack.last() {
+                    if *last == current_sub_state_id {
+                        self.context.state_stack.pop();
+                    }
+                }
+            }
+
+            // Set new sub-state
+            parent_state.set_current_sub_state(Some(new_sub_state_id));
+
+            // Add new sub-state to stack
+            self.context.state_stack.push(new_sub_state_id);
+
+            // Enter new sub-state (handled in HierarchicalState implementation)
         }
     }
 
@@ -328,6 +363,16 @@ impl FiniteStateMachine {
     /// Get read-only access to the context
     pub fn context(&self) -> &StateContext {
         &self.context
+    }
+
+    /// Get the current active sub-state if in a hierarchical state
+    pub fn current_sub_state(&self) -> Option<StateId> {
+        if let Some(current_state_id) = self.current_state {
+            if let Some(state) = self.states.get(current_state_id) {
+                return state.get_current_sub_state();
+            }
+        }
+        None
     }
 }
 
@@ -501,6 +546,11 @@ impl State for HierarchicalState {
         if let Some(sub_state_id) = self.current_sub_state {
             if let Some(sub_state) = self.sub_states.get_mut(sub_state_id) {
                 sub_state.on_update(context, dt);
+
+                // Check for sub-state transitions
+                if let Some(next_sub_state) = sub_state.check_transitions(context) {
+                    self.transition_to_sub_state(next_sub_state, context);
+                }
             }
         }
     }
@@ -537,5 +587,33 @@ impl State for HierarchicalState {
 
     fn set_current_sub_state(&mut self, state_id: Option<StateId>) {
         self.current_sub_state = state_id;
+    }
+}
+
+impl HierarchicalState {
+    /// Transition to a different sub-state within this hierarchical state
+    fn transition_to_sub_state(&mut self, new_sub_state_id: StateId, context: &mut StateContext) {
+        // Exit current sub-state
+        if let Some(current_sub_state_id) = self.current_sub_state {
+            if let Some(current_sub_state) = self.sub_states.get_mut(current_sub_state_id) {
+                current_sub_state.on_exit(context);
+            }
+            // Remove from state stack
+            if let Some(last) = context.state_stack.last() {
+                if *last == current_sub_state_id {
+                    context.state_stack.pop();
+                }
+            }
+        }
+
+        // Enter new sub-state
+        if self.sub_states.contains_key(new_sub_state_id) {
+            self.current_sub_state = Some(new_sub_state_id);
+            context.state_stack.push(new_sub_state_id);
+
+            if let Some(new_sub_state) = self.sub_states.get_mut(new_sub_state_id) {
+                new_sub_state.on_enter(context);
+            }
+        }
     }
 }

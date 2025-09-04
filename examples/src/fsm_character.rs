@@ -71,41 +71,90 @@ impl State for IdleState {
     }
 }
 
+// Sub-state implementations for Attack
 #[derive(Debug)]
-struct AttackState;
+struct AttackApproachState;
 
-impl State for AttackState {
+impl State for AttackApproachState {
     fn on_enter(&mut self, context: &mut StateContext) {
-        context.set_float("attack_timer", 0.0);
-        context.set_float("speed", 8.0);
-        context.set_bool("attacking", true);
-        info!("Character entered ATTACK state");
+        context.set_float("approach_timer", 0.0);
+        context.set_float("speed", 6.0);
+        info!("Character entered ATTACK > APPROACH sub-state");
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
-        let timer = context.get_float("attack_timer").unwrap_or(0.0) + dt.as_secs_f32();
-        context.set_float("attack_timer", timer);
+        let timer = context.get_float("approach_timer").unwrap_or(0.0) + dt.as_secs_f32();
+        context.set_float("approach_timer", timer);
 
-        // Update character color to red (aggressive)
-        context.set_vector3("color", [0.8, 0.2, 0.2]);
-    }
-
-    fn on_exit(&mut self, context: &mut StateContext) {
-        context.set_bool("attacking", false);
-        info!("Character exited ATTACK state");
+        // Update character color to orange (approaching)
+        context.set_vector3("color", [0.8, 0.4, 0.1]);
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
-        let health = context.get_float("health").unwrap_or(100.0);
         let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
-        let timer = context.get_float("attack_timer").unwrap_or(0.0);
+        let timer = context.get_float("approach_timer").unwrap_or(0.0);
 
-        if health < 30.0 {
-            Some(ESCAPE)
-        } else if enemy_distance > 20.0 || timer > 3.0 {
-            Some(IDLE)
-        } else if health < 60.0 && enemy_distance < 5.0 {
-            Some(DEFEND)
+        if enemy_distance < 3.0 || timer > 2.0 {
+            Some(ATTACK_STRIKE)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+struct AttackStrikeState;
+
+impl State for AttackStrikeState {
+    fn on_enter(&mut self, context: &mut StateContext) {
+        context.set_float("strike_timer", 0.0);
+        context.set_float("speed", 2.0);
+        info!("Character entered ATTACK > STRIKE sub-state");
+    }
+
+    fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
+        let timer = context.get_float("strike_timer").unwrap_or(0.0) + dt.as_secs_f32();
+        context.set_float("strike_timer", timer);
+
+        // Update character color to bright red (striking)
+        context.set_vector3("color", [1.0, 0.1, 0.1]);
+    }
+
+    fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
+        let timer = context.get_float("strike_timer").unwrap_or(0.0);
+
+        if timer > 1.0 {
+            Some(ATTACK_RETREAT)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+struct AttackRetreatState;
+
+impl State for AttackRetreatState {
+    fn on_enter(&mut self, context: &mut StateContext) {
+        context.set_float("retreat_timer", 0.0);
+        context.set_float("speed", 4.0);
+        info!("Character entered ATTACK > RETREAT sub-state");
+    }
+
+    fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
+        let timer = context.get_float("retreat_timer").unwrap_or(0.0) + dt.as_secs_f32();
+        context.set_float("retreat_timer", timer);
+
+        // Update character color to dark red (retreating)
+        context.set_vector3("color", [0.6, 0.2, 0.2]);
+    }
+
+    fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
+        let timer = context.get_float("retreat_timer").unwrap_or(0.0);
+        let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
+
+        if timer > 1.5 && enemy_distance > 5.0 {
+            Some(ATTACK_APPROACH)
         } else {
             None
         }
@@ -213,6 +262,7 @@ async fn main() -> anyhow::Result<()> {
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
     let character_entity_channel = std::sync::Arc::new(std::sync::Mutex::new(None));
     let character_entity_channel_clone = character_entity_channel.clone();
+    let character_entity_ui = character_entity_channel.clone();
 
     app.add_window(Box::new(move |ui| {
         egui::Window::new("FSM Character Demo")
@@ -231,11 +281,23 @@ async fn main() -> anyhow::Result<()> {
                 ui.separator();
                 ui.heading("Hierarchical FSM Demo");
 
+                // Show current state information
+                if let Some(character_entity) = *character_entity_ui.lock().unwrap() {
+                    ui.separator();
+                    ui.label("Current State Information:");
+                    ui.label("Main State: [Will be updated in system]");
+                    ui.label("Sub-State: [Will be updated in system]");
+                }
+
+                ui.separator();
                 ui.label("Character States:");
-                ui.label("IDLE - Calm, wandering");
-                ui.label("ATTACK - Aggressive, pursuing");
-                ui.label("DEFEND - Defensive, blocking");
-                ui.label("ESCAPE - Panicked, fleeing");
+                ui.label("- IDLE - Calm, wandering");
+                ui.label("- ATTACK - Aggressive, pursuing");
+                ui.label("  ├ APPROACH - Moving towards target");
+                ui.label("  ├ STRIKE - Attacking target");
+                ui.label("  └ RETREAT - Backing away");
+                ui.label("- DEFEND - Defensive, blocking");
+                ui.label("- ESCAPE - Panicked, fleeing");
 
                 ui.separator();
                 ui.label("State transitions based on:");
@@ -301,9 +363,46 @@ async fn main() -> anyhow::Result<()> {
     // Character with FSM
     let mut character_fsm = FiniteStateMachine::new();
 
+    // Create hierarchical attack state with sub-states
+    let mut attack_state = HierarchicalState::new()
+        .with_enter_callback(|ctx| {
+            ctx.set_float("attack_timer", 0.0);
+            ctx.set_bool("attacking", true);
+            info!("Character entered ATTACK state");
+        })
+        .with_exit_callback(|ctx| {
+            ctx.set_bool("attacking", false);
+            info!("Character exited ATTACK state");
+        })
+        .with_update_callback(|ctx, dt| {
+            let timer = ctx.get_float("attack_timer").unwrap_or(0.0) + dt.as_secs_f32();
+            ctx.set_float("attack_timer", timer);
+        })
+        .with_transition_callback(|ctx| {
+            let health = ctx.get_float("health").unwrap_or(100.0);
+            let enemy_distance = ctx.get_float("enemy_distance").unwrap_or(100.0);
+            let timer = ctx.get_float("attack_timer").unwrap_or(0.0);
+
+            if health < 30.0 {
+                Some(ESCAPE)
+            } else if enemy_distance > 20.0 || timer > 8.0 {
+                Some(IDLE)
+            } else if health < 60.0 && enemy_distance < 5.0 {
+                Some(DEFEND)
+            } else {
+                None
+            }
+        });
+
+    // Add sub-states to attack
+    attack_state.add_sub_state(ATTACK_APPROACH, Box::new(AttackApproachState));
+    attack_state.add_sub_state(ATTACK_STRIKE, Box::new(AttackStrikeState));
+    attack_state.add_sub_state(ATTACK_RETREAT, Box::new(AttackRetreatState));
+    attack_state.set_initial_sub_state(ATTACK_APPROACH);
+
     // Add states to the FSM
     character_fsm.add_state(IDLE, Box::new(IdleState));
-    character_fsm.add_state(ATTACK, Box::new(AttackState));
+    character_fsm.add_state(ATTACK, Box::new(attack_state));
     character_fsm.add_state(DEFEND, Box::new(DefendState));
     character_fsm.add_state(ESCAPE, Box::new(EscapeState));
 
@@ -325,7 +424,7 @@ async fn main() -> anyhow::Result<()> {
         CharacterMarker,
         StaticModelMarker,
         Name("FSM Character"),
-        Pos3::new(cgmath::Vector3::new(15.0, 1.0, 0.0)),
+        Pos3::new(cgmath::Vector3::new(5.0, 1.0, 0.0)),
         ModelSource::Obj("models/sphere/sphere.obj"),
         character_fsm,
         Health::new(100.0, 100.0),
@@ -395,17 +494,67 @@ async fn main() -> anyhow::Result<()> {
                             // Update FSM
                             fsm.update(*dt);
 
+                            // Debug: Log character state and position every 2 seconds
+                            static mut LAST_LOG_TIME: f32 = 0.0;
+                            unsafe {
+                                LAST_LOG_TIME += dt.as_secs_f32();
+                                if LAST_LOG_TIME > 2.0 {
+                                    let current_state = fsm.current_state().unwrap_or("unknown");
+                                    let current_sub_state = fsm.current_sub_state();
+                                    let sub_state_str = match current_sub_state {
+                                        Some(sub) => format!(" > {}", sub),
+                                        None => String::new(),
+                                    };
+                                    info!(
+                                        "Character: {}{}, position: {:?}, distance: {:.2}, health: {:.1}",
+                                        current_state,
+                                        sub_state_str,
+                                        char_pos,
+                                        distance,
+                                        health.get_health()
+                                    );
+                                    LAST_LOG_TIME = 0.0;
+                                }
+                            }
+
                             // Apply FSM-driven behavior
                             let speed = fsm.context().get_float("speed").unwrap_or(2.0);
                             let current_state = fsm.current_state().unwrap_or("unknown");
+                            let current_sub_state = fsm.current_sub_state();
 
                             // Move character based on state
                             let mut pos_guard = character_pos3.write().unwrap();
                             match current_state {
                                 ATTACK => {
-                                    // Move towards player
-                                    let direction = (player_pos - pos_guard.pos).normalize();
-                                    pos_guard.pos += direction * speed * dt.as_secs_f32();
+                                    // Different movement based on sub-state
+                                    match current_sub_state {
+                                        Some(ATTACK_APPROACH) => {
+                                            // Move towards player
+                                            let direction =
+                                                (player_pos - pos_guard.pos).normalize();
+                                            pos_guard.pos += direction * speed * dt.as_secs_f32();
+                                        }
+                                        Some(ATTACK_STRIKE) => {
+                                            // Stay close and strike (minimal movement)
+                                            let direction =
+                                                (player_pos - pos_guard.pos).normalize();
+                                            pos_guard.pos +=
+                                                direction * speed * 0.2 * dt.as_secs_f32();
+                                        }
+                                        Some(ATTACK_RETREAT) => {
+                                            // Move away briefly
+                                            let direction =
+                                                (pos_guard.pos - player_pos).normalize();
+                                            pos_guard.pos +=
+                                                direction * speed * 0.5 * dt.as_secs_f32();
+                                        }
+                                        _ => {
+                                            // Default attack behavior
+                                            let direction =
+                                                (player_pos - pos_guard.pos).normalize();
+                                            pos_guard.pos += direction * speed * dt.as_secs_f32();
+                                        }
+                                    }
                                 }
                                 ESCAPE => {
                                     // Move away from player

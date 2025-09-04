@@ -8,7 +8,7 @@ pub use gears_ecs::{
     Component, Entity, EntityBuilder, World,
     components::{
         controllers::{MovementController, ViewController},
-        fsm::{FiniteStateMachine, State, StateContext, StateData, StateId},
+        fsm::{FiniteStateMachine, HierarchicalState, State, StateContext, StateData, StateId},
         interactive::Weapon,
         lights::Light,
         misc::{
