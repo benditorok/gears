@@ -323,6 +323,7 @@ async fn main() -> anyhow::Result<()> {
     let character = new_entity!(
         app,
         CharacterMarker,
+        StaticModelMarker,
         Name("FSM Character"),
         Pos3::new(cgmath::Vector3::new(15.0, 1.0, 0.0)),
         ModelSource::Obj("models/sphere/sphere.obj"),
