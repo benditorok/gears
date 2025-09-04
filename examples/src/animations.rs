@@ -1,10 +1,17 @@
 use egui::Align2;
-use gears_app::prelude::*;
+use gears_app::{prelude::*, systems};
 use log::LevelFilter;
 use std::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    std::panic::set_hook(Box::new(|info| {
+        eprintln!("{}", info);
+        println!("Press Enter to close...");
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+    }));
+
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);
@@ -12,6 +19,8 @@ async fn main() -> anyhow::Result<()> {
     env_builder.init();
 
     let mut app = GearsApp::default();
+
+    let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
 
     // ! Entities
     // Add FPS camera
@@ -101,23 +110,34 @@ async fn main() -> anyhow::Result<()> {
 
     let time_started = std::time::Instant::now();
 
-    // Use the update loop to spin the sphere
-    app.update_loop(move |world, dt| {
-        // Send the frame time to the custom window
-        w1_frame_tx.send(dt).unwrap();
+    let update_sys = systems::async_system("update", move |sa| {
+        Box::pin({
+            let w1_frame_tx = w1_frame_tx.clone();
 
-        if time_started.elapsed().as_secs() % 3 == 0 {
-            let animation_queue = world
-                .get_component::<AnimationQueue>(animated_cube)
-                .unwrap();
+            async move {
+                let (world, dt) = match sa {
+                    SystemAccessors::External { world, dt } => (world, dt),
+                    _ => return Ok(()),
+                };
 
-            animation_queue
-                .write()
-                .unwrap()
-                .push("animation_AnimatedCube");
-        }
-    })
-    .await?;
+                if time_started.elapsed().as_secs() % 3 == 0 {
+                    let animation_queue = world
+                        .get_component::<AnimationQueue>(animated_cube)
+                        .unwrap();
 
+                    animation_queue
+                        .write()
+                        .unwrap()
+                        .push("animation_AnimatedCube");
+                }
+
+                Ok(())
+            }
+        })
+    });
+
+    app.add_async_system(update_sys);
+
+    // Run the application
     app.run().await
 }
