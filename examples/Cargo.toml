@@ -61,3 +61,7 @@ path = "src/fsm_character.rs"
 [[example]]
 name = "pathfinding"
 path = "src/pathfinding.rs"
+
+[[example]]
+name = "intelligent_ai"
+path = "src/intelligent_ai.rs"
