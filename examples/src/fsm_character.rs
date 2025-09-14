@@ -8,25 +8,24 @@ use std::f32::consts::PI;
 use std::sync::mpsc;
 use std::time::Duration;
 
-// Character states
-const IDLE: StateId = "idle";
-const ATTACK: StateId = "attack";
-const DEFEND: StateId = "defend";
-const ESCAPE: StateId = "escape";
+const IDLE: StateId = StateId::Idle;
+const ATTACK: StateId = StateId::Attack;
+const DEFEND: StateId = StateId::Defend;
+const ESCAPE: StateId = StateId::Escape;
 
 // Sub-states for each main state
-const IDLE_WANDER: StateId = "idle_wander";
-const IDLE_WATCH: StateId = "idle_watch";
+const IDLE_WANDER: StateId = StateId::IdleWander;
+const IDLE_WATCH: StateId = StateId::IdleWatch;
 
-const ATTACK_APPROACH: StateId = "attack_approach";
-const ATTACK_STRIKE: StateId = "attack_strike";
-const ATTACK_RETREAT: StateId = "attack_retreat";
+const ATTACK_APPROACH: StateId = StateId::AttackApproach;
+const ATTACK_STRIKE: StateId = StateId::AttackStrike;
+const ATTACK_RETREAT: StateId = StateId::AttackRetreat;
 
-const DEFEND_BLOCK: StateId = "defend_block";
-const DEFEND_COUNTER: StateId = "defend_counter";
+const DEFEND_BLOCK: StateId = StateId::DefendBlock;
+const DEFEND_COUNTER: StateId = StateId::DefendCounter;
 
-const ESCAPE_FLEE: StateId = "escape_flee";
-const ESCAPE_HIDE: StateId = "escape_hide";
+const ESCAPE_FLEE: StateId = StateId::EscapeFlee;
+const ESCAPE_HIDE: StateId = StateId::EscapeHide;
 
 // Character marker for entities with FSM
 #[derive(Component, Debug, Clone, Copy)]
@@ -40,7 +39,7 @@ impl State for IdleState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("idle_timer", 0.0);
         context.set_float("speed", 2.0);
-        info!("Character entered IDLE state");
+        info!("Character entered {} state", StateId::Idle);
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -79,7 +78,11 @@ impl State for AttackApproachState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("approach_timer", 0.0);
         context.set_float("speed", 6.0);
-        info!("Character entered ATTACK > APPROACH sub-state");
+        info!(
+            "Character entered {} > {} sub-state",
+            StateId::Attack,
+            StateId::AttackApproach
+        );
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -109,7 +112,11 @@ impl State for AttackStrikeState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("strike_timer", 0.0);
         context.set_float("speed", 2.0);
-        info!("Character entered ATTACK > STRIKE sub-state");
+        info!(
+            "Character entered {} > {} sub-state",
+            StateId::Attack,
+            StateId::AttackStrike
+        );
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -138,7 +145,11 @@ impl State for AttackRetreatState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("retreat_timer", 0.0);
         context.set_float("speed", 4.0);
-        info!("Character entered ATTACK > RETREAT sub-state");
+        info!(
+            "Character entered {} > {} sub-state",
+            StateId::Attack,
+            StateId::AttackRetreat
+        );
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -169,7 +180,7 @@ impl State for DefendState {
         context.set_float("defend_timer", 0.0);
         context.set_float("speed", 1.0);
         context.set_bool("defending", true);
-        info!("Character entered DEFEND state");
+        info!("Character entered {} state", StateId::Defend);
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -182,7 +193,7 @@ impl State for DefendState {
 
     fn on_exit(&mut self, context: &mut StateContext) {
         context.set_bool("defending", false);
-        info!("Character exited DEFEND state");
+        info!("Character exited {} state", StateId::Defend);
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
@@ -210,7 +221,7 @@ impl State for EscapeState {
         context.set_float("escape_timer", 0.0);
         context.set_float("speed", 12.0);
         context.set_bool("escaping", true);
-        info!("Character entered ESCAPE state");
+        info!("Character entered {} state", StateId::Escape);
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -223,7 +234,7 @@ impl State for EscapeState {
 
     fn on_exit(&mut self, context: &mut StateContext) {
         context.set_bool("escaping", false);
-        info!("Character exited ESCAPE state");
+        info!("Character exited {} state", StateId::Escape);
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
@@ -368,11 +379,11 @@ async fn main() -> anyhow::Result<()> {
         .with_enter_callback(|ctx| {
             ctx.set_float("attack_timer", 0.0);
             ctx.set_bool("attacking", true);
-            info!("Character entered ATTACK state");
+            info!("Character entered {} state", StateId::Attack);
         })
         .with_exit_callback(|ctx| {
             ctx.set_bool("attacking", false);
-            info!("Character exited ATTACK state");
+            info!("Character exited {} state", StateId::Attack);
         })
         .with_update_callback(|ctx, dt| {
             let timer = ctx.get_float("attack_timer").unwrap_or(0.0) + dt.as_secs_f32();
@@ -494,32 +505,35 @@ async fn main() -> anyhow::Result<()> {
                             // Update FSM
                             fsm.update(*dt);
 
-                            // Debug: Log character state and position every 2 seconds
-                            static mut LAST_LOG_TIME: f32 = 0.0;
-                            unsafe {
-                                LAST_LOG_TIME += dt.as_secs_f32();
-                                if LAST_LOG_TIME > 2.0 {
-                                    let current_state = fsm.current_state().unwrap_or("unknown");
-                                    let current_sub_state = fsm.current_sub_state();
-                                    let sub_state_str = match current_sub_state {
-                                        Some(sub) => format!(" > {}", sub),
-                                        None => String::new(),
-                                    };
-                                    info!(
-                                        "Character: {}{}, position: {:?}, distance: {:.2}, health: {:.1}",
-                                        current_state,
-                                        sub_state_str,
-                                        char_pos,
-                                        distance,
-                                        health.get_health()
-                                    );
-                                    LAST_LOG_TIME = 0.0;
-                                }
-                            }
+                            // // Debug: Log character state and position every 2 seconds
+                            // static mut LAST_LOG_TIME: f32 = 0.0;
+                            // unsafe {
+                            //     LAST_LOG_TIME += dt.as_secs_f32();
+                            //     if LAST_LOG_TIME > 2.0 {
+                            //         let current_state = fsm
+                            //             .current_state()
+                            //             .map(|s| s.as_str())
+                            //             .unwrap_or("unknown");
+                            //         let current_sub_state = fsm.current_sub_state();
+                            //         let sub_state_str = match current_sub_state {
+                            //             Some(sub) => format!(" > {}", sub.as_str()),
+                            //             None => String::new(),
+                            //         };
+                            //         info!(
+                            //             "Character: {}{}, position: {:?}, distance: {:.2}, health: {:.1}",
+                            //             current_state,
+                            //             sub_state_str,
+                            //             char_pos,
+                            //             distance,
+                            //             health.get_health()
+                            //         );
+                            //         LAST_LOG_TIME = 0.0;
+                            //     }
+                            // }
 
                             // Apply FSM-driven behavior
                             let speed = fsm.context().get_float("speed").unwrap_or(2.0);
-                            let current_state = fsm.current_state().unwrap_or("unknown");
+                            let current_state = fsm.current_state().unwrap_or(StateId::Idle);
                             let current_sub_state = fsm.current_sub_state();
 
                             // Move character based on state
@@ -528,20 +542,20 @@ async fn main() -> anyhow::Result<()> {
                                 ATTACK => {
                                     // Different movement based on sub-state
                                     match current_sub_state {
-                                        Some(ATTACK_APPROACH) => {
+                                        Some(StateId::AttackApproach) => {
                                             // Move towards player
                                             let direction =
                                                 (player_pos - pos_guard.pos).normalize();
                                             pos_guard.pos += direction * speed * dt.as_secs_f32();
                                         }
-                                        Some(ATTACK_STRIKE) => {
+                                        Some(StateId::AttackStrike) => {
                                             // Stay close and strike (minimal movement)
                                             let direction =
                                                 (player_pos - pos_guard.pos).normalize();
                                             pos_guard.pos +=
                                                 direction * speed * 0.2 * dt.as_secs_f32();
                                         }
-                                        Some(ATTACK_RETREAT) => {
+                                        Some(StateId::AttackRetreat) => {
                                             // Move away briefly
                                             let direction =
                                                 (pos_guard.pos - player_pos).normalize();

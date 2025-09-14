@@ -88,11 +88,84 @@ pub trait State: std::fmt::Debug + Send + Sync {
     fn set_current_sub_state(&mut self, _state_id: Option<StateId>) {}
 }
 
-/// Unique identifier for states
+/// Unique identifier for states using a strongly-typed enum
 ///
-/// State IDs are string literals that uniquely identify each state in the FSM.
-/// Using static string literals ensures zero-cost identification at runtime.
-pub type StateId = &'static str;
+/// State IDs are enum variants that provide compile-time safety and better performance
+/// than string-based identification. Each variant represents a unique state in the FSM.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StateId {
+    // Main states
+    Idle,
+    Attack,
+    Defend,
+    Escape,
+
+    // Sub-states for Idle
+    IdleWander,
+    IdleWatch,
+
+    // Sub-states for Attack
+    AttackApproach,
+    AttackStrike,
+    AttackRetreat,
+
+    // Sub-states for Defend
+    DefendBlock,
+    DefendCounter,
+
+    // Sub-states for Escape
+    EscapeFlee,
+    EscapeHide,
+}
+
+impl StateId {
+    /// Convert to string for logging and debugging purposes
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            StateId::Idle => "idle",
+            StateId::Attack => "attack",
+            StateId::Defend => "defend",
+            StateId::Escape => "escape",
+            StateId::IdleWander => "idle_wander",
+            StateId::IdleWatch => "idle_watch",
+            StateId::AttackApproach => "attack_approach",
+            StateId::AttackStrike => "attack_strike",
+            StateId::AttackRetreat => "attack_retreat",
+            StateId::DefendBlock => "defend_block",
+            StateId::DefendCounter => "defend_counter",
+            StateId::EscapeFlee => "escape_flee",
+            StateId::EscapeHide => "escape_hide",
+        }
+    }
+
+    /// Check if this state is a main state (not a sub-state)
+    pub fn is_main_state(&self) -> bool {
+        matches!(
+            self,
+            StateId::Idle | StateId::Attack | StateId::Defend | StateId::Escape
+        )
+    }
+
+    /// Check if this state is a sub-state of the given parent
+    pub fn is_sub_state_of(&self, parent: StateId) -> bool {
+        match parent {
+            StateId::Idle => matches!(self, StateId::IdleWander | StateId::IdleWatch),
+            StateId::Attack => matches!(
+                self,
+                StateId::AttackApproach | StateId::AttackStrike | StateId::AttackRetreat
+            ),
+            StateId::Defend => matches!(self, StateId::DefendBlock | StateId::DefendCounter),
+            StateId::Escape => matches!(self, StateId::EscapeFlee | StateId::EscapeHide),
+            _ => false,
+        }
+    }
+}
+
+impl std::fmt::Display for StateId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
 
 /// Context passed to states for decision making and data access
 ///
@@ -221,14 +294,14 @@ impl FiniteStateMachine {
 
     /// Set the initial state
     pub fn set_initial_state(&mut self, state_id: StateId) {
-        if self.states.contains_key(state_id) {
+        if self.states.contains_key(&state_id) {
             self.current_state = Some(state_id);
             self.state_enter_time = Instant::now();
             self.context.time_in_state = Duration::ZERO;
             self.context.state_stack.clear();
             self.context.state_stack.push(state_id);
 
-            if let Some(state) = self.states.get_mut(state_id) {
+            if let Some(state) = self.states.get_mut(&state_id) {
                 state.on_enter(&mut self.context);
             }
         }
@@ -246,13 +319,13 @@ impl FiniteStateMachine {
 
     /// Force a transition to a specific state
     pub fn transition_to(&mut self, new_state_id: StateId) {
-        if !self.states.contains_key(new_state_id) {
+        if !self.states.contains_key(&new_state_id) {
             return;
         }
 
         // Exit current state
         if let Some(current_id) = self.current_state {
-            if let Some(state) = self.states.get_mut(current_id) {
+            if let Some(state) = self.states.get_mut(&current_id) {
                 state.on_exit(&mut self.context);
             }
             self.context.previous_state = Some(current_id);
@@ -267,7 +340,7 @@ impl FiniteStateMachine {
         self.context.state_stack.clear();
         self.context.state_stack.push(new_state_id);
 
-        if let Some(state) = self.states.get_mut(new_state_id) {
+        if let Some(state) = self.states.get_mut(&new_state_id) {
             state.on_enter(&mut self.context);
         }
     }
@@ -282,7 +355,7 @@ impl FiniteStateMachine {
 
         if let Some(current_id) = self.current_state {
             // Update current state
-            if let Some(state) = self.states.get_mut(current_id) {
+            if let Some(state) = self.states.get_mut(&current_id) {
                 state.on_update(&mut self.context, dt);
 
                 // Check for transitions
@@ -299,12 +372,12 @@ impl FiniteStateMachine {
 
     /// Update hierarchical sub-states
     fn update_hierarchical_state(&mut self, state_id: StateId, dt: Duration) {
-        if let Some(state) = self.states.get_mut(state_id) {
-            if let Some(_) = state.get_sub_states() {
+        if let Some(state) = self.states.get_mut(&state_id) {
+            if state.get_sub_states().is_some() {
                 if let Some(current_sub_state) = state.get_current_sub_state() {
                     // Check for sub-state transitions first
                     if let Some(sub_states) = state.get_sub_states() {
-                        if let Some(sub_state) = sub_states.get(current_sub_state) {
+                        if let Some(sub_state) = sub_states.get(&current_sub_state) {
                             if let Some(next_sub_state) = sub_state.check_transitions(&self.context)
                             {
                                 self.transition_sub_state(state_id, next_sub_state);
@@ -318,11 +391,11 @@ impl FiniteStateMachine {
 
     /// Transition to a sub-state within a hierarchical state
     fn transition_sub_state(&mut self, parent_state_id: StateId, new_sub_state_id: StateId) {
-        if let Some(parent_state) = self.states.get_mut(parent_state_id) {
+        if let Some(parent_state) = self.states.get_mut(&parent_state_id) {
             // Exit current sub-state
             if let Some(current_sub_state_id) = parent_state.get_current_sub_state() {
                 if let Some(sub_states) = parent_state.get_sub_states() {
-                    if let Some(current_sub_state) = sub_states.get(current_sub_state_id) {
+                    if let Some(_current_sub_state) = sub_states.get(&current_sub_state_id) {
                         // Note: We can't call on_exit here due to borrowing rules
                         // This is handled in the HierarchicalState implementation
                     }
@@ -368,7 +441,7 @@ impl FiniteStateMachine {
     /// Get the current active sub-state if in a hierarchical state
     pub fn current_sub_state(&self) -> Option<StateId> {
         if let Some(current_state_id) = self.current_state {
-            if let Some(state) = self.states.get(current_state_id) {
+            if let Some(state) = self.states.get(&current_state_id) {
                 return state.get_current_sub_state();
             }
         }
@@ -480,7 +553,7 @@ impl HierarchicalState {
 
     /// Set the initial sub-state that will be entered when this state becomes active
     pub fn set_initial_sub_state(&mut self, state_id: StateId) {
-        if self.sub_states.contains_key(state_id) {
+        if self.sub_states.contains_key(&state_id) {
             self.current_sub_state = Some(state_id);
         }
     }
@@ -530,7 +603,7 @@ impl State for HierarchicalState {
 
         // Enter the initial sub-state if available
         if let Some(sub_state_id) = self.current_sub_state {
-            if let Some(sub_state) = self.sub_states.get_mut(sub_state_id) {
+            if let Some(sub_state) = self.sub_states.get_mut(&sub_state_id) {
                 context.state_stack.push(sub_state_id);
                 sub_state.on_enter(context);
             }
@@ -544,7 +617,7 @@ impl State for HierarchicalState {
 
         // Update current sub-state
         if let Some(sub_state_id) = self.current_sub_state {
-            if let Some(sub_state) = self.sub_states.get_mut(sub_state_id) {
+            if let Some(sub_state) = self.sub_states.get_mut(&sub_state_id) {
                 sub_state.on_update(context, dt);
 
                 // Check for sub-state transitions
@@ -558,7 +631,7 @@ impl State for HierarchicalState {
     fn on_exit(&mut self, context: &mut StateContext) {
         // Exit current sub-state
         if let Some(sub_state_id) = self.current_sub_state {
-            if let Some(sub_state) = self.sub_states.get_mut(sub_state_id) {
+            if let Some(sub_state) = self.sub_states.get_mut(&sub_state_id) {
                 sub_state.on_exit(context);
                 context.state_stack.pop();
             }
@@ -595,7 +668,7 @@ impl HierarchicalState {
     fn transition_to_sub_state(&mut self, new_sub_state_id: StateId, context: &mut StateContext) {
         // Exit current sub-state
         if let Some(current_sub_state_id) = self.current_sub_state {
-            if let Some(current_sub_state) = self.sub_states.get_mut(current_sub_state_id) {
+            if let Some(current_sub_state) = self.sub_states.get_mut(&current_sub_state_id) {
                 current_sub_state.on_exit(context);
             }
             // Remove from state stack
@@ -607,11 +680,11 @@ impl HierarchicalState {
         }
 
         // Enter new sub-state
-        if self.sub_states.contains_key(new_sub_state_id) {
+        if self.sub_states.contains_key(&new_sub_state_id) {
             self.current_sub_state = Some(new_sub_state_id);
             context.state_stack.push(new_sub_state_id);
 
-            if let Some(new_sub_state) = self.sub_states.get_mut(new_sub_state_id) {
+            if let Some(new_sub_state) = self.sub_states.get_mut(&new_sub_state_id) {
                 new_sub_state.on_enter(context);
             }
         }
