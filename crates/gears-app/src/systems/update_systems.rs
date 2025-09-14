@@ -4,7 +4,6 @@ use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::components::{self, lights::Light};
 use gears_renderer::{BufferComponent, animation, instance, light, model};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::time::Instant;
 
 /// Update the lights in the scene.
 pub(super) async fn update_lights<'a>(sa: &'a SystemAccessors<'a>) -> SystemResult<()> {

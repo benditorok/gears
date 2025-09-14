@@ -73,7 +73,6 @@
 //! ```
 
 use crate::Component;
-use gears_macro::Component;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
