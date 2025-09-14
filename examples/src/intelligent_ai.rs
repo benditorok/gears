@@ -559,20 +559,26 @@ async fn main() -> anyhow::Result<()> {
         RigidBodyMarker,     // Mark as physics object for proper rendering
         StaticModelMarker,   // Mark for rendering
         Name("Intelligent AI Enemy"),
-        Pos3::new(Vector3::new(15.0, 1.0, 0.0)),
+        Pos3::new(Vector3::new(15.0, 1.5, 0.0)),
         RigidBody::new(
             1.5,                           // mass
             Vector3::zero(),               // velocity
-            Vector3::new(0.0, -10.0, 0.0), // acceleration (gravity)
+            Vector3::new(0.0, -20.0, 0.0), // acceleration (gravity)
             AABBCollisionBox {
-                min: Vector3::new(-0.5, -0.5, -0.5),
-                max: Vector3::new(0.5, 0.5, 0.5),
+                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
             }
         ),
         ModelSource::Obj("models/sphere/sphere.obj"),
         intelligent_ai,
         pathfinding,
         Health::new(100.0, 100.0),
+        LightMarker,
+        Light::PointColoured {
+            radius: 10.0,
+            intensity: 2.0,
+            color: [0.2, 0.2, 0.8],
+        },
     );
 
     // Intelligent AI Update System - Integrates FSM with A* Pathfinding and Physics
@@ -609,16 +615,19 @@ async fn main() -> anyhow::Result<()> {
                         Some(pos3_component),
                         Some(pathfinding_component),
                         Some(health_component),
+                        Some(light_component),
                     ) = (
                         world.get_component::<IntelligentAI>(entity),
                         world.get_component::<Pos3>(entity),
                         world.get_component::<PathfindingComponent>(entity),
                         world.get_component::<Health>(entity),
+                        world.get_component::<Light>(entity),
                     ) {
                         let mut ai = ai_component.write().unwrap();
                         let current_pos = pos3_component.read().unwrap().pos;
                         let mut pathfinding = pathfinding_component.write().unwrap();
                         let health = health_component.read().unwrap();
+                        let mut light = light_component.write().unwrap();
 
                         // Calculate distance to target
                         let distance_to_player = (player_pos - current_pos).magnitude();
@@ -654,7 +663,7 @@ async fn main() -> anyhow::Result<()> {
                             _ => PathfindingBehavior::Wander,
                         };
 
-                        // Update debug UI information
+                        // Update debug UI information and light color
                         {
                             *w1_ai_state.lock().unwrap() = current_state;
                             *w1_ai_sub_state.lock().unwrap() = current_sub_state;
@@ -665,6 +674,16 @@ async fn main() -> anyhow::Result<()> {
                                 debug_color[0] = color_vec.x;
                                 debug_color[1] = color_vec.y;
                                 debug_color[2] = color_vec.z;
+
+                                // Update the entity's light color to match FSM state
+                                match &mut *light {
+                                    Light::PointColoured { color, .. } => {
+                                        color[0] = color_vec.x;
+                                        color[1] = color_vec.y;
+                                        color[2] = color_vec.z;
+                                    }
+                                    _ => {}
+                                }
                             }
                         }
 
