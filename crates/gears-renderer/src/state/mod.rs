@@ -7,7 +7,7 @@ use crate::BufferComponent;
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
 use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
-use gears_ecs::{self, components, Entity, World};
+use gears_ecs::{self, Entity, World, components};
 use gears_gui::{EguiRenderer, EguiWindowCallback};
 use std::any::Any;
 use std::iter;
@@ -111,12 +111,21 @@ impl<'a> State<'a> {
             .copied()
             .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
+
+        // Choose present mode with vsync (Fifo) as default, fallback to first available
+        let present_mode = surface_caps
+            .present_modes
+            .iter()
+            .copied()
+            .find(|&mode| mode == wgpu::PresentMode::Fifo)
+            .unwrap_or(surface_caps.present_modes[0]);
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: surface_caps.present_modes[0],
+            present_mode,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
