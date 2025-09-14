@@ -1,4 +1,5 @@
 pub mod controllers;
+pub mod fsm;
 pub mod interactive;
 pub mod lights;
 pub mod misc;
