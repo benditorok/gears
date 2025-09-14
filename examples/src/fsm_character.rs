@@ -380,8 +380,10 @@ async fn main() -> anyhow::Result<()> {
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
     let w1_character_state = Arc::new(Mutex::new(CharacterState::Idle));
     let w1_character_sub_state = Arc::new(Mutex::new(Option::None));
+    let w1_character_color = Arc::new(Mutex::new([0.2f32, 0.2f32, 0.8f32]));
     let character_state = w1_character_state.clone();
     let character_sub_state = w1_character_sub_state.clone();
+    let character_color = w1_character_color.clone();
     app.add_window(Box::new(move |ui| {
         egui::Window::new("FSM Character Demo")
             .default_open(true)
@@ -401,16 +403,46 @@ async fn main() -> anyhow::Result<()> {
 
                 ui.separator();
                 ui.label("Character States:");
-                ui.label("- IDLE - Calm, wandering");
-                ui.label("- ATTACK - Aggressive, pursuing");
-                ui.label("  - APPROACH - Moving towards target");
-                ui.label("  - STRIKE - Attacking target");
-                ui.label("  - RETREAT - Backing away");
-                ui.label("- DEFEND - Defensive, blocking");
-                ui.label("- ESCAPE - Panicked, fleeing");
+
+                // Helper function to draw color rectangle and label
+                let draw_state_with_color = |ui: &mut egui::Ui, color: [f32; 3], text: &str| {
+                    ui.horizontal(|ui| {
+                        let egui_color = egui::Color32::from_rgb(
+                            (color[0] * 255.0) as u8,
+                            (color[1] * 255.0) as u8,
+                            (color[2] * 255.0) as u8,
+                        );
+                        let color_rect =
+                            egui::Rect::from_min_size(ui.cursor().min, egui::Vec2::new(12.0, 12.0));
+                        ui.painter().rect_filled(color_rect, 2.0, egui_color);
+                        ui.allocate_space(egui::Vec2::new(15.0, 12.0));
+                        ui.label(text);
+                    });
+                };
+
+                draw_state_with_color(ui, [0.2, 0.2, 0.8], "- IDLE - Calm, wandering");
+                draw_state_with_color(ui, [0.8, 0.4, 0.1], "- ATTACK - Aggressive, pursuing");
+                draw_state_with_color(ui, [0.8, 0.4, 0.1], "  - APPROACH - Moving towards target");
+                draw_state_with_color(ui, [1.0, 0.1, 0.1], "  - STRIKE - Attacking target");
+                draw_state_with_color(ui, [0.6, 0.2, 0.2], "  - RETREAT - Backing away");
+                draw_state_with_color(ui, [0.8, 0.8, 0.2], "- DEFEND - Defensive, blocking");
+                draw_state_with_color(ui, [0.8, 0.2, 0.8], "- ESCAPE - Panicked, fleeing");
 
                 ui.separator();
-                ui.heading("Current State Information");
+                // Display current state color
+                let color_rgb = character_color.lock().unwrap();
+                let egui_color = egui::Color32::from_rgb(
+                    (color_rgb[0] * 255.0) as u8,
+                    (color_rgb[1] * 255.0) as u8,
+                    (color_rgb[2] * 255.0) as u8,
+                );
+                ui.horizontal(|ui| {
+                    ui.heading("Current State Information");
+                    let color_rect =
+                        egui::Rect::from_min_size(ui.cursor().min, egui::Vec2::new(20.0, 20.0));
+                    ui.painter().rect_filled(color_rect, 2.0, egui_color);
+                    ui.allocate_space(egui::Vec2::new(25.0, 20.0));
+                });
                 ui.label(format!("State: {:?}", character_state.lock().unwrap()));
                 if let Some(sub_state) = character_sub_state.lock().unwrap().as_ref() {
                     ui.label(format!("Sub-State: {:?}", sub_state));
@@ -557,6 +589,7 @@ async fn main() -> anyhow::Result<()> {
 
             let fsm_debug_charater_state = w1_character_state.clone();
             let fsm_debug_character_sub_state = w1_character_sub_state.clone();
+            let fsm_debug_character_color = w1_character_color.clone();
             async move {
                 let (world, dt) = match sa {
                     SystemAccessors::External { world, dt } => (world, dt),
@@ -614,6 +647,14 @@ async fn main() -> anyhow::Result<()> {
                                     let mut debug_sub_state =
                                         fsm_debug_character_sub_state.lock().unwrap();
                                     *debug_sub_state = None;
+                                }
+
+                                // Update color for debugging
+                                if let Some(color_vec) = fsm.context().get_vector3("color") {
+                                    let mut debug_color = fsm_debug_character_color.lock().unwrap();
+                                    debug_color[0] = color_vec.x;
+                                    debug_color[1] = color_vec.y;
+                                    debug_color[2] = color_vec.z;
                                 }
                             }
                             // Move character based on state
