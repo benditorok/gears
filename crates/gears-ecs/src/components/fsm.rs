@@ -571,30 +571,3 @@ impl<S: StateIdentifier> Default for FiniteStateMachine<S> {
 
 // Manual Component implementation for generic FSM
 impl<S: StateIdentifier> Component for FiniteStateMachine<S> {}
-
-/// Convenience macro for creating simple states
-#[macro_export]
-macro_rules! simple_state {
-    ($name:ident, $state_type:ty, $on_enter:expr, $on_update:expr, $on_exit:expr, $check_transitions:expr) => {
-        #[derive(Debug)]
-        struct $name;
-
-        impl State<$state_type> for $name {
-            fn on_enter(&mut self, context: &mut StateContext) {
-                $on_enter(context);
-            }
-
-            fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
-                $on_update(context, dt);
-            }
-
-            fn on_exit(&mut self, context: &mut StateContext) {
-                $on_exit(context);
-            }
-
-            fn check_transitions(&self, context: &StateContext) -> Option<$state_type> {
-                $check_transitions(context)
-            }
-        }
-    };
-}

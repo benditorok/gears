@@ -380,9 +380,6 @@ async fn main() -> anyhow::Result<()> {
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
     let mut w1_character_state = Arc::new(Mutex::new(CharacterState::Idle));
     let mut w1_character_sub_state = Arc::new(Mutex::new(Option::None));
-    let character_entity_channel = std::sync::Arc::new(std::sync::Mutex::new(None));
-    let character_entity_channel_clone = character_entity_channel.clone();
-    let character_entity_ui = character_entity_channel.clone();
     let character_state = w1_character_state.clone();
     let character_sub_state = w1_character_sub_state.clone();
 
@@ -402,14 +399,6 @@ async fn main() -> anyhow::Result<()> {
 
                 ui.separator();
                 ui.heading("Hierarchical FSM Demo");
-
-                // Show current state information
-                if let Some(character_entity) = *character_entity_ui.lock().unwrap() {
-                    ui.separator();
-                    ui.label("Current State Information:");
-                    ui.label("Main State: [Will be updated in system]");
-                    ui.label("Sub-State: [Will be updated in system]");
-                }
 
                 ui.separator();
                 ui.label("Character States:");
@@ -542,9 +531,6 @@ async fn main() -> anyhow::Result<()> {
         character_fsm,
         Health::new(100.0, 100.0),
     );
-
-    // Store character entity for UI access
-    *character_entity_channel_clone.lock().unwrap() = Some(character);
 
     // Add some obstacles
     for i in 0..4 {
