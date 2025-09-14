@@ -142,7 +142,7 @@ async fn main() -> anyhow::Result<()> {
         let enemy_name = format!("Enemy_{}", i + 1);
         let pathfinding = PathfindingComponent::new(
             cgmath::Vector3::new(0.0, 1.0, 0.0), // Initial target (will be updated to player position)
-            3.0,                                 // Movement speed
+            20.0,                                // Movement speed
             2.0,                                 // Grid cell size
         );
 
@@ -153,10 +153,15 @@ async fn main() -> anyhow::Result<()> {
             RigidBodyMarker,
             Name(Box::leak(enemy_name.into_boxed_str())),
             Pos3::new(pos),
-            RigidBody::new_static(AABBCollisionBox {
-                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
-                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
-            }),
+            RigidBody::new(
+                1.5,                                   // Mass of the enemy
+                cgmath::Vector3::new(0.0, 0.0, 0.0),   // Initial velocity
+                cgmath::Vector3::new(0.0, -28.0, 0.0), // Initial acceleration (gravity)
+                AABBCollisionBox {
+                    min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
+                    max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+                },
+            ),
             ModelSource::Obj("models/sphere/sphere.obj"),
             pathfinding,
         );
@@ -202,7 +207,7 @@ async fn main() -> anyhow::Result<()> {
                         return None;
                     }
 
-                    // Skip pathfinding followers (enemies shouldn't be obstacles to each other)
+                    // Skip pathfinding followers
                     if world
                         .get_component::<PathfindingFollower>(rb_entity)
                         .is_some()
@@ -211,22 +216,23 @@ async fn main() -> anyhow::Result<()> {
                     }
 
                     // Skip ground plane (it's not an obstacle for pathfinding)
-                    if let Some(name_comp) = world.get_component::<Name>(rb_entity) {
-                        if let Ok(name_guard) = name_comp.read() {
-                            if name_guard.0.contains("Ground") {
-                                return None;
-                            }
+                    if let Some(name_comp) = world.get_component::<Name>(rb_entity)
+                        && let Ok(name_guard) = name_comp.read()
+                    {
+                        if name_guard.0.contains("Ground") {
+                            return None;
                         }
                     }
 
                     let pos_opt = world.get_component::<Pos3>(rb_entity);
                     let rb_opt = world.get_component::<RigidBody<AABBCollisionBox>>(rb_entity);
 
-                    if let (Some(pos_comp), Some(rb_comp)) = (pos_opt, rb_opt) {
-                        if let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.read(), rb_comp.read()) {
-                            return Some((pos_guard.pos, rb_guard.collision_box.clone()));
-                        }
+                    if let (Some(pos_comp), Some(rb_comp)) = (pos_opt, rb_opt)
+                        && let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.read(), rb_comp.read())
+                    {
+                        return Some((pos_guard.pos, rb_guard.collision_box.clone()));
                     }
+
                     None
                 })
                 .collect();
@@ -329,7 +335,7 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            // Third pass: move entities along their paths
+            // Third pass: move entities along their paths using physics
             for &entity in follower_entities.iter() {
                 let pathfinding_comp = match world.get_component::<PathfindingComponent>(entity) {
                     Some(comp) => comp,
@@ -341,7 +347,13 @@ async fn main() -> anyhow::Result<()> {
                     None => continue,
                 };
 
-                // Move along the current path
+                let rigidbody_comp =
+                    match world.get_component::<RigidBody<AABBCollisionBox>>(entity) {
+                        Some(comp) => comp,
+                        None => continue,
+                    };
+
+                // Move along the current path using physics
                 {
                     let pathfinding = pathfinding_comp.read().map_err(|e| {
                         SystemError::ComponentAccess(format!(
@@ -350,13 +362,19 @@ async fn main() -> anyhow::Result<()> {
                         ))
                     })?;
 
-                    let mut pos3 = pos3_comp.write().map_err(|e| {
-                        SystemError::ComponentAccess(format!("Failed to write Pos3: {}", e))
+                    let pos3 = pos3_comp.read().map_err(|e| {
+                        SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
+                    })?;
+
+                    let mut rigidbody = rigidbody_comp.write().map_err(|e| {
+                        SystemError::ComponentAccess(format!("Failed to write RigidBody: {}", e))
                     })?;
 
                     if let Some(waypoint) = pathfinding.current_waypoint() {
-                        // Calculate direction to waypoint
-                        let direction = waypoint - pos3.pos;
+                        // Calculate direction to waypoint (only horizontal movement for pathfinding)
+                        let mut direction = waypoint - pos3.pos;
+                        direction.y = 0.0; // Don't try to move vertically through pathfinding
+
                         info!(
                             "Entity at {:?} moving toward waypoint {:?}, distance: {:.2}",
                             pos3.pos,
@@ -365,13 +383,30 @@ async fn main() -> anyhow::Result<()> {
                         );
 
                         if direction.magnitude() > pathfinding.waypoint_threshold {
+                            // Apply horizontal acceleration toward target
                             let normalized_dir = direction.normalize();
-                            let movement = normalized_dir * pathfinding.speed * dt.as_secs_f32();
-                            pos3.pos += movement;
-                            info!("Moving by: {:?}, new position: {:?}", movement, pos3.pos);
+                            let target_acceleration = normalized_dir * pathfinding.speed * 8.0; // Multiply for stronger acceleration
+
+                            // Keep gravity (y-component of acceleration) and add horizontal movement
+                            rigidbody.acceleration.x = target_acceleration.x;
+                            rigidbody.acceleration.z = target_acceleration.z;
+                            // Leave rigidbody.acceleration.y unchanged (gravity)
+
+                            // Apply some damping to horizontal velocity to prevent overshooting
+                            rigidbody.velocity.x *= 0.85;
+                            rigidbody.velocity.z *= 0.85;
+
+                            info!("Applied acceleration: {:?}", target_acceleration);
                         } else {
                             // Reached waypoint, advance to next
                             info!("Reached waypoint, advancing to next");
+
+                            // Stop horizontal movement
+                            rigidbody.acceleration.x = 0.0;
+                            rigidbody.acceleration.z = 0.0;
+                            rigidbody.velocity.x *= 0.5; // Brake
+                            rigidbody.velocity.z *= 0.5; // Brake
+
                             drop(pathfinding); // Release read lock
                             let mut pathfinding_mut = pathfinding_comp.write().map_err(|e| {
                                 SystemError::ComponentAccess(format!(
@@ -382,6 +417,11 @@ async fn main() -> anyhow::Result<()> {
                             pathfinding_mut.advance_waypoint();
                         }
                     } else {
+                        // No waypoint, stop horizontal movement
+                        rigidbody.acceleration.x = 0.0;
+                        rigidbody.acceleration.z = 0.0;
+                        rigidbody.velocity.x *= 0.8; // Gradual stop
+                        rigidbody.velocity.z *= 0.8; // Gradual stop
                         info!("No waypoint available for entity");
                     }
                 }
