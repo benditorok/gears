@@ -16,6 +16,7 @@ pub use gears_ecs::{
             StaticModelMarker, TargetMarker,
         },
         models::ModelSource,
+        pathfinding::{AStar, PathfindingComponent, PathfindingFollower, PathfindingTarget},
         physics::{AABBCollisionBox, RigidBody},
         prefabs::Player,
         transforms::{Flip, Pos3, Scale},

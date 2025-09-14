@@ -57,3 +57,7 @@ path = "src/aim.rs"
 [[bin]]
 name = "fsm_character"
 path = "src/fsm_character.rs"
+
+[[bin]]
+name = "pathfinding"
+path = "src/pathfinding.rs"
