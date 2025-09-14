@@ -129,6 +129,13 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("Animated Helmet (right) - Procedural animations");
                 ui.label("Static Cube (top) - No animation");
                 ui.label("Reference Sphere (back) - Static object");
+
+                ui.separator();
+                ui.label("Controls:");
+                ui.label("WASD - Move player");
+                ui.label("Mouse - Look around");
+                ui.label("Space - Jump");
+                ui.label("Esc - Pause");
             });
     }));
 
