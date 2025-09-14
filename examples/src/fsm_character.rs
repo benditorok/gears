@@ -378,11 +378,10 @@ async fn main() -> anyhow::Result<()> {
 
     // Custom windows for FSM info
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
-    let mut w1_character_state = Arc::new(Mutex::new(CharacterState::Idle));
-    let mut w1_character_sub_state = Arc::new(Mutex::new(Option::None));
+    let w1_character_state = Arc::new(Mutex::new(CharacterState::Idle));
+    let w1_character_sub_state = Arc::new(Mutex::new(Option::None));
     let character_state = w1_character_state.clone();
     let character_sub_state = w1_character_sub_state.clone();
-
     app.add_window(Box::new(move |ui| {
         egui::Window::new("FSM Character Demo")
             .default_open(true)

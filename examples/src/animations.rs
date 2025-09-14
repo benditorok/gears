@@ -134,18 +134,19 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("Controls:");
                 ui.label("WASD - Move player");
                 ui.label("Mouse - Look around");
-                ui.label("Space - Jump");
+                ui.label("Space - Fly up");
+                ui.label("Shift - Fly down");
                 ui.label("Esc - Pause");
             });
     }));
 
+    // Update entity states
     // Use accumulated game time that respects pause state
-    let accumulated_time = Arc::new(Mutex::new(0.0f32));
-
+    let update_sys_accumulated_time = Arc::new(Mutex::new(0.0f32));
     let update_sys = systems::async_system("update", move |sa| {
         Box::pin({
             let w1_frame_tx = w1_frame_tx.clone();
-            let accumulated_time = accumulated_time.clone();
+            let accumulated_time = update_sys_accumulated_time.clone();
 
             async move {
                 let (world, dt) = match sa {
@@ -204,13 +205,12 @@ async fn main() -> anyhow::Result<()> {
         })
     });
 
-    // Track accumulated time for GLTF animations
-    let gltf_accumulated_time = Arc::new(Mutex::new(0.0f32));
-
     // Run gltf animations
+    // Track accumulated time for GLTF animations
+    let model_accumulated_time = Arc::new(Mutex::new(0.0f32));
     let model_animation_sys = systems::async_system("gltf_animations", move |sa| {
         Box::pin({
-            let gltf_accumulated_time = gltf_accumulated_time.clone();
+            let gltf_accumulated_time = model_accumulated_time.clone();
 
             async move {
                 let (world, dt) = match sa {
