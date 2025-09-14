@@ -6,6 +6,7 @@ use gears_macro::Component;
 use log::{LevelFilter, info};
 use std::f32::consts::PI;
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 // Custom state enum for character FSM
@@ -240,6 +241,44 @@ impl State<CharacterState> for AttackRetreatState {
     }
 }
 
+// Main attack state that contains sub-states
+#[derive(Debug)]
+struct AttackState;
+
+impl State<CharacterState> for AttackState {
+    fn on_enter(&mut self, context: &mut StateContext) {
+        context.set_float("attack_timer", 0.0);
+        context.set_bool("attacking", true);
+        info!("Character entered {} state", CharacterState::Attack);
+    }
+
+    fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
+        let timer = context.get_float("attack_timer").unwrap_or(0.0) + dt.as_secs_f32();
+        context.set_float("attack_timer", timer);
+    }
+
+    fn on_exit(&mut self, context: &mut StateContext) {
+        context.set_bool("attacking", false);
+        info!("Character exited {} state", CharacterState::Attack);
+    }
+
+    fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
+        let health = context.get_float("health").unwrap_or(100.0);
+        let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
+        let timer = context.get_float("attack_timer").unwrap_or(0.0);
+
+        if health < 30.0 {
+            Some(CharacterState::Escape)
+        } else if enemy_distance > 20.0 || timer > 8.0 {
+            Some(CharacterState::Idle)
+        } else if health < 60.0 && enemy_distance < 5.0 {
+            Some(CharacterState::Defend)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug)]
 struct DefendState;
 
@@ -339,9 +378,13 @@ async fn main() -> anyhow::Result<()> {
 
     // Custom windows for FSM info
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
+    let mut w1_character_state = Arc::new(Mutex::new(CharacterState::Idle));
+    let mut w1_character_sub_state = Arc::new(Mutex::new(Option::None));
     let character_entity_channel = std::sync::Arc::new(std::sync::Mutex::new(None));
     let character_entity_channel_clone = character_entity_channel.clone();
     let character_entity_ui = character_entity_channel.clone();
+    let character_state = w1_character_state.clone();
+    let character_sub_state = w1_character_sub_state.clone();
 
     app.add_window(Box::new(move |ui| {
         egui::Window::new("FSM Character Demo")
@@ -379,6 +422,13 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("- ESCAPE - Panicked, fleeing");
 
                 ui.separator();
+                ui.heading("Current State Information");
+                ui.label(format!("State: {:?}", character_state.lock().unwrap()));
+                if let Some(sub_state) = character_sub_state.lock().unwrap().as_ref() {
+                    ui.label(format!("Sub-State: {:?}", sub_state));
+                }
+
+                ui.separator();
                 ui.label("State transitions based on:");
                 ui.label("- Health level");
                 ui.label("- Distance to enemy (player)");
@@ -389,6 +439,7 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("WASD - Move player");
                 ui.label("Mouse - Look around");
                 ui.label("Space - Jump");
+                ui.label("Esc - Pause");
             });
     }));
 
@@ -442,51 +493,31 @@ async fn main() -> anyhow::Result<()> {
     // Character with FSM
     let mut character_fsm = FiniteStateMachine::<CharacterState>::new();
 
-    // Create hierarchical attack state with sub-states
-    let mut attack_state = HierarchicalState::<CharacterState>::new()
-        .with_enter_callback(|ctx| {
-            ctx.set_float("attack_timer", 0.0);
-            ctx.set_bool("attacking", true);
-            info!("Character entered {} state", CharacterState::Attack);
-        })
-        .with_exit_callback(|ctx| {
-            ctx.set_bool("attacking", false);
-            info!("Character exited {} state", CharacterState::Attack);
-        })
-        .with_update_callback(|ctx, dt| {
-            let timer = ctx.get_float("attack_timer").unwrap_or(0.0) + dt.as_secs_f32();
-            ctx.set_float("attack_timer", timer);
-        })
-        .with_transition_callback(|ctx| {
-            let health = ctx.get_float("health").unwrap_or(100.0);
-            let enemy_distance = ctx.get_float("enemy_distance").unwrap_or(100.0);
-            let timer = ctx.get_float("attack_timer").unwrap_or(0.0);
+    // Add main states to the FSM
+    character_fsm.add_state(CharacterState::Idle, Box::new(IdleState));
+    character_fsm.add_state(CharacterState::Attack, Box::new(AttackState));
+    character_fsm.add_state(CharacterState::Defend, Box::new(DefendState));
+    character_fsm.add_state(CharacterState::Escape, Box::new(EscapeState));
 
-            if health < 30.0 {
-                Some(CharacterState::Escape)
-            } else if enemy_distance > 20.0 || timer > 8.0 {
-                Some(CharacterState::Idle)
-            } else if health < 60.0 && enemy_distance < 5.0 {
-                Some(CharacterState::Defend)
-            } else {
-                None
-            }
-        });
-
-    // Add sub-states to attack
-    attack_state.add_sub_state(
+    // Add sub-states for Attack state
+    character_fsm.add_sub_state(
+        CharacterState::Attack,
         CharacterState::AttackApproach,
         Box::new(AttackApproachState),
     );
-    attack_state.add_sub_state(CharacterState::AttackStrike, Box::new(AttackStrikeState));
-    attack_state.add_sub_state(CharacterState::AttackRetreat, Box::new(AttackRetreatState));
-    attack_state.set_initial_sub_state(CharacterState::AttackApproach);
+    character_fsm.add_sub_state(
+        CharacterState::Attack,
+        CharacterState::AttackStrike,
+        Box::new(AttackStrikeState),
+    );
+    character_fsm.add_sub_state(
+        CharacterState::Attack,
+        CharacterState::AttackRetreat,
+        Box::new(AttackRetreatState),
+    );
 
-    // Add states to the FSM
-    character_fsm.add_state(CharacterState::Idle, Box::new(IdleState));
-    character_fsm.add_state(CharacterState::Attack, Box::new(attack_state));
-    character_fsm.add_state(CharacterState::Defend, Box::new(DefendState));
-    character_fsm.add_state(CharacterState::Escape, Box::new(EscapeState));
+    // Set initial sub-state for Attack
+    character_fsm.set_initial_sub_state(CharacterState::Attack, CharacterState::AttackApproach);
 
     // Set initial state
     character_fsm.set_initial_state(CharacterState::Idle);
@@ -539,6 +570,8 @@ async fn main() -> anyhow::Result<()> {
         Box::pin({
             let w1_frame_tx = w1_frame_tx.clone();
 
+            let fsm_debug_charater_state = w1_character_state.clone();
+            let fsm_debug_character_sub_state = w1_character_sub_state.clone();
             async move {
                 let (world, dt) = match sa {
                     SystemAccessors::External { world, dt } => (world, dt),
@@ -576,37 +609,28 @@ async fn main() -> anyhow::Result<()> {
                             // Update FSM
                             fsm.update(*dt);
 
-                            // // Debug: Log character state and position every 2 seconds
-                            // static mut LAST_LOG_TIME: f32 = 0.0;
-                            // unsafe {
-                            //     LAST_LOG_TIME += dt.as_secs_f32();
-                            //     if LAST_LOG_TIME > 2.0 {
-                            //         let current_state = fsm
-                            //             .current_state()
-                            //             .map(|s| s.as_str())
-                            //             .unwrap_or("unknown");
-                            //         let current_sub_state = fsm.current_sub_state();
-                            //         let sub_state_str = match current_sub_state {
-                            //             Some(sub) => format!(" > {}", sub.as_str()),
-                            //             None => String::new(),
-                            //         };
-                            //         info!(
-                            //             "Character: {}{}, position: {:?}, distance: {:.2}, health: {:.1}",
-                            //             current_state,
-                            //             sub_state_str,
-                            //             char_pos,
-                            //             distance,
-                            //             health.get_health()
-                            //         );
-                            //         LAST_LOG_TIME = 0.0;
-                            //     }
-                            // }
-
                             // Apply FSM-driven behavior
                             let speed = fsm.context().get_float("speed").unwrap_or(2.0);
                             let current_state = fsm.current_state().unwrap_or(CharacterState::Idle);
                             let current_sub_state = fsm.current_sub_state();
+                            // Update debug information in the information window
+                            {
+                                // Update main state for debugging
+                                let mut debug_character_state =
+                                    fsm_debug_charater_state.lock().unwrap();
+                                *debug_character_state = current_state;
 
+                                // Update sub state for debugging
+                                if let Some(sub_state) = current_sub_state {
+                                    let mut debug_sub_state =
+                                        fsm_debug_character_sub_state.lock().unwrap();
+                                    *debug_sub_state = Some(sub_state);
+                                } else {
+                                    let mut debug_sub_state =
+                                        fsm_debug_character_sub_state.lock().unwrap();
+                                    *debug_sub_state = None;
+                                }
+                            }
                             // Move character based on state
                             let mut pos_guard = character_pos3.write().unwrap();
                             match current_state {
