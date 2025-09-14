@@ -156,6 +156,7 @@ impl GearsApp {
             .with_title("Winit window")
             .with_transparent(true)
             .with_maximized(true)
+            .with_active(true)
             .with_window_icon(None);
 
         let window = event_loop.create_window(window_attributes)?;

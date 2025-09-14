@@ -483,32 +483,32 @@ impl AnimationStateMachine {
         }
 
         // Update current animation time
-        if let Some(current_state_name) = &self.current_state {
-            if let Some(current_state) = self.states.get(current_state_name) {
-                self.current_time += dt.as_secs_f32() * current_state.speed;
+        if let Some(current_state_name) = &self.current_state
+            && let Some(current_state) = self.states.get(current_state_name)
+        {
+            self.current_time += dt.as_secs_f32() * current_state.speed;
 
-                // Collect events from the current state
-                for event in &current_state.events {
-                    if event.time <= self.current_time {
-                        events.push(event.clone());
-                    }
+            // Collect events from the current state
+            for event in &current_state.events {
+                if event.time <= self.current_time {
+                    events.push(event.clone());
                 }
+            }
 
-                // Check for state transitions (only if not currently transitioning)
-                if self.transition_progress >= 1.0 {
-                    if let Some(transition) = current_state.find_transition(
-                        self.current_time,
-                        self.current_playback_state,
-                        &self.parameters,
-                        &self.triggered_events,
-                    ) {
-                        // Clone the transition data to avoid borrowing issues
-                        let target_state = transition.target_state.clone();
-                        let transition_duration = transition.transition_duration;
+            // Check for state transitions (only if not currently transitioning)
+            if self.transition_progress >= 1.0
+                && let Some(transition) = current_state.find_transition(
+                    self.current_time,
+                    self.current_playback_state,
+                    &self.parameters,
+                    &self.triggered_events,
+                )
+            {
+                // Clone the transition data to avoid borrowing issues
+                let target_state = transition.target_state.clone();
+                let transition_duration = transition.transition_duration;
 
-                        let _ = self.transition_to(&target_state, Some(transition_duration));
-                    }
-                }
+                let _ = self.transition_to(&target_state, Some(transition_duration));
             }
         }
 
