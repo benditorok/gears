@@ -125,7 +125,7 @@ pub enum StateData {
     Int(i32),
     Bool(bool),
     String(String),
-    Vector3([f32; 3]),
+    Vector3(cgmath::Vector3<f32>),
 }
 
 impl StateContext {
@@ -160,11 +160,11 @@ impl StateContext {
         }
     }
 
-    pub fn set_vector3(&mut self, key: &str, value: [f32; 3]) {
+    pub fn set_vector3(&mut self, key: &str, value: cgmath::Vector3<f32>) {
         self.data.insert(key.to_string(), StateData::Vector3(value));
     }
 
-    pub fn get_vector3(&self, key: &str) -> Option<[f32; 3]> {
+    pub fn get_vector3(&self, key: &str) -> Option<cgmath::Vector3<f32>> {
         match self.data.get(key) {
             Some(StateData::Vector3(value)) => Some(*value),
             _ => None,

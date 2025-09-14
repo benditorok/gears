@@ -48,7 +48,7 @@ impl State for IdleState {
         context.set_float("idle_timer", timer);
 
         // Update character color to blue (calm)
-        context.set_vector3("color", [0.2, 0.2, 0.8]);
+        context.set_vector3("color", [0.2, 0.2, 0.8].into());
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
@@ -87,7 +87,7 @@ impl State for AttackApproachState {
         context.set_float("approach_timer", timer);
 
         // Update character color to orange (approaching)
-        context.set_vector3("color", [0.8, 0.4, 0.1]);
+        context.set_vector3("color", [0.8, 0.4, 0.1].into());
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
@@ -117,7 +117,7 @@ impl State for AttackStrikeState {
         context.set_float("strike_timer", timer);
 
         // Update character color to bright red (striking)
-        context.set_vector3("color", [1.0, 0.1, 0.1]);
+        context.set_vector3("color", [1.0, 0.1, 0.1].into());
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
@@ -146,7 +146,7 @@ impl State for AttackRetreatState {
         context.set_float("retreat_timer", timer);
 
         // Update character color to dark red (retreating)
-        context.set_vector3("color", [0.6, 0.2, 0.2]);
+        context.set_vector3("color", [0.6, 0.2, 0.2].into());
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
@@ -177,7 +177,7 @@ impl State for DefendState {
         context.set_float("defend_timer", timer);
 
         // Update character color to yellow (defensive)
-        context.set_vector3("color", [0.8, 0.8, 0.2]);
+        context.set_vector3("color", [0.8, 0.8, 0.2].into());
     }
 
     fn on_exit(&mut self, context: &mut StateContext) {
@@ -218,7 +218,7 @@ impl State for EscapeState {
         context.set_float("escape_timer", timer);
 
         // Update character color to purple (panicked)
-        context.set_vector3("color", [0.8, 0.2, 0.8]);
+        context.set_vector3("color", [0.8, 0.2, 0.8].into());
     }
 
     fn on_exit(&mut self, context: &mut StateContext) {
@@ -293,9 +293,9 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("Character States:");
                 ui.label("- IDLE - Calm, wandering");
                 ui.label("- ATTACK - Aggressive, pursuing");
-                ui.label("  ├ APPROACH - Moving towards target");
-                ui.label("  ├ STRIKE - Attacking target");
-                ui.label("  └ RETREAT - Backing away");
+                ui.label("  - APPROACH - Moving towards target");
+                ui.label("  - STRIKE - Attacking target");
+                ui.label("  - RETREAT - Backing away");
                 ui.label("- DEFEND - Defensive, blocking");
                 ui.label("- ESCAPE - Panicked, fleeing");
 
@@ -417,7 +417,7 @@ async fn main() -> anyhow::Result<()> {
         .set_float("enemy_distance", 100.0);
     character_fsm
         .context_mut()
-        .set_vector3("color", [0.2, 0.2, 0.8]);
+        .set_vector3("color", [0.2, 0.2, 0.8].into());
 
     let character = new_entity!(
         app,
