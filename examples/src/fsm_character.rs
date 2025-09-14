@@ -8,24 +8,92 @@ use std::f32::consts::PI;
 use std::sync::mpsc;
 use std::time::Duration;
 
-const IDLE: StateId = StateId::Idle;
-const ATTACK: StateId = StateId::Attack;
-const DEFEND: StateId = StateId::Defend;
-const ESCAPE: StateId = StateId::Escape;
+// Custom state enum for character FSM
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CharacterState {
+    // Main states
+    Idle,
+    Attack,
+    Defend,
+    Escape,
 
-// Sub-states for each main state
-const IDLE_WANDER: StateId = StateId::IdleWander;
-const IDLE_WATCH: StateId = StateId::IdleWatch;
+    // Sub-states for each main state
+    IdleWander,
+    IdleWatch,
 
-const ATTACK_APPROACH: StateId = StateId::AttackApproach;
-const ATTACK_STRIKE: StateId = StateId::AttackStrike;
-const ATTACK_RETREAT: StateId = StateId::AttackRetreat;
+    AttackApproach,
+    AttackStrike,
+    AttackRetreat,
 
-const DEFEND_BLOCK: StateId = StateId::DefendBlock;
-const DEFEND_COUNTER: StateId = StateId::DefendCounter;
+    DefendBlock,
+    DefendCounter,
 
-const ESCAPE_FLEE: StateId = StateId::EscapeFlee;
-const ESCAPE_HIDE: StateId = StateId::EscapeHide;
+    EscapeFlee,
+    EscapeHide,
+}
+
+impl StateIdentifier for CharacterState {
+    fn as_str(&self) -> &'static str {
+        match self {
+            CharacterState::Idle => "idle",
+            CharacterState::Attack => "attack",
+            CharacterState::Defend => "defend",
+            CharacterState::Escape => "escape",
+            CharacterState::IdleWander => "idle_wander",
+            CharacterState::IdleWatch => "idle_watch",
+            CharacterState::AttackApproach => "attack_approach",
+            CharacterState::AttackStrike => "attack_strike",
+            CharacterState::AttackRetreat => "attack_retreat",
+            CharacterState::DefendBlock => "defend_block",
+            CharacterState::DefendCounter => "defend_counter",
+            CharacterState::EscapeFlee => "escape_flee",
+            CharacterState::EscapeHide => "escape_hide",
+        }
+    }
+}
+
+impl std::fmt::Display for CharacterState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl CharacterState {
+    /// Check if this state is a main state (not a sub-state)
+    pub fn is_main_state(&self) -> bool {
+        matches!(
+            self,
+            CharacterState::Idle
+                | CharacterState::Attack
+                | CharacterState::Defend
+                | CharacterState::Escape
+        )
+    }
+
+    /// Check if this state is a sub-state of the given parent
+    pub fn is_sub_state_of(&self, parent: CharacterState) -> bool {
+        match parent {
+            CharacterState::Idle => {
+                matches!(self, CharacterState::IdleWander | CharacterState::IdleWatch)
+            }
+            CharacterState::Attack => matches!(
+                self,
+                CharacterState::AttackApproach
+                    | CharacterState::AttackStrike
+                    | CharacterState::AttackRetreat
+            ),
+            CharacterState::Defend => matches!(
+                self,
+                CharacterState::DefendBlock | CharacterState::DefendCounter
+            ),
+            CharacterState::Escape => matches!(
+                self,
+                CharacterState::EscapeFlee | CharacterState::EscapeHide
+            ),
+            _ => false,
+        }
+    }
+}
 
 // Character marker for entities with FSM
 #[derive(Component, Debug, Clone, Copy)]
@@ -35,11 +103,11 @@ pub struct CharacterMarker;
 #[derive(Debug)]
 struct IdleState;
 
-impl State for IdleState {
+impl State<CharacterState> for IdleState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("idle_timer", 0.0);
         context.set_float("speed", 2.0);
-        info!("Character entered {} state", StateId::Idle);
+        info!("Character entered {} state", CharacterState::Idle);
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -50,17 +118,17 @@ impl State for IdleState {
         context.set_vector3("color", [0.2, 0.2, 0.8].into());
     }
 
-    fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
+    fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let health = context.get_float("health").unwrap_or(100.0);
         let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
         let timer = context.get_float("idle_timer").unwrap_or(0.0);
 
         if health < 30.0 {
-            Some(ESCAPE)
+            Some(CharacterState::Escape)
         } else if enemy_distance < 15.0 && health > 60.0 {
-            Some(ATTACK)
+            Some(CharacterState::Attack)
         } else if enemy_distance < 8.0 && health <= 60.0 {
-            Some(DEFEND)
+            Some(CharacterState::Defend)
         } else if timer > 5.0 {
             // Return to wandering after being idle for too long
             None // Stay in idle but could transition to sub-states
@@ -74,14 +142,14 @@ impl State for IdleState {
 #[derive(Debug)]
 struct AttackApproachState;
 
-impl State for AttackApproachState {
+impl State<CharacterState> for AttackApproachState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("approach_timer", 0.0);
         context.set_float("speed", 6.0);
         info!(
             "Character entered {} > {} sub-state",
-            StateId::Attack,
-            StateId::AttackApproach
+            CharacterState::Attack,
+            CharacterState::AttackApproach
         );
     }
 
@@ -93,12 +161,12 @@ impl State for AttackApproachState {
         context.set_vector3("color", [0.8, 0.4, 0.1].into());
     }
 
-    fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
+    fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
         let timer = context.get_float("approach_timer").unwrap_or(0.0);
 
         if enemy_distance < 3.0 || timer > 2.0 {
-            Some(ATTACK_STRIKE)
+            Some(CharacterState::AttackStrike)
         } else {
             None
         }
@@ -108,14 +176,14 @@ impl State for AttackApproachState {
 #[derive(Debug)]
 struct AttackStrikeState;
 
-impl State for AttackStrikeState {
+impl State<CharacterState> for AttackStrikeState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("strike_timer", 0.0);
         context.set_float("speed", 2.0);
         info!(
             "Character entered {} > {} sub-state",
-            StateId::Attack,
-            StateId::AttackStrike
+            CharacterState::Attack,
+            CharacterState::AttackStrike
         );
     }
 
@@ -127,11 +195,11 @@ impl State for AttackStrikeState {
         context.set_vector3("color", [1.0, 0.1, 0.1].into());
     }
 
-    fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
+    fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let timer = context.get_float("strike_timer").unwrap_or(0.0);
 
         if timer > 1.0 {
-            Some(ATTACK_RETREAT)
+            Some(CharacterState::AttackRetreat)
         } else {
             None
         }
@@ -141,14 +209,14 @@ impl State for AttackStrikeState {
 #[derive(Debug)]
 struct AttackRetreatState;
 
-impl State for AttackRetreatState {
+impl State<CharacterState> for AttackRetreatState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("retreat_timer", 0.0);
         context.set_float("speed", 4.0);
         info!(
             "Character entered {} > {} sub-state",
-            StateId::Attack,
-            StateId::AttackRetreat
+            CharacterState::Attack,
+            CharacterState::AttackRetreat
         );
     }
 
@@ -160,12 +228,12 @@ impl State for AttackRetreatState {
         context.set_vector3("color", [0.6, 0.2, 0.2].into());
     }
 
-    fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
+    fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let timer = context.get_float("retreat_timer").unwrap_or(0.0);
         let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
 
         if timer > 1.5 && enemy_distance > 5.0 {
-            Some(ATTACK_APPROACH)
+            Some(CharacterState::AttackApproach)
         } else {
             None
         }
@@ -175,12 +243,12 @@ impl State for AttackRetreatState {
 #[derive(Debug)]
 struct DefendState;
 
-impl State for DefendState {
+impl State<CharacterState> for DefendState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("defend_timer", 0.0);
         context.set_float("speed", 1.0);
         context.set_bool("defending", true);
-        info!("Character entered {} state", StateId::Defend);
+        info!("Character entered {} state", CharacterState::Defend);
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -193,20 +261,20 @@ impl State for DefendState {
 
     fn on_exit(&mut self, context: &mut StateContext) {
         context.set_bool("defending", false);
-        info!("Character exited {} state", StateId::Defend);
+        info!("Character exited {} state", CharacterState::Defend);
     }
 
-    fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
+    fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let health = context.get_float("health").unwrap_or(100.0);
         let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
         let timer = context.get_float("defend_timer").unwrap_or(0.0);
 
         if health < 30.0 {
-            Some(ESCAPE)
+            Some(CharacterState::Escape)
         } else if health > 80.0 && enemy_distance < 10.0 {
-            Some(ATTACK)
+            Some(CharacterState::Attack)
         } else if enemy_distance > 15.0 || timer > 4.0 {
-            Some(IDLE)
+            Some(CharacterState::Idle)
         } else {
             None
         }
@@ -216,12 +284,12 @@ impl State for DefendState {
 #[derive(Debug)]
 struct EscapeState;
 
-impl State for EscapeState {
+impl State<CharacterState> for EscapeState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("escape_timer", 0.0);
         context.set_float("speed", 12.0);
         context.set_bool("escaping", true);
-        info!("Character entered {} state", StateId::Escape);
+        info!("Character entered {} state", CharacterState::Escape);
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -234,18 +302,18 @@ impl State for EscapeState {
 
     fn on_exit(&mut self, context: &mut StateContext) {
         context.set_bool("escaping", false);
-        info!("Character exited {} state", StateId::Escape);
+        info!("Character exited {} state", CharacterState::Escape);
     }
 
-    fn check_transitions(&self, context: &StateContext) -> Option<StateId> {
+    fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let health = context.get_float("health").unwrap_or(100.0);
         let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
         let timer = context.get_float("escape_timer").unwrap_or(0.0);
 
         if health > 60.0 && enemy_distance > 25.0 {
-            Some(IDLE)
+            Some(CharacterState::Idle)
         } else if health > 40.0 && enemy_distance > 15.0 && timer > 2.0 {
-            Some(DEFEND)
+            Some(CharacterState::Defend)
         } else {
             None
         }
@@ -372,18 +440,18 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Character with FSM
-    let mut character_fsm = FiniteStateMachine::new();
+    let mut character_fsm = FiniteStateMachine::<CharacterState>::new();
 
     // Create hierarchical attack state with sub-states
-    let mut attack_state = HierarchicalState::new()
+    let mut attack_state = HierarchicalState::<CharacterState>::new()
         .with_enter_callback(|ctx| {
             ctx.set_float("attack_timer", 0.0);
             ctx.set_bool("attacking", true);
-            info!("Character entered {} state", StateId::Attack);
+            info!("Character entered {} state", CharacterState::Attack);
         })
         .with_exit_callback(|ctx| {
             ctx.set_bool("attacking", false);
-            info!("Character exited {} state", StateId::Attack);
+            info!("Character exited {} state", CharacterState::Attack);
         })
         .with_update_callback(|ctx, dt| {
             let timer = ctx.get_float("attack_timer").unwrap_or(0.0) + dt.as_secs_f32();
@@ -395,30 +463,33 @@ async fn main() -> anyhow::Result<()> {
             let timer = ctx.get_float("attack_timer").unwrap_or(0.0);
 
             if health < 30.0 {
-                Some(ESCAPE)
+                Some(CharacterState::Escape)
             } else if enemy_distance > 20.0 || timer > 8.0 {
-                Some(IDLE)
+                Some(CharacterState::Idle)
             } else if health < 60.0 && enemy_distance < 5.0 {
-                Some(DEFEND)
+                Some(CharacterState::Defend)
             } else {
                 None
             }
         });
 
     // Add sub-states to attack
-    attack_state.add_sub_state(ATTACK_APPROACH, Box::new(AttackApproachState));
-    attack_state.add_sub_state(ATTACK_STRIKE, Box::new(AttackStrikeState));
-    attack_state.add_sub_state(ATTACK_RETREAT, Box::new(AttackRetreatState));
-    attack_state.set_initial_sub_state(ATTACK_APPROACH);
+    attack_state.add_sub_state(
+        CharacterState::AttackApproach,
+        Box::new(AttackApproachState),
+    );
+    attack_state.add_sub_state(CharacterState::AttackStrike, Box::new(AttackStrikeState));
+    attack_state.add_sub_state(CharacterState::AttackRetreat, Box::new(AttackRetreatState));
+    attack_state.set_initial_sub_state(CharacterState::AttackApproach);
 
     // Add states to the FSM
-    character_fsm.add_state(IDLE, Box::new(IdleState));
-    character_fsm.add_state(ATTACK, Box::new(attack_state));
-    character_fsm.add_state(DEFEND, Box::new(DefendState));
-    character_fsm.add_state(ESCAPE, Box::new(EscapeState));
+    character_fsm.add_state(CharacterState::Idle, Box::new(IdleState));
+    character_fsm.add_state(CharacterState::Attack, Box::new(attack_state));
+    character_fsm.add_state(CharacterState::Defend, Box::new(DefendState));
+    character_fsm.add_state(CharacterState::Escape, Box::new(EscapeState));
 
     // Set initial state
-    character_fsm.set_initial_state(IDLE);
+    character_fsm.set_initial_state(CharacterState::Idle);
 
     // Initialize character context
     character_fsm.context_mut().set_float("health", 100.0);
@@ -488,7 +559,7 @@ async fn main() -> anyhow::Result<()> {
                 // Update character FSM
                 if let Some(character_pos3) = world.get_component::<Pos3>(character) {
                     if let Some(character_fsm) =
-                        world.get_component::<FiniteStateMachine>(character)
+                        world.get_component::<FiniteStateMachine<CharacterState>>(character)
                     {
                         if let Some(character_health) = world.get_component::<Health>(character) {
                             let char_pos = character_pos3.read().unwrap().pos;
@@ -533,29 +604,29 @@ async fn main() -> anyhow::Result<()> {
 
                             // Apply FSM-driven behavior
                             let speed = fsm.context().get_float("speed").unwrap_or(2.0);
-                            let current_state = fsm.current_state().unwrap_or(StateId::Idle);
+                            let current_state = fsm.current_state().unwrap_or(CharacterState::Idle);
                             let current_sub_state = fsm.current_sub_state();
 
                             // Move character based on state
                             let mut pos_guard = character_pos3.write().unwrap();
                             match current_state {
-                                ATTACK => {
+                                CharacterState::Attack => {
                                     // Different movement based on sub-state
                                     match current_sub_state {
-                                        Some(StateId::AttackApproach) => {
+                                        Some(CharacterState::AttackApproach) => {
                                             // Move towards player
                                             let direction =
                                                 (player_pos - pos_guard.pos).normalize();
                                             pos_guard.pos += direction * speed * dt.as_secs_f32();
                                         }
-                                        Some(StateId::AttackStrike) => {
+                                        Some(CharacterState::AttackStrike) => {
                                             // Stay close and strike (minimal movement)
                                             let direction =
                                                 (player_pos - pos_guard.pos).normalize();
                                             pos_guard.pos +=
                                                 direction * speed * 0.2 * dt.as_secs_f32();
                                         }
-                                        Some(StateId::AttackRetreat) => {
+                                        Some(CharacterState::AttackRetreat) => {
                                             // Move away briefly
                                             let direction =
                                                 (pos_guard.pos - player_pos).normalize();
@@ -570,19 +641,19 @@ async fn main() -> anyhow::Result<()> {
                                         }
                                     }
                                 }
-                                ESCAPE => {
+                                CharacterState::Escape => {
                                     // Move away from player
                                     let direction = (pos_guard.pos - player_pos).normalize();
                                     pos_guard.pos += direction * speed * dt.as_secs_f32();
                                 }
-                                DEFEND => {
+                                CharacterState::Defend => {
                                     // Maintain distance, slight backing away
                                     if distance < 8.0 {
                                         let direction = (pos_guard.pos - player_pos).normalize();
                                         pos_guard.pos += direction * speed * 0.5 * dt.as_secs_f32();
                                     }
                                 }
-                                IDLE => {
+                                CharacterState::Idle => {
                                     // Random wandering (simplified)
                                     let wander_time = fsm.context().time_in_state.as_secs_f32();
                                     let wander_x = (wander_time * 0.7).sin() * 0.5;
