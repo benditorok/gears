@@ -12,8 +12,8 @@ pub use gears_ecs::{
         interactive::Weapon,
         lights::Light,
         misc::{
-            AnimationQueue, CameraMarker, Health, LightMarker, Name, PlayerMarker, RigidBodyMarker,
-            StaticModelMarker, TargetMarker,
+            AnimationQueue, CameraMarker, EnemyMarker, Health, LightMarker, Name, ObstacleMarker,
+            PlayerMarker, RigidBodyMarker, StaticModelMarker, TargetMarker,
         },
         models::ModelSource,
         pathfinding::{AStar, PathfindingComponent, PathfindingFollower, PathfindingTarget},

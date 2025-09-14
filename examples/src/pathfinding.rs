@@ -6,10 +6,6 @@ use gears_macro::Component;
 use log::{LevelFilter, info};
 use std::sync::mpsc;
 
-// Simple enemy marker for entities that track the player
-#[derive(Component, Debug, Clone, Copy)]
-pub struct EnemyMarker;
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     std::panic::set_hook(Box::new(|info| {
@@ -119,6 +115,7 @@ async fn main() -> anyhow::Result<()> {
         new_entity!(
             app,
             RigidBodyMarker,
+            ObstacleMarker,
             Name(name),
             Pos3::new(pos),
             RigidBody::new_static(AABBCollisionBox {
@@ -156,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
             RigidBody::new(
                 1.5,                                   // Mass of the enemy
                 cgmath::Vector3::new(0.0, 0.0, 0.0),   // Initial velocity
-                cgmath::Vector3::new(0.0, -28.0, 0.0), // Initial acceleration (gravity)
+                cgmath::Vector3::new(0.0, -10.0, 0.0), // Initial acceleration (gravity)
                 AABBCollisionBox {
                     min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                     max: cgmath::Vector3::new(1.0, 1.0, 1.0),
@@ -197,33 +194,10 @@ async fn main() -> anyhow::Result<()> {
             };
 
             // Pre-collect obstacle data once (performance optimization)
-            let rigid_body_entities =
-                world.get_entities_with_component::<RigidBody<AABBCollisionBox>>();
+            let rigid_body_entities = world.get_entities_with_component::<ObstacleMarker>();
             let obstacles: Vec<(cgmath::Vector3<f32>, AABBCollisionBox)> = rigid_body_entities
                 .iter()
                 .filter_map(|&rb_entity| {
-                    // Skip player entities (they're not obstacles)
-                    if player_entities.contains(&rb_entity) {
-                        return None;
-                    }
-
-                    // Skip pathfinding followers
-                    if world
-                        .get_component::<PathfindingFollower>(rb_entity)
-                        .is_some()
-                    {
-                        return None;
-                    }
-
-                    // Skip ground plane (it's not an obstacle for pathfinding)
-                    if let Some(name_comp) = world.get_component::<Name>(rb_entity)
-                        && let Ok(name_guard) = name_comp.read()
-                    {
-                        if name_guard.0.contains("Ground") {
-                            return None;
-                        }
-                    }
-
                     let pos_opt = world.get_component::<Pos3>(rb_entity);
                     let rb_opt = world.get_component::<RigidBody<AABBCollisionBox>>(rb_entity);
 
@@ -237,10 +211,7 @@ async fn main() -> anyhow::Result<()> {
                 })
                 .collect();
 
-            info!(
-                "Found {} obstacles for pathfinding (excluding ground and player)",
-                obstacles.len()
-            );
+            info!("Found {} obstacles for pathfinding", obstacles.len());
 
             // Update all pathfinding followers
             let follower_entities = world.get_entities_with_component::<PathfindingFollower>();
