@@ -2,6 +2,7 @@ use super::{SystemAccessors, SystemError, SystemResult};
 
 use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::components::{self, lights::Light};
+use gears_renderer::light::LightUniform;
 use gears_renderer::{BufferComponent, animation, instance, light, model};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -31,30 +32,20 @@ pub(super) async fn update_lights<'a>(sa: &'a SystemAccessors<'a>) -> SystemResu
                         entity
                     ))
                 })?;
-            let light_uniform = world
-                .get_component::<light::LightUniform>(entity)
-                .ok_or_else(|| {
-                    SystemError::MissingComponent(format!(
-                        "LightUniform component missing for entity {:?}",
-                        entity
-                    ))
-                })?;
 
-            // Update the light
-            {
-                let rlock_pos = pos.read().map_err(|e| {
-                    SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
-                })?;
-                let mut wlock_light_uniform = light_uniform.write().map_err(|e| {
-                    SystemError::ComponentAccess(format!("Failed to write LightUniform: {}", e))
-                })?;
-                wlock_light_uniform.position = [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z];
-            }
-
-            let light_value = light_uniform.read().map_err(|e| {
-                SystemError::ComponentAccess(format!("Failed to read LightUniform: {}", e))
+            let light = world.get_component::<Light>(entity).ok_or_else(|| {
+                SystemError::MissingComponent(format!(
+                    "Light component missing for entity {:?}",
+                    entity
+                ))
             })?;
-            Ok(*light_value)
+
+            let pos = pos.read().unwrap();
+            let light = light.read().unwrap();
+
+            let light_uniform = LightUniform::from_components(&light, &pos);
+
+            Ok(light_uniform)
         })
         .collect::<Result<Vec<light::LightUniform>, SystemError>>()?;
 

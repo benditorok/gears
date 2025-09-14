@@ -576,7 +576,7 @@ async fn main() -> anyhow::Result<()> {
         LightMarker,
         Light::PointColoured {
             radius: 10.0,
-            intensity: 2.0,
+            intensity: 6.0,
             color: [0.2, 0.2, 0.8],
         },
     );

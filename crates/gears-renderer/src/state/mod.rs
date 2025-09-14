@@ -331,7 +331,6 @@ impl<'a> State<'a> {
         }
 
         init::targets(self);
-        init::lights(self);
         init::models(
             &self.device,
             &self.queue,
