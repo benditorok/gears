@@ -1,4 +1,4 @@
-cargo-features = ["profile-rustflags", "trim-paths"]
+# cargo-features = ["profile-rustflags", "trim-paths"] # requires the nightly compiler
 
 [workspace]
 resolver = "2"
@@ -14,17 +14,17 @@ members = [
 
 [workspace.package]
 version = "0.1.0"
-edition = "2024"
 description = "The gears game engine"
 homepage = ""
 repository = "https://github.com/benditorok/gears"
 keywords = ["game engine"]
 license = ""
 authors = ["benditorok"]
+edition = "2024"
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
-rustflags = ["-Zthreads=8"] # Better compile performance.
+# rustflags = ["-Zthreads=8"] # Better compile performance. # requires the nightly compiler
 
 [profile.release]
 codegen-units = 1 # Allows LLVM to perform better optimization.
@@ -32,8 +32,8 @@ lto = true # Enables link-time-optimizations.
 opt-level = "s" # Prioritizes small binary size. Use `3` if you prefer speed.
 panic = "abort" # Higher performance by disabling panic handlers.
 strip = true # Ensures debug symbols are removed.
-trim-paths = "all" # Removes potentially privileged information from your binaries.
-rustflags = ["-Cdebuginfo=0", "-Zthreads=8"] # Better compile performance.
+# trim-paths = "all" # Removes potentially privileged information from your binaries. # requires the nightly compiler
+# rustflags = ["-Cdebuginfo=0", "-Zthreads=8"] # Better compile performance. # requires the nightly compiler
 
 # For memory allocation tracking
 # [profile.release]
