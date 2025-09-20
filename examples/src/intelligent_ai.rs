@@ -841,7 +841,7 @@ async fn main() -> anyhow::Result<()> {
                 };
 
                 // Build pathfinding grid from collected obstacles (excluding this entity)
-                let mut astar = AStar::new(2.0);
+                let mut astar = AStar::new(2.0, ..Default::default());
                 astar.build_grid_from_entities(obstacles.iter().map(|(pos, cb)| (pos, cb)));
 
                 if let Some(path) = astar.find_path(current_pos, target_pos) {

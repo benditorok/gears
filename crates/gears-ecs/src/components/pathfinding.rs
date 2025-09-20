@@ -1,38 +1,8 @@
-//! # Pathfinding Components and A* Algorithm Implementation
+//! # Pathfinding Components
 //!
-//! This module provides A* pathfinding capabilities that integrate with the ECS collision system.
+//! This module provides pathfinding capabilities that integrate with the collision system.
 //! It includes components for pathfinding behavior and a grid-based A* implementation that
 //! considers collision boxes from entities in the world.
-//!
-//! ## Features
-//!
-//! - **Grid-based A* Algorithm**: Efficient pathfinding with configurable grid resolution
-//! - **Collision Awareness**: Considers collision boxes from entities when building the grid
-//! - **ECS Integration**: Components that work seamlessly with the existing ECS architecture
-//! - **Target Following**: Automatic path recalculation when targets move
-//! - **Movement Integration**: Smooth movement along calculated paths
-//!
-//! ## Example Usage
-//!
-//! ```rust
-//! use gears_ecs::components::pathfinding::*;
-//!
-//! // Create a pathfinding component
-//! let pathfinder = PathfindingComponent::new(
-//!     cgmath::Vector3::new(10.0, 0.0, 10.0), // target position
-//!     2.0,  // movement speed
-//!     0.5   // grid cell size
-//! );
-//!
-//! // Add to an entity
-//! new_entity!(
-//!     app,
-//!     Name("Enemy"),
-//!     Pos3::default(),
-//!     pathfinder,
-//!     EnemyMarker,
-//! );
-//! ```
 
 use crate::Component;
 use crate::components::physics::AABBCollisionBox;
@@ -40,6 +10,18 @@ use cgmath::InnerSpace;
 use gears_macro::Component;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
+
+/// Distance heuristic used for pathfinding
+///
+/// Determines the heuristic used to estimate the distance between two grid positions.
+/// Default is Manhattan distance.
+#[derive(Debug, Copy, Clone, Default)]
+pub enum DistanceHeuristic {
+    #[default]
+    Manhattan,
+    Euclidean,
+    Chebyshev,
+}
 
 /// Grid position used for A* pathfinding
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -63,6 +45,20 @@ impl GridPos {
         }
     }
 
+    pub fn distance(from: GridPos, to: GridPos, heuristic: DistanceHeuristic) -> f32 {
+        match heuristic {
+            DistanceHeuristic::Manhattan => {
+                (to.x - from.x).abs() as f32 + (to.y - from.y).abs() as f32
+            }
+            DistanceHeuristic::Euclidean => {
+                (to.x - from.x).pow(2) as f32 + (to.y - from.y).pow(2) as f32
+            }
+            DistanceHeuristic::Chebyshev => {
+                ((to.x - from.x).abs() as f32).max((to.y - from.y).abs() as f32)
+            }
+        }
+    }
+
     /// Convert grid position to world position
     pub fn to_world_pos(self, cell_size: f32) -> cgmath::Vector3<f32> {
         cgmath::Vector3::new(
@@ -70,11 +66,6 @@ impl GridPos {
             self.y as f32 * cell_size,
             self.z as f32 * cell_size,
         )
-    }
-
-    /// Calculate Manhattan distance between two grid positions
-    pub fn manhattan_distance(self, other: GridPos) -> i32 {
-        (self.x - other.x).abs() + (self.y - other.y).abs() + (self.z - other.z).abs()
     }
 
     /// Get all 26 neighbors in 3D space (including diagonals)
@@ -156,7 +147,7 @@ impl Ord for AStarNode {
 }
 
 /// Pathfinding grid that tracks obstacles based on entity collision boxes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PathfindingGrid {
     obstacles: HashSet<GridPos>,
     cell_size: f32,
@@ -229,12 +220,14 @@ impl PathfindingGrid {
 /// A* pathfinding algorithm implementation
 pub struct AStar {
     grid: PathfindingGrid,
+    distance_heuristic: DistanceHeuristic,
 }
 
 impl AStar {
-    pub fn new(cell_size: f32) -> Self {
+    pub fn new(cell_size: f32, distance_heuristic: DistanceHeuristic) -> Self {
         Self {
             grid: PathfindingGrid::new(cell_size),
+            distance_heuristic,
         }
     }
 
@@ -319,12 +312,12 @@ impl AStar {
 
     /// Heuristic function for A* (Manhattan distance)
     fn heuristic(&self, from: GridPos, to: GridPos) -> f32 {
-        from.manhattan_distance(to) as f32
+        GridPos::distance(from, to, self.distance_heuristic)
     }
 
     /// Calculate movement cost between two adjacent grid positions
     fn get_movement_cost(&self, _from: GridPos, _to: GridPos) -> f32 {
-        // Basic movement cost - can be extended for different terrain types
+        // Basic movement cost - could be extended for different terrain types
         1.0
     }
 
