@@ -402,11 +402,11 @@ impl<'a> State<'a> {
             let is_running = self.is_state_paused.load(Ordering::Relaxed);
             self.is_state_paused.store(!is_running, Ordering::Relaxed);
 
-            if is_running {
-                self.grab_cursor();
-            } else {
-                self.release_cursor();
-            }
+            // if is_running {
+            //     self.grab_cursor();
+            // } else {
+            //     self.release_cursor();
+            // }
 
             return true;
         }
