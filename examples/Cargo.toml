@@ -30,21 +30,21 @@ egui-winit = { workspace = true }
 [profile.release]
 debug = true
 
-# [[example]]
-# name = "minimal"
-# path = "src/minimal.rs"
+[[example]]
+name = "minimal"
+path = "src/minimal.rs"
 
-# [[example]]
-# name = "sandbox"
-# path = "src/sandbox.rs"
+[[example]]
+name = "sandbox"
+path = "src/sandbox.rs"
 
-# [[example]]
-# name = "custom_window"
-# path = "src/custom_window.rs"
+[[example]]
+name = "custom_window"
+path = "src/custom_window.rs"
 
-# [[example]]
-# name = "physics"
-# path = "src/physics.rs"
+[[example]]
+name = "physics"
+path = "src/physics.rs"
 
 [[example]]
 name = "animations"

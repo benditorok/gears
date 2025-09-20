@@ -2,7 +2,7 @@ use cgmath::{Euler, Quaternion, Rad, Rotation3};
 use egui::Align2;
 use gears_app::prelude::*;
 use log::LevelFilter;
-use std::sync::mpsc;
+use std::sync::{Arc, Mutex, mpsc};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -55,12 +55,12 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     // Add a sphere and get the Entity for reference
-    let sphere_entity = new_entity!(
+    let sphere = new_entity!(
         app,
         StaticModelMarker,
         Name("Sphere1"),
         ModelSource::Obj("models/sphere/sphere.obj"),
-        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        Pos3::default(),
     );
 
     // ! Custom windows
@@ -84,7 +84,8 @@ async fn main() -> anyhow::Result<()> {
     }));
 
     // Move the object around
-    let cw_ecs = app.get_ecs();
+    let sphere_pos_modified = Arc::new(Mutex::new(Pos3::default()));
+    let w2_sphere_pos_modified = sphere_pos_modified.clone();
     app.add_window(Box::new(move |ui| {
         egui::Window::new("Sphere")
             .default_open(true)
@@ -94,57 +95,71 @@ async fn main() -> anyhow::Result<()> {
             .resizable(true)
             .anchor(Align2::LEFT_TOP, [0.0, 0.0])
             .show(ui, |ui| {
-                if let Some(sphere) = cw_ecs.get_component::<Pos3>(sphere_entity) {
-                    let mut wlock_sphere = sphere.write().unwrap();
-                    ui.label("Position");
-                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.x, -10.0..=10.0));
-                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.y, -10.0..=10.0));
-                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.z, -10.0..=10.0));
-                    ui.label("Rotation");
-                    let euler = Euler::from(wlock_sphere.rot);
-                    let mut pitch = euler.x.0;
-                    let mut yaw = euler.y.0;
-                    let mut roll = euler.z.0;
+                let mut wlock_sphere_pos = w2_sphere_pos_modified.lock().unwrap();
+                ui.label("Position");
+                ui.add(egui::Slider::new(&mut wlock_sphere_pos.pos.x, -10.0..=10.0));
+                ui.add(egui::Slider::new(&mut wlock_sphere_pos.pos.y, -10.0..=10.0));
+                ui.add(egui::Slider::new(&mut wlock_sphere_pos.pos.z, -10.0..=10.0));
+                ui.label("Rotation");
+                let euler = Euler::from(wlock_sphere_pos.rot);
+                let mut pitch = euler.x.0;
+                let mut yaw = euler.y.0;
+                let mut roll = euler.z.0;
 
-                    ui.add(
-                        egui::Slider::new(&mut pitch, -std::f32::consts::PI..=std::f32::consts::PI)
-                            .text("Pitch"),
-                    );
-                    ui.add(
-                        egui::Slider::new(&mut yaw, -std::f32::consts::PI..=std::f32::consts::PI)
-                            .text("Yaw"),
-                    );
-                    ui.add(
-                        egui::Slider::new(&mut roll, -std::f32::consts::PI..=std::f32::consts::PI)
-                            .text("Roll"),
-                    );
+                ui.add(
+                    egui::Slider::new(&mut pitch, -std::f32::consts::PI..=std::f32::consts::PI)
+                        .text("Pitch"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut yaw, -std::f32::consts::PI..=std::f32::consts::PI)
+                        .text("Yaw"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut roll, -std::f32::consts::PI..=std::f32::consts::PI)
+                        .text("Roll"),
+                );
 
-                    wlock_sphere.rot = Quaternion::from(Euler {
-                        x: Rad(pitch),
-                        y: Rad(yaw),
-                        z: Rad(roll),
-                    });
+                wlock_sphere_pos.rot = Quaternion::from(Euler {
+                    x: Rad(pitch),
+                    y: Rad(yaw),
+                    z: Rad(roll),
+                });
+
+                if ui.button("Reset").clicked() {
+                    *wlock_sphere_pos = Pos3::default();
                 }
+
                 ui.end_row();
             });
     }));
 
-    // Use the update loop to spin the sphere
-    app.update_loop(move |world, dt| {
-        // Send the frame time to the custom window
-        w1_frame_tx.send(dt).unwrap();
+    let update_sys = async_system("handle_sphere_pos3", move |sa| {
+        let w1_frame_tx = w1_frame_tx.clone();
+        let sphere_pos_modified = sphere_pos_modified.clone();
 
-        let spin_speed = 0.5f32;
+        Box::pin(async move {
+            let (world, dt) = match sa {
+                SystemAccessors::External { world, dt } => (world, dt),
+                _ => return Ok(()),
+            };
 
-        if let Some(static_model) = world.get_component::<Pos3>(sphere_entity) {
-            let mut wlock_static_model = static_model.write().unwrap();
+            w1_frame_tx
+                .send(*dt)
+                .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
-            let rotation = wlock_static_model.rot;
-            wlock_static_model.rot =
-                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
-        }
-    })
-    .await?;
+            if let Some(pos3) = world.get_component::<Pos3>(sphere) {
+                let mut wlock_pos3 = pos3.write().unwrap();
+                let ui_modified_pos3 = sphere_pos_modified.lock().unwrap();
+
+                if *wlock_pos3 != *ui_modified_pos3 {
+                    *wlock_pos3 = *ui_modified_pos3;
+                }
+            }
+            Ok(())
+        })
+    });
+
+    app.add_async_system(update_sys);
 
     app.run().await
 }
