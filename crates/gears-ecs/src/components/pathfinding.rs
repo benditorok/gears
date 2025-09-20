@@ -218,6 +218,7 @@ impl PathfindingGrid {
 }
 
 /// A* pathfinding algorithm implementation
+#[derive(Debug, Default)]
 pub struct AStar {
     grid: PathfindingGrid,
     distance_heuristic: DistanceHeuristic,
