@@ -157,10 +157,6 @@ impl GearsApp {
             state.add_windows(windows);
         }
 
-        // Grab the cursor upon initialization
-        // TODO on first input instead
-        // state.grab_cursor();
-
         // Proper error handling for initialization
         if let Err(e) = state.init_components().await {
             log::error!("Failed to initialize components: {}", e);

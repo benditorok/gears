@@ -416,13 +416,13 @@ async fn main() -> anyhow::Result<()> {
                     });
                 };
 
-                draw_state_with_color(ui, [0.2, 0.2, 0.8], "• IDLE - Random wandering");
-                draw_state_with_color(ui, [0.8, 0.4, 0.1], "• ATTACK - Pursuing target");
-                draw_state_with_color(ui, [0.8, 0.4, 0.1], "  → APPROACH - Moving towards");
-                draw_state_with_color(ui, [1.0, 0.1, 0.1], "  → STRIKE - Attacking");
-                draw_state_with_color(ui, [0.6, 0.2, 0.2], "  → RETREAT - Backing away");
-                draw_state_with_color(ui, [0.8, 0.8, 0.2], "• DEFEND - Maintaining distance");
-                draw_state_with_color(ui, [0.8, 0.2, 0.8], "• ESCAPE - Fleeing target");
+                draw_state_with_color(ui, [0.2, 0.2, 0.8], "- IDLE - Random wandering");
+                draw_state_with_color(ui, [0.8, 0.4, 0.1], "- ATTACK - Pursuing target");
+                draw_state_with_color(ui, [0.8, 0.4, 0.1], "  - APPROACH - Moving towards");
+                draw_state_with_color(ui, [1.0, 0.1, 0.1], "  - STRIKE - Attacking");
+                draw_state_with_color(ui, [0.6, 0.2, 0.2], "  - RETREAT - Backing away");
+                draw_state_with_color(ui, [0.8, 0.8, 0.2], "- DEFEND - Maintaining distance");
+                draw_state_with_color(ui, [0.8, 0.2, 0.8], "- ESCAPE - Fleeing target");
 
                 ui.separator();
 
@@ -463,6 +463,7 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("WASD - Move player");
                 ui.label("Mouse - Look around");
                 ui.label("Space - Jump");
+                ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
 
                 ui.separator();

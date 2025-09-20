@@ -136,6 +136,7 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("Mouse - Look around");
                 ui.label("Space - Fly up");
                 ui.label("Shift - Fly down");
+                ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
             });
     }));
