@@ -295,7 +295,7 @@ pub(super) fn update_models<'a>(
 }
 
 /// Update the physics system
-pub(super) fn update_physics_system<'a>(
+pub(super) fn update_physics<'a>(
     sa: &'a InternalSystemAccessors<'a>,
 ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>> {
     Box::pin(async move {

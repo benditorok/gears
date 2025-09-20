@@ -17,7 +17,18 @@ macro_rules! async_system {
         $crate::systems::system($name, |$sa| std::boxed::Box::pin(async move $body))
     };
     ($app:expr, $name:expr, |$sa:ident| $body:block) => {
-        let system = $crate::systems::system($name, |$sa| std::boxed::Box::pin(async move $body));
-        $app.add_async_system(system);
+        {
+            let system = $crate::systems::system($name, |$sa| std::boxed::Box::pin(async move $body));
+            $app.add_async_system(system);
+        }
+    };
+    ($name:expr, move |$sa:ident| $body:block) => {
+        $crate::systems::system($name, move |$sa| std::boxed::Box::pin(async move $body))
+    };
+    ($app:expr, $name:expr, move |$sa:ident| $body:block) => {
+        {
+            let system = $crate::systems::system($name, move |$sa| std::boxed::Box::pin(async move $body));
+            $app.add_async_system(system);
+        }
     };
 }
