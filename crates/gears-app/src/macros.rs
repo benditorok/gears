@@ -9,3 +9,15 @@ macro_rules! new_entity {
         entity_builder.build()
     }};
 }
+
+/// A macro to create async systems easily.
+#[macro_export]
+macro_rules! async_system {
+    ($name:expr, |$sa:ident| $body:block) => {
+        $crate::systems::system($name, |$sa| std::boxed::Box::pin(async move $body))
+    };
+    ($app:expr, $name:expr, |$sa:ident| $body:block) => {
+        let system = $crate::systems::system($name, |$sa| std::boxed::Box::pin(async move $body));
+        $app.add_async_system(system);
+    };
+}
