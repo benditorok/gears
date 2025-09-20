@@ -676,13 +676,10 @@ async fn main() -> anyhow::Result<()> {
                                 debug_color[2] = color_vec.z;
 
                                 // Update the entity's light color to match FSM state
-                                match &mut *light {
-                                    Light::PointColoured { color, .. } => {
-                                        color[0] = color_vec.x;
-                                        color[1] = color_vec.y;
-                                        color[2] = color_vec.z;
-                                    }
-                                    _ => {}
+                                if let Light::PointColoured { color, .. } = &mut *light {
+                                    color[0] = color_vec.x;
+                                    color[1] = color_vec.y;
+                                    color[2] = color_vec.z;
                                 }
                             }
                         }
