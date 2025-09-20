@@ -1,7 +1,7 @@
 #[allow(unused)]
 pub use crate::{
     GearsApp, new_entity,
-    systems::{AsyncSystem, SystemAccessors, SystemCollection},
+    systems::{AsyncSystem, SystemAccessors, SystemCollection, SystemError, async_system},
 };
 pub use gears_core::Dt;
 pub use gears_ecs::{
@@ -12,10 +12,13 @@ pub use gears_ecs::{
         interactive::Weapon,
         lights::Light,
         misc::{
-            AnimationQueue, CameraMarker, Health, LightMarker, Name, PlayerMarker, RigidBodyMarker,
-            StaticModelMarker, TargetMarker,
+            AnimationQueue, CameraMarker, EnemyMarker, Health, LightMarker, Name, ObstacleMarker,
+            PlayerMarker, RigidBodyMarker, StaticModelMarker, TargetMarker,
         },
         models::ModelSource,
+        pathfinding::{
+            AStar, DistanceHeuristic, PathfindingComponent, PathfindingFollower, PathfindingTarget,
+        },
         physics::{AABBCollisionBox, RigidBody},
         prefabs::Player,
         transforms::{Flip, Pos3, Scale},

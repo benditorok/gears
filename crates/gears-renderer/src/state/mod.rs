@@ -9,6 +9,7 @@ use egui_wgpu::ScreenDescriptor;
 use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
 use gears_ecs::{self, Entity, World, components};
 use gears_gui::{EguiRenderer, EguiWindowCallback};
+use image::imageops::FilterType::Triangle;
 use std::any::Any;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -54,6 +55,7 @@ pub struct State<'a> {
     egui_renderer: EguiRenderer,
     egui_windows: Arc<Mutex<Vec<EguiWindowCallback>>>,
     is_state_paused: AtomicBool,
+    is_cursor_grabbed: AtomicBool,
     collider_render_pipeline: wgpu::RenderPipeline,
     target_entities: Option<Vec<Entity>>,
 }
@@ -300,6 +302,7 @@ impl<'a> State<'a> {
             egui_renderer,
             egui_windows,
             is_state_paused: AtomicBool::new(false),
+            is_cursor_grabbed: AtomicBool::new(false),
             collider_render_pipeline,
             player_entity: None,
             target_entities: None,
@@ -315,13 +318,26 @@ impl<'a> State<'a> {
     }
 
     pub fn grab_cursor(&self) {
-        self.window.set_cursor_grab(CursorGrabMode::Confined).ok();
+        self.window
+            .set_cursor_grab(CursorGrabMode::Confined)
+            .or_else(|_e| self.window.set_cursor_grab(CursorGrabMode::Locked))
+            .ok();
         self.window.set_cursor_visible(false);
     }
 
     pub fn release_cursor(&self) {
         self.window.set_cursor_grab(CursorGrabMode::None).ok();
         self.window.set_cursor_visible(true);
+    }
+
+    pub fn toggle_cursor(&self) {
+        if self.is_cursor_grabbed.load(Ordering::Relaxed) {
+            self.release_cursor();
+            self.is_cursor_grabbed.store(false, Ordering::Relaxed);
+        } else {
+            self.grab_cursor();
+            self.is_cursor_grabbed.store(true, Ordering::Relaxed);
+        }
     }
 
     /// Initialize the components which can be rendered.
@@ -331,7 +347,6 @@ impl<'a> State<'a> {
         }
 
         init::targets(self);
-        init::lights(self);
         init::models(
             &self.device,
             &self.queue,
@@ -403,12 +418,6 @@ impl<'a> State<'a> {
             let is_running = self.is_state_paused.load(Ordering::Relaxed);
             self.is_state_paused.store(!is_running, Ordering::Relaxed);
 
-            if is_running {
-                self.grab_cursor();
-            } else {
-                self.release_cursor();
-            }
-
             return true;
         }
 
@@ -428,9 +437,20 @@ impl<'a> State<'a> {
                     },
                 ..
             } => {
-                if let Some(movement_controller) = &self.movement_controller {
-                    let mut wlock_movement_controller = movement_controller.write().unwrap();
-                    wlock_movement_controller.process_keyboard(*key, *state);
+                match key {
+                    KeyCode::AltLeft | KeyCode::AltRight => {
+                        // Toggle on release
+                        if !state.is_pressed() {
+                            self.toggle_cursor();
+                        }
+                    }
+                    _ => {
+                        if let Some(movement_controller) = &self.movement_controller {
+                            let mut wlock_movement_controller =
+                                movement_controller.write().unwrap();
+                            wlock_movement_controller.process_keyboard(*key, *state);
+                        }
+                    }
                 }
 
                 true

@@ -76,15 +76,6 @@ impl GearsApp {
         GearsApp::run_engine(self, windows).await
     }
 
-    // /// Add a system to the world.
-    // ///
-    // /// # Arguments
-    // ///
-    // /// * `system` - The system to add.
-    // pub fn add_system(&mut self, system: systems::System) {
-    //     self.systems.push(system);
-    // }
-
     pub fn add_async_system(&mut self, system: systems::AsyncSystem) {
         self.external_async_systems.add_system(system);
     }
@@ -165,9 +156,6 @@ impl GearsApp {
         if let Some(windows) = egui_windows {
             state.add_windows(windows);
         }
-
-        // Grab the cursor upon initialization
-        state.grab_cursor();
 
         // Proper error handling for initialization
         if let Err(e) = state.init_components().await {

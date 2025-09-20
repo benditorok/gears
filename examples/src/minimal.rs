@@ -61,18 +61,27 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Use the update loop to spin the sphere
-    app.update_loop(move |world, dt| {
-        let spin_speed = 0.5f32;
+    let update_sys = async_system("update_rot", move |sa| {
+        Box::pin(async move {
+            let (world, dt) = match sa {
+                SystemAccessors::External { world, dt } => (world, dt),
+                _ => return Ok(()),
+            };
 
-        if let Some(pos3) = world.get_component::<Pos3>(sphere_entity) {
-            let mut wlock_pos3 = pos3.write().unwrap();
+            let spin_speed = 0.5f32;
+            if let Some(pos3) = world.get_component::<Pos3>(sphere_entity) {
+                let mut wlock_pos3 = pos3.write().unwrap();
 
-            let rotation = wlock_pos3.rot;
-            wlock_pos3.rot =
-                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
-        }
-    })
-    .await?;
+                let rotation = wlock_pos3.rot;
+                wlock_pos3.rot =
+                    Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
+            }
+
+            Ok(())
+        })
+    });
+
+    app.add_async_system(update_sys);
 
     app.run().await
 }

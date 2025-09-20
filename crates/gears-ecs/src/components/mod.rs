@@ -4,6 +4,7 @@ pub mod interactive;
 pub mod lights;
 pub mod misc;
 pub mod models;
+pub mod pathfinding;
 pub mod physics;
 pub mod prefabs;
 pub mod transforms;

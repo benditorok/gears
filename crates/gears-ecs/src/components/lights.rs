@@ -30,5 +30,3 @@ pub enum Light {
         intensity: f32,
     },
 }
-
-// TODO lightuniforms should take into impls instead of defined types? so that the user can create new types of lights

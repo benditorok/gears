@@ -65,7 +65,27 @@ impl Marker for TargetMarker {
     }
 }
 
-/// A component that stores the name of an object.ű
+/// Simple enemy marker for entities that track the player
+#[derive(Component, Debug, Clone, Copy)]
+pub struct EnemyMarker;
+
+impl Marker for EnemyMarker {
+    fn describe() -> &'static str {
+        "Required components: Pos3, ModelSource, MovementController, ViewController, PathfindingComponent, PathfindingFollower"
+    }
+}
+
+/// Marker for obstacles that should be avoided during pathfinding
+#[derive(Component, Debug, Clone, Copy)]
+pub struct ObstacleMarker;
+
+impl Marker for ObstacleMarker {
+    fn describe() -> &'static str {
+        "Required components: Pos3, AABBCollisionBox, RigidBody"
+    }
+}
+
+/// A component that stores the name of an object.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Name(pub &'static str);
 

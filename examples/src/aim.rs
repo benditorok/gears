@@ -50,6 +50,7 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("WASD - Move player");
                 ui.label("Mouse - Look around");
                 ui.label("Space - Jump");
+                ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
             });
     }));

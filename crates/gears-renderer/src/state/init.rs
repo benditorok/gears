@@ -1,14 +1,14 @@
-use super::model;
 use super::State;
+use super::model;
 use super::{instance, light};
-use crate::resources::{load_model_gltf, load_model_obj};
 use crate::BufferComponent;
+use crate::resources::{load_model_gltf, load_model_obj};
 use cgmath::prelude::*;
 use gears_ecs::components::misc::Marker;
 use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::{
-    components::{self},
     World,
+    components::{self},
 };
 use log::info;
 use std::sync::Arc;
@@ -76,103 +76,6 @@ pub(super) fn camera(state: &mut State) {
     }
 
     panic!("No camera found in the ECS!");
-}
-
-/// Initialize the light components.
-pub(super) fn lights(state: &mut State) {
-    let light_entities = state
-        .world
-        .get_entities_with_component::<components::misc::LightMarker>();
-
-    for entity in light_entities.iter() {
-        let pos = state
-            .world
-            .get_component::<components::transforms::Pos3>(*entity)
-            .unwrap_or_else(|| panic!("{}", components::misc::LightMarker::describe()));
-
-        let light = state
-            .world
-            .get_component::<components::lights::Light>(*entity)
-            .unwrap_or_else(|| panic!("{}", components::misc::LightMarker::describe()));
-
-        let light_uniform = {
-            let rlock_pos = pos.read().unwrap();
-            let rlock_light = light.read().unwrap();
-
-            match *rlock_light {
-                components::lights::Light::Point { radius, intensity } => light::LightUniform {
-                    position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
-                    light_type: light::LightType::Point as u32,
-                    color: [1.0, 1.0, 1.0],
-                    radius,
-                    direction: [0.0; 3],
-                    intensity,
-                },
-                components::lights::Light::PointColoured {
-                    radius,
-                    color,
-                    intensity,
-                } => light::LightUniform {
-                    position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
-                    light_type: light::LightType::Point as u32,
-                    color,
-                    radius,
-                    direction: [0.0; 3],
-                    intensity,
-                },
-                components::lights::Light::Ambient { intensity } => light::LightUniform {
-                    position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
-                    light_type: light::LightType::Ambient as u32,
-                    color: [1.0, 1.0, 1.0],
-                    radius: 0.0,
-                    direction: [0.0; 3],
-                    intensity,
-                },
-                components::lights::Light::AmbientColoured { color, intensity } => {
-                    light::LightUniform {
-                        position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
-                        light_type: light::LightType::Ambient as u32,
-                        color,
-                        radius: 0.0,
-                        direction: [0.0; 3],
-                        intensity,
-                    }
-                }
-                components::lights::Light::Directional {
-                    direction,
-                    intensity,
-                } => light::LightUniform {
-                    position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
-                    light_type: light::LightType::Directional as u32,
-                    color: [1.0, 1.0, 1.0],
-                    radius: 0.0,
-                    direction,
-                    intensity,
-                },
-                components::lights::Light::DirectionalColoured {
-                    direction,
-                    color,
-                    intensity,
-                } => light::LightUniform {
-                    position: [rlock_pos.pos.x, rlock_pos.pos.y, rlock_pos.pos.z],
-                    light_type: light::LightType::Directional as u32,
-                    color,
-                    radius: 0.0,
-                    direction,
-                    intensity,
-                },
-            }
-        };
-        state.world.add_component(*entity, light_uniform);
-    }
-
-    if light_entities.len() > light::NUM_MAX_LIGHTS as usize {
-        panic!(
-            "The number of lights exceeds the maximum number of lights supported by the renderer!"
-        );
-    }
-
-    state.light_entities = Some(light_entities);
 }
 
 /// Initialize the model components.
