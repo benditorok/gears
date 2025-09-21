@@ -1,5 +1,6 @@
 pub mod animation;
 pub mod camera;
+pub mod errors;
 pub mod instance;
 pub mod light;
 pub mod model;

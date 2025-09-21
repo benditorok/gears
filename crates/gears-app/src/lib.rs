@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod macros;
 pub mod prelude;
 pub mod systems;
@@ -15,6 +16,8 @@ use systems::SystemCollection;
 use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::WindowAttributes;
+
+use crate::errors::EngineError;
 
 // This struct is used to manage the entire application.
 /// The application can also be used to create entities, add components, windows etc. to itself.
@@ -68,7 +71,7 @@ impl GearsApp {
     }
 
     /// Run the application and start the event loop.
-    pub async fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> Result<(), EngineError> {
         info!("Starting Gears...");
         let windows = self.egui_windows.take();
 
@@ -141,7 +144,7 @@ impl GearsApp {
     async fn run_engine(
         &self,
         egui_windows: Option<Vec<EguiWindowCallback>>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), EngineError> {
         // * Window creation
         let event_loop = EventLoop::new()?;
         let window_attributes = WindowAttributes::default()
@@ -161,7 +164,7 @@ impl GearsApp {
         // Proper error handling for initialization
         if let Err(e) = state.init_components().await {
             log::error!("Failed to initialize components: {}", e);
-            return Err(e);
+            return Err(EngineError::ComponentInitialization(e.to_string()));
         }
 
         let mut last_render_time = time::Instant::now();

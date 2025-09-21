@@ -5,7 +5,7 @@ use log::LevelFilter;
 use std::sync::{Arc, Mutex, mpsc};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> EngineResult<()> {
     std::panic::set_hook(Box::new(|info| {
         eprintln!("{}", info);
         println!("Press Enter to close...");

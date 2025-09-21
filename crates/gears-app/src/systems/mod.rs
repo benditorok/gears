@@ -1,4 +1,4 @@
-mod error;
+mod errors;
 mod update_systems;
 
 use core::time;
@@ -7,7 +7,7 @@ use gears_renderer::state::State;
 use std::future::Future;
 use std::pin::Pin;
 
-pub use error::{SystemError, SystemResult};
+pub use errors::{SystemError, SystemResult};
 
 /// System accessors allow external systems to access different parts of the engine
 pub struct SystemAccessors<'a> {

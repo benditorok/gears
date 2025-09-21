@@ -5,7 +5,7 @@ use log::LevelFilter;
 use std::sync::{Arc, Mutex, mpsc};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> EngineResult<()> {
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);

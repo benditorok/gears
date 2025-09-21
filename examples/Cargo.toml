@@ -16,7 +16,6 @@ publish = false
 gears-app = { workspace = true }
 gears-macro = { workspace = true }
 gears-renderer = { workspace = true }
-anyhow = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 rand = { workspace = true }

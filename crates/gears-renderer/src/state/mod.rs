@@ -3,7 +3,7 @@ mod resources;
 
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
-use crate::BufferComponent;
+use crate::{BufferComponent, errors::RendererError};
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
 use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
@@ -341,7 +341,7 @@ impl<'a> State<'a> {
     }
 
     /// Initialize the components which can be rendered.
-    pub async fn init_components(&mut self) -> anyhow::Result<()> {
+    pub async fn init_components(&mut self) -> Result<(), RendererError> {
         if !init::player(self) {
             init::camera(self);
         }
@@ -481,7 +481,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A future which can be awaited.
-    pub async fn update(&mut self, dt: time::Duration) -> anyhow::Result<()> {
+    pub async fn update(&mut self, dt: time::Duration) -> Result<(), RendererError> {
         // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {
             let camera_entity = self.camera_owner_entity.unwrap();

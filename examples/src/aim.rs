@@ -1,13 +1,12 @@
 use cgmath::Rotation3;
 use egui::Align2;
-
 use gears_app::prelude::*;
 use log::LevelFilter;
 use std::f32::consts::PI;
 use std::sync::mpsc;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> EngineResult<()> {
     std::panic::set_hook(Box::new(|info| {
         eprintln!("{}", info);
         println!("Press Enter to close...");

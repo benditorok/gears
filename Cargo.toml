@@ -36,8 +36,7 @@ strip = true # Ensures debug symbols are removed.
 # rustflags = ["-Cdebuginfo=0", "-Zthreads=8"] # Better compile performance. # requires the nightly compiler
 
 # For memory allocation tracking
-# [profile.release]
-# debug = true
+debug = true
 
 # [build]
 # rustflags = ["-Z", "threads=8"]

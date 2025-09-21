@@ -1,6 +1,8 @@
 #[allow(unused)]
 pub use crate::{
-    GearsApp, async_system, new_entity,
+    GearsApp, async_system,
+    errors::{EngineError, EngineResult},
+    new_entity,
     systems::{AsyncSystem, SystemAccessors, SystemCollection, SystemError, system},
 };
 pub use gears_core::Dt;
