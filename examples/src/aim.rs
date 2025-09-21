@@ -238,63 +238,45 @@ async fn main() -> anyhow::Result<()> {
         Health::default(),
     );
 
-    // Systems can now be written with simple async closures
-    // When capturing variables in move closures, use the closure capture pattern
-    async_system!(app, "update", {
-        // let w1_frame_tx = w1_frame_tx.clone(); // Clone Sender for use in closure
-        // let moving_spheres = moving_spheres; // Copy array of entities
-        // let red_light = red_light; // Copy entity
-        // let blue_light = blue_light; // Copy entity
+    async_system!(app, "update", (w1_frame_tx), |sa| {
+        w1_frame_tx
+            .send(sa.dt)
+            .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
-        move |sa| {
-            std::boxed::Box::pin({
-                let value = w1_frame_tx.clone();
-                async move {
-                    value
-                        .send(sa.dt)
-                        .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
+        let circle_speed = 8.0f32;
+        let light_speed_multiplier = 3.0f32;
 
-                    let circle_speed = 8.0f32;
-                    let light_speed_multiplier = 3.0f32;
-
-                    // Move the spheres in a circle considering accumulated time
-                    for sphere in moving_spheres.iter() {
-                        if let Some(pos3) = sa.world.get_component::<Pos3>(*sphere) {
-                            let mut wlock_pos3 = pos3.write().unwrap();
-                            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
-                                (0.0, 1.0, 0.0).into(),
-                                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed),
-                            ) * wlock_pos3.pos;
-                        }
-                    }
-
-                    // Handle lights movement
-                    if let Some(pos3) = sa.world.get_component::<Pos3>(red_light) {
-                        let mut wlock_pos3 = pos3.write().unwrap();
-
-                        wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
-                            (0.0, 1.0, 0.0).into(),
-                            cgmath::Deg(
-                                PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier,
-                            ),
-                        ) * wlock_pos3.pos;
-                    }
-
-                    if let Some(pos3) = sa.world.get_component::<Pos3>(blue_light) {
-                        let mut wlock_pos3 = pos3.write().unwrap();
-
-                        wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
-                            (0.0, 1.0, 0.0).into(),
-                            cgmath::Deg(
-                                PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier,
-                            ),
-                        ) * wlock_pos3.pos;
-                    }
-
-                    Ok(())
-                }
-            })
+        // Move the spheres in a circle considering accumulated time
+        for sphere in moving_spheres.iter() {
+            if let Some(pos3) = sa.world.get_component::<Pos3>(*sphere) {
+                let mut wlock_pos3 = pos3.write().unwrap();
+                wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
+                    (0.0, 1.0, 0.0).into(),
+                    cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed),
+                ) * wlock_pos3.pos;
+            }
         }
+
+        // Handle lights movement
+        if let Some(pos3) = sa.world.get_component::<Pos3>(red_light) {
+            let mut wlock_pos3 = pos3.write().unwrap();
+
+            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
+                (0.0, 1.0, 0.0).into(),
+                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+            ) * wlock_pos3.pos;
+        }
+
+        if let Some(pos3) = sa.world.get_component::<Pos3>(blue_light) {
+            let mut wlock_pos3 = pos3.write().unwrap();
+
+            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
+                (0.0, 1.0, 0.0).into(),
+                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+            ) * wlock_pos3.pos;
+        }
+
+        Ok(())
     });
 
     // Run the application
