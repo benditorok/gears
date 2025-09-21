@@ -1,6 +1,6 @@
 use cgmath::{Quaternion, Rotation3, Vector3};
 use egui::Align2;
-use gears_app::{prelude::*, systems};
+use gears_app::prelude::*;
 use log::LevelFilter;
 use std::sync::{Arc, Mutex, mpsc};
 
@@ -144,110 +144,87 @@ async fn main() -> anyhow::Result<()> {
     // Update entity states
     // Use accumulated game time that respects pause state
     let update_sys_accumulated_time = Arc::new(Mutex::new(0.0f32));
-    let update_sys = systems::async_system("update", move |sa| {
-        Box::pin({
-            let w1_frame_tx = w1_frame_tx.clone();
-            let accumulated_time = update_sys_accumulated_time.clone();
+    async_system!(
+        app,
+        "update",
+        (w1_frame_tx, update_sys_accumulated_time),
+        |sa| {
+            // Update accumulated time only when not paused
+            let elapsed_time = {
+                let mut time = update_sys_accumulated_time.lock().unwrap();
+                *time += sa.dt.as_secs_f32();
+                *time
+            };
 
-            async move {
-                let (world, dt) = match sa {
-                    SystemAccessors::External { world, dt } => (world, dt),
-                    _ => return Ok(()),
-                };
+            // Create animations for the helmet by modifying the position and rotation
+            if let Some(pos3) = sa.world.get_component::<Pos3>(animated_helmet) {
+                let mut pos_guard = pos3.write().unwrap();
 
-                // Update accumulated time only when not paused
-                let elapsed_time = {
-                    let mut time = accumulated_time.lock().unwrap();
-                    *time += dt.as_secs_f32();
-                    *time
-                };
+                // Create a complex animation pattern for the mercenary
+                let base_y = 0.0;
+                let time_scale = 2.0;
 
-                // Create animations for the helmet by modifying the position and rotation
-                if let Some(pos3) = world.get_component::<Pos3>(animated_helmet) {
-                    let mut pos_guard = pos3.write().unwrap();
+                // Bouncing motion (Y-axis)
+                let bounce_height = 0.8;
+                let bounce_speed = time_scale * 3.0;
+                let y_offset = bounce_height * (elapsed_time * bounce_speed).sin().abs();
 
-                    // Create a complex animation pattern for the mercenary
-                    let base_y = 0.0;
-                    let time_scale = 2.0;
+                // Circular motion (X-Z plane)
+                let circle_radius = 1.5;
+                let circle_speed = time_scale * 0.8;
+                let circle_x = 3.0 + circle_radius * (elapsed_time * circle_speed).cos();
+                let circle_z = circle_radius * (elapsed_time * circle_speed).sin();
 
-                    // Bouncing motion (Y-axis)
-                    let bounce_height = 0.8;
-                    let bounce_speed = time_scale * 3.0;
-                    let y_offset = bounce_height * (elapsed_time * bounce_speed).sin().abs();
+                // Update position with procedural animation
+                pos_guard.pos = Vector3::new(circle_x, base_y + y_offset, circle_z);
 
-                    // Circular motion (X-Z plane)
-                    let circle_radius = 1.5;
-                    let circle_speed = time_scale * 0.8;
-                    let circle_x = 3.0 + circle_radius * (elapsed_time * circle_speed).cos();
-                    let circle_z = circle_radius * (elapsed_time * circle_speed).sin();
+                // Create dynamic rotation animation with complex motion
+                let rotation_speed = time_scale * 0.8;
+                let pitch = 0.2 * (elapsed_time * rotation_speed * 1.7).sin();
+                let yaw = elapsed_time * rotation_speed * 0.5;
+                let roll = 0.15 * (elapsed_time * rotation_speed * 2.3).cos();
 
-                    // Update position with procedural animation
-                    pos_guard.pos = Vector3::new(circle_x, base_y + y_offset, circle_z);
+                // Apply rotation using quaternions for smooth interpolation
+                let rotation_y = Quaternion::from_angle_y(cgmath::Rad(yaw));
+                let rotation_x = Quaternion::from_angle_x(cgmath::Rad(pitch));
+                let rotation_z = Quaternion::from_angle_z(cgmath::Rad(roll));
 
-                    // Create dynamic rotation animation with complex motion
-                    let rotation_speed = time_scale * 0.8;
-                    let pitch = 0.2 * (elapsed_time * rotation_speed * 1.7).sin();
-                    let yaw = elapsed_time * rotation_speed * 0.5;
-                    let roll = 0.15 * (elapsed_time * rotation_speed * 2.3).cos();
-
-                    // Apply rotation using quaternions for smooth interpolation
-                    let rotation_y = Quaternion::from_angle_y(cgmath::Rad(yaw));
-                    let rotation_x = Quaternion::from_angle_x(cgmath::Rad(pitch));
-                    let rotation_z = Quaternion::from_angle_z(cgmath::Rad(roll));
-
-                    pos_guard.rot = rotation_y * rotation_x * rotation_z;
-                }
-
-                // Send frame time for UI
-                let _ = w1_frame_tx.send(*dt);
-
-                Ok(())
+                pos_guard.rot = rotation_y * rotation_x * rotation_z;
             }
-        })
-    });
+
+            // Send frame time for UI
+            let _ = w1_frame_tx.send(sa.dt);
+
+            Ok(())
+        }
+    );
 
     // Run gltf animations
     // Track accumulated time for GLTF animations
     let model_accumulated_time = Arc::new(Mutex::new(0.0f32));
-    let model_animation_sys = systems::async_system("gltf_animations", move |sa| {
-        Box::pin({
-            let gltf_accumulated_time = model_accumulated_time.clone();
+    async_system!(app, "gltf_animations", (model_accumulated_time), |sa| {
+        // Update accumulated time only when not paused
+        let elapsed_time = {
+            let mut time = model_accumulated_time.lock().unwrap();
+            *time += sa.dt.as_secs_f32();
+            *time
+        };
 
-            async move {
-                let (world, dt) = match sa {
-                    SystemAccessors::External { world, dt } => (world, dt),
-                    _ => return Ok(()),
-                };
-
-                // Update accumulated time only when not paused
-                let elapsed_time = {
-                    let mut time = gltf_accumulated_time.lock().unwrap();
-                    *time += dt.as_secs_f32();
-                    *time
-                };
-
-                // Animate the cube with GLTF animation every 5 seconds
-                if (elapsed_time as u64) % 5 == 0 && dt.as_secs_f32() > 0.0 {
-                    if let Some(animation_queue) =
-                        world.get_component::<AnimationQueue>(animated_cube)
-                    {
-                        let mut queue = animation_queue.write().unwrap();
-                        if !queue.has_queued_animations() {
-                            queue.push("animation_AnimatedCube".to_string());
-                            queue.set_transition_duration(0.5);
-                            queue.set_auto_transition(true);
-                            log::info!("Started cube GLTF animation");
-                        }
-                    }
+        // Animate the cube with GLTF animation every 5 seconds
+        if (elapsed_time as u64) % 5 == 0 && sa.dt.as_secs_f32() > 0.0 {
+            if let Some(animation_queue) = sa.world.get_component::<AnimationQueue>(animated_cube) {
+                let mut queue = animation_queue.write().unwrap();
+                if !queue.has_queued_animations() {
+                    queue.push("animation_AnimatedCube".to_string());
+                    queue.set_transition_duration(0.5);
+                    queue.set_auto_transition(true);
+                    log::info!("Started cube GLTF animation");
                 }
-
-                Ok(())
             }
-        })
-    });
+        }
 
-    app.add_async_system(update_sys);
-    app.add_async_system(model_animation_sys);
+        Ok(())
+    });
 
     // Run the application
     app.run().await

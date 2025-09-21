@@ -2,7 +2,6 @@ use cgmath::Rotation3;
 use egui::Align2;
 
 use gears_app::prelude::*;
-use gears_app::systems::SystemError;
 use log::LevelFilter;
 use std::f32::consts::PI;
 use std::sync::mpsc;

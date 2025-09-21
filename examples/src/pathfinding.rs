@@ -1,8 +1,6 @@
 use cgmath::InnerSpace;
 use egui::Align2;
-use gears_app::systems::SystemError;
 use gears_app::{prelude::*, systems};
-use gears_macro::Component;
 use log::{LevelFilter, info};
 use std::sync::mpsc;
 
@@ -160,116 +158,79 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Pathfinding system
-    let pathfinding_sys = systems::async_system("pathfinding_update", move |sa| {
-        let frame_tx = w1_frame_tx.clone();
-        Box::pin(async move {
-            let (world, dt) = match sa {
-                SystemAccessors::External { world, dt } => (world, dt),
-                _ => return Ok(()),
-            };
+    async_system!(app, "pathfinding_update", (w1_frame_tx), |sa| {
+        w1_frame_tx
+            .send(sa.dt)
+            .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
-            frame_tx
-                .send(*dt)
-                .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
-
-            // Get player position (target for pathfinding)
-            let player_entities = world.get_entities_with_component::<PathfindingTarget>();
-            let player_pos = if let Some(&player_entity) = player_entities.first() {
-                if let Some(pos3) = world.get_component::<Pos3>(player_entity) {
-                    let pos_guard = pos3.read().map_err(|e| {
-                        SystemError::ComponentAccess(format!("Failed to read player Pos3: {}", e))
-                    })?;
-                    pos_guard.pos
-                } else {
-                    return Ok(());
-                }
+        // Get player position (target for pathfinding)
+        let player_entities = sa.world.get_entities_with_component::<PathfindingTarget>();
+        let player_pos = if let Some(&player_entity) = player_entities.first() {
+            if let Some(pos3) = sa.world.get_component::<Pos3>(player_entity) {
+                let pos_guard = pos3.read().map_err(|e| {
+                    SystemError::ComponentAccess(format!("Failed to read player Pos3: {}", e))
+                })?;
+                pos_guard.pos
             } else {
                 return Ok(());
+            }
+        } else {
+            return Ok(());
+        };
+
+        // Pre-collect obstacle data once (performance optimization)
+        let rigid_body_entities = sa.world.get_entities_with_component::<ObstacleMarker>();
+        let obstacles: Vec<(cgmath::Vector3<f32>, AABBCollisionBox)> = rigid_body_entities
+            .iter()
+            .filter_map(|&rb_entity| {
+                let pos_opt = sa.world.get_component::<Pos3>(rb_entity);
+                let rb_opt = sa
+                    .world
+                    .get_component::<RigidBody<AABBCollisionBox>>(rb_entity);
+
+                if let (Some(pos_comp), Some(rb_comp)) = (pos_opt, rb_opt)
+                    && let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.read(), rb_comp.read())
+                {
+                    return Some((pos_guard.pos, rb_guard.collision_box.clone()));
+                }
+
+                None
+            })
+            .collect();
+
+        info!("Found {} obstacles for pathfinding", obstacles.len());
+
+        // Update all pathfinding followers
+        let follower_entities = sa
+            .world
+            .get_entities_with_component::<PathfindingFollower>();
+        let mut entities_needing_paths = Vec::new();
+
+        // First pass: update components and collect entities needing path recalculation
+        for &entity in follower_entities.iter() {
+            let pathfinding_comp = match sa.world.get_component::<PathfindingComponent>(entity) {
+                Some(comp) => comp,
+                None => continue,
             };
 
-            // Pre-collect obstacle data once (performance optimization)
-            let rigid_body_entities = world.get_entities_with_component::<ObstacleMarker>();
-            let obstacles: Vec<(cgmath::Vector3<f32>, AABBCollisionBox)> = rigid_body_entities
-                .iter()
-                .filter_map(|&rb_entity| {
-                    let pos_opt = world.get_component::<Pos3>(rb_entity);
-                    let rb_opt = world.get_component::<RigidBody<AABBCollisionBox>>(rb_entity);
+            let pos3_comp = match sa.world.get_component::<Pos3>(entity) {
+                Some(comp) => comp,
+                None => continue,
+            };
 
-                    if let (Some(pos_comp), Some(rb_comp)) = (pos_opt, rb_opt)
-                        && let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.read(), rb_comp.read())
-                    {
-                        return Some((pos_guard.pos, rb_guard.collision_box.clone()));
-                    }
+            // Update pathfinding component
+            {
+                let mut pathfinding = pathfinding_comp.write().map_err(|e| {
+                    SystemError::ComponentAccess(format!(
+                        "Failed to write PathfindingComponent: {}",
+                        e
+                    ))
+                })?;
 
-                    None
-                })
-                .collect();
+                pathfinding.update(sa.dt.as_secs_f32());
+                pathfinding.set_target(player_pos);
 
-            info!("Found {} obstacles for pathfinding", obstacles.len());
-
-            // Update all pathfinding followers
-            let follower_entities = world.get_entities_with_component::<PathfindingFollower>();
-            let mut entities_needing_paths = Vec::new();
-
-            // First pass: update components and collect entities needing path recalculation
-            for &entity in follower_entities.iter() {
-                let pathfinding_comp = match world.get_component::<PathfindingComponent>(entity) {
-                    Some(comp) => comp,
-                    None => continue,
-                };
-
-                let pos3_comp = match world.get_component::<Pos3>(entity) {
-                    Some(comp) => comp,
-                    None => continue,
-                };
-
-                // Update pathfinding component
-                {
-                    let mut pathfinding = pathfinding_comp.write().map_err(|e| {
-                        SystemError::ComponentAccess(format!(
-                            "Failed to write PathfindingComponent: {}",
-                            e
-                        ))
-                    })?;
-
-                    pathfinding.update(dt.as_secs_f32());
-                    pathfinding.set_target(player_pos);
-
-                    // Check if we need pathfinding and should recalculate
-                    let current_pos = {
-                        let pos3 = pos3_comp.read().map_err(|e| {
-                            SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
-                        })?;
-                        pos3.pos
-                    };
-
-                    info!(
-                        "Entity {:?} - needs pathfinding: {}, should recalculate: {}",
-                        entity,
-                        pathfinding.needs_pathfinding(current_pos),
-                        pathfinding.should_recalculate_path()
-                    );
-
-                    if pathfinding.needs_pathfinding(current_pos)
-                        && pathfinding.should_recalculate_path()
-                    {
-                        entities_needing_paths.push(entity);
-                    }
-                }
-            }
-
-            info!(
-                "Found {} entities needing path calculation",
-                entities_needing_paths.len()
-            );
-
-            // Second pass: calculate paths for entities that need them (limit to max 1 per frame for performance)
-            if let Some(&entity) = entities_needing_paths.first() {
-                info!("Calculating path for entity {:?}", entity);
-                let pathfinding_comp = world.get_component::<PathfindingComponent>(entity).unwrap();
-                let pos3_comp = world.get_component::<Pos3>(entity).unwrap();
-
-                // Get current position
+                // Check if we need pathfinding and should recalculate
                 let current_pos = {
                     let pos3 = pos3_comp.read().map_err(|e| {
                         SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
@@ -278,125 +239,161 @@ async fn main() -> anyhow::Result<()> {
                 };
 
                 info!(
-                    "Current position: {:?}, Target: {:?}",
-                    current_pos, player_pos
+                    "Entity {:?} - needs pathfinding: {}, should recalculate: {}",
+                    entity,
+                    pathfinding.needs_pathfinding(current_pos),
+                    pathfinding.should_recalculate_path()
                 );
 
-                // Build pathfinding grid from collected obstacles (excluding this entity)
-                let mut astar = AStar::new(2.0, DistanceHeuristic::Manhattan);
-                astar.build_grid_from_entities(obstacles.iter().map(|(pos, cb)| (pos, cb)));
-
-                if let Some(path) = astar.find_path(current_pos, player_pos) {
-                    info!("Path found with {} waypoints", path.len());
-                    let mut pathfinding = pathfinding_comp.write().map_err(|e| {
-                        SystemError::ComponentAccess(format!(
-                            "Failed to write PathfindingComponent: {}",
-                            e
-                        ))
-                    })?;
-                    pathfinding.set_path(path);
-                } else {
-                    info!("No path found!");
+                if pathfinding.needs_pathfinding(current_pos)
+                    && pathfinding.should_recalculate_path()
+                {
+                    entities_needing_paths.push(entity);
                 }
             }
+        }
 
-            // Third pass: move entities along their paths using physics
-            for &entity in follower_entities.iter() {
-                let pathfinding_comp = match world.get_component::<PathfindingComponent>(entity) {
-                    Some(comp) => comp,
-                    None => continue,
-                };
+        info!(
+            "Found {} entities needing path calculation",
+            entities_needing_paths.len()
+        );
 
-                let pos3_comp = match world.get_component::<Pos3>(entity) {
-                    Some(comp) => comp,
-                    None => continue,
-                };
+        // Second pass: calculate paths for entities that need them (limit to max 1 per frame for performance)
+        if let Some(&entity) = entities_needing_paths.first() {
+            info!("Calculating path for entity {:?}", entity);
+            let pathfinding_comp = sa
+                .world
+                .get_component::<PathfindingComponent>(entity)
+                .unwrap();
+            let pos3_comp = sa.world.get_component::<Pos3>(entity).unwrap();
 
-                let rigidbody_comp =
-                    match world.get_component::<RigidBody<AABBCollisionBox>>(entity) {
-                        Some(comp) => comp,
-                        None => continue,
-                    };
+            // Get current position
+            let current_pos = {
+                let pos3 = pos3_comp.read().map_err(|e| {
+                    SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
+                })?;
+                pos3.pos
+            };
 
-                // Move along the current path using physics
-                {
-                    let pathfinding = pathfinding_comp.read().map_err(|e| {
-                        SystemError::ComponentAccess(format!(
-                            "Failed to read PathfindingComponent: {}",
-                            e
-                        ))
-                    })?;
+            info!(
+                "Current position: {:?}, Target: {:?}",
+                current_pos, player_pos
+            );
 
-                    let pos3 = pos3_comp.read().map_err(|e| {
-                        SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
-                    })?;
+            // Build pathfinding grid from collected obstacles (excluding this entity)
+            let mut astar = AStar::new(2.0, DistanceHeuristic::Manhattan);
+            astar.build_grid_from_entities(obstacles.iter().map(|(pos, cb)| (pos, cb)));
 
-                    let mut rigidbody = rigidbody_comp.write().map_err(|e| {
-                        SystemError::ComponentAccess(format!("Failed to write RigidBody: {}", e))
-                    })?;
+            if let Some(path) = astar.find_path(current_pos, player_pos) {
+                info!("Path found with {} waypoints", path.len());
+                let mut pathfinding = pathfinding_comp.write().map_err(|e| {
+                    SystemError::ComponentAccess(format!(
+                        "Failed to write PathfindingComponent: {}",
+                        e
+                    ))
+                })?;
+                pathfinding.set_path(path);
+            } else {
+                info!("No path found!");
+            }
+        }
 
-                    if let Some(waypoint) = pathfinding.current_waypoint() {
-                        // Calculate direction to waypoint (only horizontal movement for pathfinding)
-                        let mut direction = waypoint - pos3.pos;
-                        direction.y = 0.0; // Don't try to move vertically through pathfinding
+        // Third pass: move entities along their paths using physics
+        for &entity in follower_entities.iter() {
+            let pathfinding_comp = match sa.world.get_component::<PathfindingComponent>(entity) {
+                Some(comp) => comp,
+                None => continue,
+            };
 
-                        info!(
-                            "Entity at {:?} moving toward waypoint {:?}, distance: {:.2}",
-                            pos3.pos,
-                            waypoint,
-                            direction.magnitude()
-                        );
+            let pos3_comp = match sa.world.get_component::<Pos3>(entity) {
+                Some(comp) => comp,
+                None => continue,
+            };
 
-                        if direction.magnitude() > pathfinding.waypoint_threshold {
-                            // Apply horizontal acceleration toward target
-                            let normalized_dir = direction.normalize();
-                            let target_acceleration = normalized_dir * pathfinding.speed * 8.0; // Multiply for stronger acceleration
+            let rigidbody_comp = match sa
+                .world
+                .get_component::<RigidBody<AABBCollisionBox>>(entity)
+            {
+                Some(comp) => comp,
+                None => continue,
+            };
 
-                            // Keep gravity (y-component of acceleration) and add horizontal movement
-                            rigidbody.acceleration.x = target_acceleration.x;
-                            rigidbody.acceleration.z = target_acceleration.z;
-                            // Leave rigidbody.acceleration.y unchanged (gravity)
+            // Move along the current path using physics
+            {
+                let pathfinding = pathfinding_comp.read().map_err(|e| {
+                    SystemError::ComponentAccess(format!(
+                        "Failed to read PathfindingComponent: {}",
+                        e
+                    ))
+                })?;
 
-                            // Apply some damping to horizontal velocity to prevent overshooting
-                            rigidbody.velocity.x *= 0.85;
-                            rigidbody.velocity.z *= 0.85;
+                let pos3 = pos3_comp.read().map_err(|e| {
+                    SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
+                })?;
 
-                            info!("Applied acceleration: {:?}", target_acceleration);
-                        } else {
-                            // Reached waypoint, advance to next
-                            info!("Reached waypoint, advancing to next");
+                let mut rigidbody = rigidbody_comp.write().map_err(|e| {
+                    SystemError::ComponentAccess(format!("Failed to write RigidBody: {}", e))
+                })?;
 
-                            // Stop horizontal movement
-                            rigidbody.acceleration.x = 0.0;
-                            rigidbody.acceleration.z = 0.0;
-                            rigidbody.velocity.x *= 0.5; // Brake
-                            rigidbody.velocity.z *= 0.5; // Brake
+                if let Some(waypoint) = pathfinding.current_waypoint() {
+                    // Calculate direction to waypoint (only horizontal movement for pathfinding)
+                    let mut direction = waypoint - pos3.pos;
+                    direction.y = 0.0; // Don't try to move vertically through pathfinding
 
-                            drop(pathfinding); // Release read lock
-                            let mut pathfinding_mut = pathfinding_comp.write().map_err(|e| {
-                                SystemError::ComponentAccess(format!(
-                                    "Failed to write PathfindingComponent: {}",
-                                    e
-                                ))
-                            })?;
-                            pathfinding_mut.advance_waypoint();
-                        }
+                    info!(
+                        "Entity at {:?} moving toward waypoint {:?}, distance: {:.2}",
+                        pos3.pos,
+                        waypoint,
+                        direction.magnitude()
+                    );
+
+                    if direction.magnitude() > pathfinding.waypoint_threshold {
+                        // Apply horizontal acceleration toward target
+                        let normalized_dir = direction.normalize();
+                        let target_acceleration = normalized_dir * pathfinding.speed * 8.0; // Multiply for stronger acceleration
+
+                        // Keep gravity (y-component of acceleration) and add horizontal movement
+                        rigidbody.acceleration.x = target_acceleration.x;
+                        rigidbody.acceleration.z = target_acceleration.z;
+                        // Leave rigidbody.acceleration.y unchanged (gravity)
+
+                        // Apply some damping to horizontal velocity to prevent overshooting
+                        rigidbody.velocity.x *= 0.85;
+                        rigidbody.velocity.z *= 0.85;
+
+                        info!("Applied acceleration: {:?}", target_acceleration);
                     } else {
-                        // No waypoint, stop horizontal movement
+                        // Reached waypoint, advance to next
+                        info!("Reached waypoint, advancing to next");
+
+                        // Stop horizontal movement
                         rigidbody.acceleration.x = 0.0;
                         rigidbody.acceleration.z = 0.0;
-                        rigidbody.velocity.x *= 0.8; // Gradual stop
-                        rigidbody.velocity.z *= 0.8; // Gradual stop
-                        info!("No waypoint available for entity");
+                        rigidbody.velocity.x *= 0.5; // Brake
+                        rigidbody.velocity.z *= 0.5; // Brake
+
+                        drop(pathfinding); // Release read lock
+                        let mut pathfinding_mut = pathfinding_comp.write().map_err(|e| {
+                            SystemError::ComponentAccess(format!(
+                                "Failed to write PathfindingComponent: {}",
+                                e
+                            ))
+                        })?;
+                        pathfinding_mut.advance_waypoint();
                     }
+                } else {
+                    // No waypoint, stop horizontal movement
+                    rigidbody.acceleration.x = 0.0;
+                    rigidbody.acceleration.z = 0.0;
+                    rigidbody.velocity.x *= 0.8; // Gradual stop
+                    rigidbody.velocity.z *= 0.8; // Gradual stop
+                    info!("No waypoint available for entity");
                 }
             }
+        }
 
-            Ok(())
-        })
+        Ok(())
     });
-
-    app.add_async_system(pathfinding_sys);
 
     // Run the application
     app.run().await

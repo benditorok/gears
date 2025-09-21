@@ -584,151 +584,139 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // FSM Update System
-    let fsm_update_sys = systems::async_system("fsm_update", move |sa| {
-        Box::pin({
-            let w1_frame_tx = w1_frame_tx.clone();
+    async_system!(
+        app,
+        "fsm_update",
+        (
+            w1_frame_tx,
+            w1_character_state,
+            w1_character_sub_state,
+            w1_character_color
+        ),
+        |sa| {
+            w1_frame_tx
+                .send(sa.dt)
+                .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
-            let fsm_debug_charater_state = w1_character_state.clone();
-            let fsm_debug_character_sub_state = w1_character_sub_state.clone();
-            let fsm_debug_character_color = w1_character_color.clone();
-            async move {
-                let (world, dt) = match sa {
-                    SystemAccessors::External { world, dt } => (world, dt),
-                    _ => return Ok(()),
-                };
+            // Get player position
+            let player_pos = if let Some(player_pos3) = sa.world.get_component::<Pos3>(player) {
+                player_pos3.read().unwrap().pos
+            } else {
+                cgmath::Vector3::new(0.0, 0.0, 0.0)
+            };
 
-                w1_frame_tx
-                    .send(*dt)
-                    .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
+            // Update character FSM
+            if let Some(character_pos3) = sa.world.get_component::<Pos3>(character) {
+                if let Some(character_fsm) = sa
+                    .world
+                    .get_component::<FiniteStateMachine<CharacterState>>(character)
+                {
+                    if let Some(character_health) = sa.world.get_component::<Health>(character) {
+                        let char_pos = character_pos3.read().unwrap().pos;
+                        let distance = (player_pos - char_pos).magnitude();
 
-                // Get player position
-                let player_pos = if let Some(player_pos3) = world.get_component::<Pos3>(player) {
-                    player_pos3.read().unwrap().pos
-                } else {
-                    cgmath::Vector3::new(0.0, 0.0, 0.0)
-                };
+                        // Update FSM
+                        let mut fsm = character_fsm.write().unwrap();
+                        let health = character_health.read().unwrap();
 
-                // Update character FSM
-                if let Some(character_pos3) = world.get_component::<Pos3>(character) {
-                    if let Some(character_fsm) =
-                        world.get_component::<FiniteStateMachine<CharacterState>>(character)
-                    {
-                        if let Some(character_health) = world.get_component::<Health>(character) {
-                            let char_pos = character_pos3.read().unwrap().pos;
-                            let distance = (player_pos - char_pos).magnitude();
+                        // Update context with current game state
+                        fsm.context_mut().set_float("health", health.get_health());
+                        fsm.context_mut().set_float("enemy_distance", distance);
 
-                            // Update FSM
-                            let mut fsm = character_fsm.write().unwrap();
-                            let health = character_health.read().unwrap();
+                        // Update FSM
+                        fsm.update(sa.dt);
 
-                            // Update context with current game state
-                            fsm.context_mut().set_float("health", health.get_health());
-                            fsm.context_mut().set_float("enemy_distance", distance);
+                        // Apply FSM-driven behavior
+                        let speed = fsm.context().get_float("speed").unwrap_or(2.0);
+                        let current_state = fsm.current_state().unwrap_or(CharacterState::Idle);
+                        let current_sub_state = fsm.current_sub_state();
+                        // Update debug information in the information window
+                        {
+                            // Update main state for debugging
+                            let mut debug_character_state = w1_character_state.lock().unwrap();
+                            *debug_character_state = current_state;
 
-                            // Update FSM
-                            fsm.update(*dt);
-
-                            // Apply FSM-driven behavior
-                            let speed = fsm.context().get_float("speed").unwrap_or(2.0);
-                            let current_state = fsm.current_state().unwrap_or(CharacterState::Idle);
-                            let current_sub_state = fsm.current_sub_state();
-                            // Update debug information in the information window
-                            {
-                                // Update main state for debugging
-                                let mut debug_character_state =
-                                    fsm_debug_charater_state.lock().unwrap();
-                                *debug_character_state = current_state;
-
-                                // Update sub state for debugging
-                                if let Some(sub_state) = current_sub_state {
-                                    let mut debug_sub_state =
-                                        fsm_debug_character_sub_state.lock().unwrap();
-                                    *debug_sub_state = Some(sub_state);
-                                } else {
-                                    let mut debug_sub_state =
-                                        fsm_debug_character_sub_state.lock().unwrap();
-                                    *debug_sub_state = None;
-                                }
-
-                                // Update color for debugging
-                                if let Some(color_vec) = fsm.context().get_vector3("color") {
-                                    let mut debug_color = fsm_debug_character_color.lock().unwrap();
-                                    debug_color[0] = color_vec.x;
-                                    debug_color[1] = color_vec.y;
-                                    debug_color[2] = color_vec.z;
-                                }
-                            }
-                            // Move character based on state
-                            let mut pos_guard = character_pos3.write().unwrap();
-                            match current_state {
-                                CharacterState::Attack => {
-                                    // Different movement based on sub-state
-                                    match current_sub_state {
-                                        Some(CharacterState::AttackApproach) => {
-                                            // Move towards player
-                                            let direction =
-                                                (player_pos - pos_guard.pos).normalize();
-                                            pos_guard.pos += direction * speed * dt.as_secs_f32();
-                                        }
-                                        Some(CharacterState::AttackStrike) => {
-                                            // Stay close and strike (minimal movement)
-                                            let direction =
-                                                (player_pos - pos_guard.pos).normalize();
-                                            pos_guard.pos +=
-                                                direction * speed * 0.2 * dt.as_secs_f32();
-                                        }
-                                        Some(CharacterState::AttackRetreat) => {
-                                            // Move away briefly
-                                            let direction =
-                                                (pos_guard.pos - player_pos).normalize();
-                                            pos_guard.pos +=
-                                                direction * speed * 0.5 * dt.as_secs_f32();
-                                        }
-                                        _ => {
-                                            // Default attack behavior
-                                            let direction =
-                                                (player_pos - pos_guard.pos).normalize();
-                                            pos_guard.pos += direction * speed * dt.as_secs_f32();
-                                        }
-                                    }
-                                }
-                                CharacterState::Escape => {
-                                    // Move away from player
-                                    let direction = (pos_guard.pos - player_pos).normalize();
-                                    pos_guard.pos += direction * speed * dt.as_secs_f32();
-                                }
-                                CharacterState::Defend => {
-                                    // Maintain distance, slight backing away
-                                    if distance < 8.0 {
-                                        let direction = (pos_guard.pos - player_pos).normalize();
-                                        pos_guard.pos += direction * speed * 0.5 * dt.as_secs_f32();
-                                    }
-                                }
-                                CharacterState::Idle => {
-                                    // Random wandering (simplified)
-                                    let wander_time = fsm.context().time_in_state.as_secs_f32();
-                                    let wander_x = (wander_time * 0.7).sin() * 0.5;
-                                    let wander_z = (wander_time * 0.5).cos() * 0.5;
-                                    pos_guard.pos.x += wander_x * dt.as_secs_f32();
-                                    pos_guard.pos.z += wander_z * dt.as_secs_f32();
-                                }
-                                _ => {}
+                            // Update sub state for debugging
+                            if let Some(sub_state) = current_sub_state {
+                                let mut debug_sub_state = w1_character_sub_state.lock().unwrap();
+                                *debug_sub_state = Some(sub_state);
+                            } else {
+                                let mut debug_sub_state = w1_character_sub_state.lock().unwrap();
+                                *debug_sub_state = None;
                             }
 
-                            // Keep character on the ground and within bounds
-                            pos_guard.pos.y = 1.0;
-                            pos_guard.pos.x = pos_guard.pos.x.clamp(-40.0, 40.0);
-                            pos_guard.pos.z = pos_guard.pos.z.clamp(-40.0, 40.0);
+                            // Update color for debugging
+                            if let Some(color_vec) = fsm.context().get_vector3("color") {
+                                let mut debug_color = w1_character_color.lock().unwrap();
+                                debug_color[0] = color_vec.x;
+                                debug_color[1] = color_vec.y;
+                                debug_color[2] = color_vec.z;
+                            }
                         }
+                        // Move character based on state
+                        let mut pos_guard = character_pos3.write().unwrap();
+                        match current_state {
+                            CharacterState::Attack => {
+                                // Different movement based on sub-state
+                                match current_sub_state {
+                                    Some(CharacterState::AttackApproach) => {
+                                        // Move towards player
+                                        let direction = (player_pos - pos_guard.pos).normalize();
+                                        pos_guard.pos += direction * speed * sa.dt.as_secs_f32();
+                                    }
+                                    Some(CharacterState::AttackStrike) => {
+                                        // Stay close and strike (minimal movement)
+                                        let direction = (player_pos - pos_guard.pos).normalize();
+                                        pos_guard.pos +=
+                                            direction * speed * 0.2 * sa.dt.as_secs_f32();
+                                    }
+                                    Some(CharacterState::AttackRetreat) => {
+                                        // Move away briefly
+                                        let direction = (pos_guard.pos - player_pos).normalize();
+                                        pos_guard.pos +=
+                                            direction * speed * 0.5 * sa.dt.as_secs_f32();
+                                    }
+                                    _ => {
+                                        // Default attack behavior
+                                        let direction = (player_pos - pos_guard.pos).normalize();
+                                        pos_guard.pos += direction * speed * sa.dt.as_secs_f32();
+                                    }
+                                }
+                            }
+                            CharacterState::Escape => {
+                                // Move away from player
+                                let direction = (pos_guard.pos - player_pos).normalize();
+                                pos_guard.pos += direction * speed * sa.dt.as_secs_f32();
+                            }
+                            CharacterState::Defend => {
+                                // Maintain distance, slight backing away
+                                if distance < 8.0 {
+                                    let direction = (pos_guard.pos - player_pos).normalize();
+                                    pos_guard.pos += direction * speed * 0.5 * sa.dt.as_secs_f32();
+                                }
+                            }
+                            CharacterState::Idle => {
+                                // Random wandering (simplified)
+                                let wander_time = fsm.context().time_in_state.as_secs_f32();
+                                let wander_x = (wander_time * 0.7).sin() * 0.5;
+                                let wander_z = (wander_time * 0.5).cos() * 0.5;
+                                pos_guard.pos.x += wander_x * sa.dt.as_secs_f32();
+                                pos_guard.pos.z += wander_z * sa.dt.as_secs_f32();
+                            }
+                            _ => {}
+                        }
+
+                        // Keep character on the ground and within bounds
+                        pos_guard.pos.y = 1.0;
+                        pos_guard.pos.x = pos_guard.pos.x.clamp(-40.0, 40.0);
+                        pos_guard.pos.z = pos_guard.pos.z.clamp(-40.0, 40.0);
                     }
                 }
-
-                Ok(())
             }
-        })
-    });
 
-    app.add_async_system(fsm_update_sys);
+            Ok(())
+        }
+    );
 
     // Run the application
     app.run().await
