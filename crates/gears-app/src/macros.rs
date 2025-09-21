@@ -31,4 +31,13 @@ macro_rules! async_system {
             $app.add_async_system(system);
         }
     };
+    ($name:expr, $capture_block:block) => {
+        $crate::systems::system($name, $capture_block)
+    };
+    ($app:expr, $name:expr, $capture_block:block) => {
+        {
+            let system = $crate::systems::system($name, $capture_block);
+            $app.add_async_system(system);
+        }
+    };
 }
