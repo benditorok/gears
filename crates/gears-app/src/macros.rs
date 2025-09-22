@@ -20,12 +20,16 @@ macro_rules! new_entity {
 ///
 /// ## 1. Variable Capture with Auto-Cloning (Returns System)
 /// ```rust
+/// use gears_app::prelude::*;
+/// use std::sync::{Arc, Mutex};
+/// use std::sync::mpsc;
+///
 /// let sender = mpsc::channel().0;
 /// let counter = Arc::new(Mutex::new(0));
 ///
-/// let system = async_system!("update", (sender, counter), |sa| {
+/// let _system = async_system!("update", (sender, counter), |sa| {
 ///     // Variables are automatically cloned before the async block
-///     sender.send(sa.dt).unwrap();
+///     let _ = sender.send(sa.dt);
 ///     *counter.lock().unwrap() += 1;
 ///     Ok(())
 /// });
@@ -33,19 +37,24 @@ macro_rules! new_entity {
 ///
 /// ## 2. Variable Capture with Auto-Cloning (Direct Registration)
 /// ```rust
+/// use gears_app::prelude::*;
+/// use std::sync::mpsc;
+///
 /// let mut app = GearsApp::default();
 /// let sender = mpsc::channel().0;
 ///
 /// async_system!(app, "update", (sender), |sa| {
 ///     // Automatically registers the system with the app
-///     sender.send(sa.dt).unwrap();
+///     let _ = sender.send(sa.dt);
 ///     Ok(())
 /// });
 /// ```
 ///
 /// ## 3. Simple Closure (Returns System)
 /// ```rust
-/// let system = async_system!("physics_update", |sa| {
+/// use gears_app::prelude::*;
+///
+/// let _system = async_system!("physics_update", |sa| {
 ///     // Simple async system without external captures
 ///     println!("Delta time: {:?}", sa.dt);
 ///     Ok(())
@@ -54,6 +63,8 @@ macro_rules! new_entity {
 ///
 /// ## 4. Simple Closure (Direct Registration)
 /// ```rust
+/// use gears_app::prelude::*;
+///
 /// let mut app = GearsApp::default();
 ///
 /// async_system!(app, "physics_update", |sa| {
@@ -65,11 +76,13 @@ macro_rules! new_entity {
 ///
 /// ## 5. Move Closure (Returns System)
 /// ```rust
+/// use gears_app::prelude::*;
+///
 /// let entity_id = Entity::new(123);
 ///
-/// let system = async_system!("entity_update", move |sa| {
+/// let _system = async_system!("entity_update", move |sa| {
 ///     // Moves captured variables into the closure
-///     if let Some(pos) = sa.world.get_component::<Pos3>(entity_id) {
+///     if let Some(_pos) = sa.world.get_component::<Pos3>(entity_id) {
 ///         // Update entity logic
 ///     }
 ///     Ok(())
@@ -78,12 +91,14 @@ macro_rules! new_entity {
 ///
 /// ## 6. Move Closure (Direct Registration)
 /// ```rust
+/// use gears_app::prelude::*;
+///
 /// let mut app = GearsApp::default();
 /// let entity_id = Entity::new(123);
 ///
 /// async_system!(app, "entity_update", move |sa| {
 ///     // Moves and registers directly
-///     if let Some(pos) = sa.world.get_component::<Pos3>(entity_id) {
+///     if let Some(_pos) = sa.world.get_component::<Pos3>(entity_id) {
 ///         // Update entity logic
 ///     }
 ///     Ok(())
@@ -92,7 +107,12 @@ macro_rules! new_entity {
 ///
 /// ## 7. Custom Block (Returns System)
 /// ```rust
-/// let system = async_system!("custom_system", {
+/// use gears_app::prelude::*;
+/// use std::sync::{Arc, Mutex};
+/// use std::pin::Pin;
+/// use std::future::Future;
+///
+/// let _system = async_system!("custom_system", {
 ///     let shared_data = Arc::new(Mutex::new(Vec::new()));
 ///     move |sa| {
 ///         let data = shared_data.clone();
@@ -107,6 +127,11 @@ macro_rules! new_entity {
 ///
 /// ## 8. Custom Block (Direct Registration)
 /// ```rust
+/// use gears_app::prelude::*;
+/// use std::sync::{Arc, Mutex};
+/// use std::pin::Pin;
+/// use std::future::Future;
+///
 /// let mut app = GearsApp::default();
 ///
 /// async_system!(app, "custom_system", {
