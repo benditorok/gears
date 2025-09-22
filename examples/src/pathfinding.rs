@@ -41,6 +41,7 @@ async fn main() -> EngineResult<()> {
                 ui.label("Space - Jump");
                 ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
+                ui.label("F1 - Toggle debug mode");
             });
     }));
 

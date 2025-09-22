@@ -448,11 +448,11 @@ async fn main() -> EngineResult<()> {
 
                 ui.separator();
                 ui.label("System Integration:");
-                ui.label("• FSM states determine pathfinding behavior");
-                ui.label("• A* algorithm for intelligent navigation");
-                ui.label("• Physics-based movement with momentum");
-                ui.label("• Obstacle avoidance and collision detection");
-                ui.label("• Health and distance-based state transitions");
+                ui.label("- FSM states determine pathfinding behavior");
+                ui.label("- A* algorithm for intelligent navigation");
+                ui.label("- Physics-based movement with momentum");
+                ui.label("- Obstacle avoidance and collision detection");
+                ui.label("- Health and distance-based state transitions");
 
                 ui.separator();
                 ui.label("Controls:");
@@ -461,13 +461,14 @@ async fn main() -> EngineResult<()> {
                 ui.label("Space - Jump");
                 ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
+                ui.label("F1 - Toggle debug mode");
 
                 ui.separator();
                 ui.label("AI Behavior:");
-                ui.label("• Health > 60% & Close → Attack");
-                ui.label("• Health ≤ 60% & Very Close → Defend");
-                ui.label("• Health < 30% → Escape");
-                ui.label("• Far from player → Idle/Wander");
+                ui.label("- Health > 60% & Close → Attack");
+                ui.label("- Health ≤ 60% & Very Close → Defend");
+                ui.label("- Health < 30% → Escape");
+                ui.label("- Far from player → Idle/Wander");
             });
     }));
 
