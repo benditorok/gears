@@ -26,3 +26,4 @@ pub use gears_ecs::{
         transforms::{Flip, Pos3, Scale},
     },
 };
+pub use gears_macro::Component;

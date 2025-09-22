@@ -213,7 +213,6 @@ impl DrawWireframeMesh for wgpu::RenderPass<'_> {
     }
 }
 
-
 #[derive(Component)]
 pub struct Model {
     pub meshes: Vec<Mesh>,

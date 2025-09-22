@@ -3,7 +3,7 @@ name = "examples"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "Common example code"
+description = "Examples showcasing the game engine's features"
 homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
@@ -14,8 +14,6 @@ publish = false
 
 [dependencies]
 gears-app = { workspace = true }
-gears-macro = { workspace = true }
-gears-renderer = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 rand = { workspace = true }

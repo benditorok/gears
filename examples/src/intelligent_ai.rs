@@ -4,8 +4,6 @@
 
 use cgmath::{InnerSpace, Vector3, Zero};
 use gears_app::prelude::*;
-use gears_app::systems::{self, SystemError};
-use gears_macro::Component;
 use log::{LevelFilter, info};
 use std::f32::consts::PI;
 use std::sync::{Arc, Mutex, mpsc};
