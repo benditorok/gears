@@ -1,15 +1,12 @@
 use cgmath::Rotation3;
 use egui::Align2;
-
-use gears_app::systems::SystemError;
-use gears_app::{prelude::*, systems};
+use gears_app::prelude::*;
 use log::LevelFilter;
 use std::f32::consts::PI;
 use std::sync::mpsc;
-use std::time;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> EngineResult<()> {
     std::panic::set_hook(Box::new(|info| {
         eprintln!("{}", info);
         println!("Press Enter to close...");
@@ -52,6 +49,7 @@ async fn main() -> anyhow::Result<()> {
                 ui.label("Space - Jump");
                 ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
+                ui.label("F1 - Toggle debug mode");
             });
     }));
 
@@ -239,60 +237,46 @@ async fn main() -> anyhow::Result<()> {
         Health::default(),
     );
 
-    // Systems can now be written with simple async closures
-    let update_sys = systems::async_system("update", move |sa| {
-        Box::pin({
-            let w1_frame_tx = w1_frame_tx.clone();
+    async_system!(app, "update", (w1_frame_tx), |sa| {
+        w1_frame_tx
+            .send(sa.dt)
+            .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
-            async move {
-                let (world, dt) = match sa {
-                    SystemAccessors::External { world, dt } => (world, dt),
-                    _ => return Ok(()),
-                };
+        let circle_speed = 8.0f32;
+        let light_speed_multiplier = 3.0f32;
 
-                w1_frame_tx
-                    .send(*dt)
-                    .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
-
-                let circle_speed = 8.0f32;
-                let light_speed_multiplier = 3.0f32;
-
-                // Move the spheres in a circle considering accumulated time
-                for sphere in moving_spheres.iter() {
-                    if let Some(pos3) = world.get_component::<Pos3>(*sphere) {
-                        let mut wlock_pos3 = pos3.write().unwrap();
-                        wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
-                            (0.0, 1.0, 0.0).into(),
-                            cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
-                        ) * wlock_pos3.pos;
-                    }
-                }
-
-                // Handle lights movement
-                if let Some(pos3) = world.get_component::<Pos3>(red_light) {
-                    let mut wlock_pos3 = pos3.write().unwrap();
-
-                    wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
-                        (0.0, 1.0, 0.0).into(),
-                        cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-                    ) * wlock_pos3.pos;
-                }
-
-                if let Some(pos3) = world.get_component::<Pos3>(blue_light) {
-                    let mut wlock_pos3 = pos3.write().unwrap();
-
-                    wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
-                        (0.0, 1.0, 0.0).into(),
-                        cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-                    ) * wlock_pos3.pos;
-                }
-
-                Ok(())
+        // Move the spheres in a circle considering accumulated time
+        for sphere in moving_spheres.iter() {
+            if let Some(pos3) = sa.world.get_component::<Pos3>(*sphere) {
+                let mut wlock_pos3 = pos3.write().unwrap();
+                wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
+                    (0.0, 1.0, 0.0).into(),
+                    cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed),
+                ) * wlock_pos3.pos;
             }
-        })
-    });
+        }
 
-    app.add_async_system(update_sys);
+        // Handle lights movement
+        if let Some(pos3) = sa.world.get_component::<Pos3>(red_light) {
+            let mut wlock_pos3 = pos3.write().unwrap();
+
+            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
+                (0.0, 1.0, 0.0).into(),
+                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+            ) * wlock_pos3.pos;
+        }
+
+        if let Some(pos3) = sa.world.get_component::<Pos3>(blue_light) {
+            let mut wlock_pos3 = pos3.write().unwrap();
+
+            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
+                (0.0, 1.0, 0.0).into(),
+                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+            ) * wlock_pos3.pos;
+        }
+
+        Ok(())
+    });
 
     // Run the application
     app.run().await

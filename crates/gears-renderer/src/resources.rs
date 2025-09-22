@@ -1,7 +1,8 @@
+use crate::errors::RendererError;
+
 use super::{animation, model, texture};
-use anyhow::Context;
 use gltf::Gltf;
-use log::{info, warn};
+use log::warn;
 use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
 use wgpu::util::DeviceExt;
@@ -10,40 +11,45 @@ fn get_resource_path(file_path: &str) -> PathBuf {
     Path::new(env!("RES_DIR")).join(file_path)
 }
 
-pub(crate) async fn load_string(file_path: &str) -> anyhow::Result<String> {
+pub(crate) async fn load_string(file_path: &str) -> Result<String, RendererError> {
     let path = get_resource_path(file_path);
-    let txt = std::fs::read_to_string(&path).context(format!(
-        "Failed to read file to string: {}",
-        &path.display()
-    ))?;
+    let txt = std::fs::read_to_string(&path).map_err(|_err| {
+        RendererError::ResourceLoadingFailed(format!("Failed to read file: {}", path.display()))
+    })?;
 
     Ok(txt)
 }
 
-pub(crate) async fn load_string_path(path: PathBuf) -> anyhow::Result<String> {
-    let txt = std::fs::read_to_string(&path).context(format!(
-        "Failed to read file to string: {}",
-        &path.display()
-    ))?;
+pub(crate) async fn load_string_path(path: PathBuf) -> Result<String, RendererError> {
+    let txt = std::fs::read_to_string(&path).map_err(|_err| {
+        RendererError::ResourceLoadingFailed(format!(
+            "Failed to read file to string: {}",
+            path.display()
+        ))
+    })?;
 
     Ok(txt)
 }
 
-pub(crate) async fn load_binary(file_path: &str) -> anyhow::Result<Vec<u8>> {
+pub(crate) async fn load_binary(file_path: &str) -> Result<Vec<u8>, RendererError> {
     let path = get_resource_path(file_path);
-    let data = std::fs::read(&path).context(format!(
-        "Failed to read file to binary: {}",
-        &path.display()
-    ))?;
+    let data = std::fs::read(&path).map_err(|_err| {
+        RendererError::ResourceLoadingFailed(format!(
+            "Failed to read file to binary: {}",
+            path.display()
+        ))
+    })?;
 
     Ok(data)
 }
 
-pub(crate) async fn load_binary_path(path: PathBuf) -> anyhow::Result<Vec<u8>> {
-    let data = std::fs::read(&path).context(format!(
-        "Failed to read file to binary: {}",
-        &path.display()
-    ))?;
+pub(crate) async fn load_binary_path(path: PathBuf) -> Result<Vec<u8>, RendererError> {
+    let data = std::fs::read(&path).map_err(|_err| {
+        RendererError::ResourceLoadingFailed(format!(
+            "Failed to read file to binary: {}",
+            path.display()
+        ))
+    })?;
 
     Ok(data)
 }
@@ -52,7 +58,7 @@ pub(crate) async fn load_texture(
     file_path: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-) -> anyhow::Result<texture::Texture> {
+) -> Result<texture::Texture, RendererError> {
     let data = load_binary(file_path).await?;
 
     texture::Texture::from_bytes(device, queue, &data, file_path)
@@ -62,7 +68,7 @@ pub(crate) async fn load_texture_path(
     path: PathBuf,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-) -> anyhow::Result<texture::Texture> {
+) -> Result<texture::Texture, RendererError> {
     let data = load_binary_path(path.clone()).await?;
 
     texture::Texture::from_bytes(
@@ -79,7 +85,7 @@ pub(crate) async fn load_model_obj(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
-) -> anyhow::Result<model::Model> {
+) -> Result<model::Model, RendererError> {
     let path = Path::new(file_path);
     let model_root_dir = path.parent().unwrap();
     let file_name = model_root_dir.file_name().unwrap().to_str().unwrap();
@@ -211,12 +217,14 @@ pub(crate) async fn load_model_gltf(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
-) -> anyhow::Result<model::Model> {
+) -> Result<model::Model, RendererError> {
     let file_path = Path::new(gltf_path);
-    let model_root_dir = file_path.parent().context(format!(
-        "No parent directory for path {}.",
-        file_path.display()
-    ))?;
+    let model_root_dir = file_path.parent().ok_or_else(|| {
+        RendererError::InvalidPath(format!(
+            "No parent directory for path {}.",
+            file_path.display()
+        ))
+    })?;
     let file_name = model_root_dir.file_name().unwrap().to_str().unwrap();
 
     let string_path = get_resource_path(gltf_path);
@@ -454,7 +462,7 @@ pub(crate) async fn load_model_gltf(
                     // Read positions
                     let positions: Vec<[f32; 3]> = reader
                         .read_positions()
-                        .ok_or_else(|| anyhow::anyhow!("Missing positions"))?
+                        .ok_or_else(|| RendererError::MissingData("Missing positions".to_string()))?
                         .collect();
 
                     // Read normals or generate default

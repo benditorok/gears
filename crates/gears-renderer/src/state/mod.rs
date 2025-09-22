@@ -3,9 +3,10 @@ mod resources;
 
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
-use crate::BufferComponent;
+use crate::{BufferComponent, errors::RendererError};
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
+use gears_core::config::Config;
 use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
 use gears_ecs::{self, Entity, World, components};
 use gears_gui::{EguiRenderer, EguiWindowCallback};
@@ -51,7 +52,7 @@ pub struct State<'a> {
     window: &'a Window,
     world: &'a World,
     mouse_pressed: bool,
-    draw_colliders: bool,
+    pub draw_colliders: bool,
     egui_renderer: EguiRenderer,
     egui_windows: Arc<Mutex<Vec<EguiWindowCallback>>>,
     is_state_paused: AtomicBool,
@@ -298,7 +299,7 @@ impl<'a> State<'a> {
             window,
             world,
             mouse_pressed: false,
-            draw_colliders: true,
+            draw_colliders: false,
             egui_renderer,
             egui_windows,
             is_state_paused: AtomicBool::new(false),
@@ -307,6 +308,11 @@ impl<'a> State<'a> {
             player_entity: None,
             target_entities: None,
         }
+    }
+
+    /// Toggle the debug mode.
+    pub fn toggle_debug(&mut self) {
+        self.draw_colliders = !self.draw_colliders;
     }
 
     pub fn is_paused(&self) -> bool {
@@ -341,7 +347,7 @@ impl<'a> State<'a> {
     }
 
     /// Initialize the components which can be rendered.
-    pub async fn init_components(&mut self) -> anyhow::Result<()> {
+    pub async fn init_components(&mut self) -> Result<(), RendererError> {
         if !init::player(self) {
             init::camera(self);
         }
@@ -444,6 +450,12 @@ impl<'a> State<'a> {
                             self.toggle_cursor();
                         }
                     }
+                    KeyCode::F1 => {
+                        // Toggle on release
+                        if !state.is_pressed() {
+                            self.toggle_debug();
+                        }
+                    }
                     _ => {
                         if let Some(movement_controller) = &self.movement_controller {
                             let mut wlock_movement_controller =
@@ -481,7 +493,7 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A future which can be awaited.
-    pub async fn update(&mut self, dt: time::Duration) -> anyhow::Result<()> {
+    pub async fn update(&mut self, dt: time::Duration) -> Result<(), RendererError> {
         // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {
             let camera_entity = self.camera_owner_entity.unwrap();
@@ -604,29 +616,32 @@ impl<'a> State<'a> {
             }
 
             // ! Render collision boxes if enabled
-            let wireframes = self
-                .world
-                .get_entities_with_component::<model::WireframeMesh>();
-            if self.draw_colliders && !wireframes.is_empty() {
-                render_pass.set_wireframe_pipeline(
-                    &self.collider_render_pipeline,
-                    &self.camera_bind_group,
-                );
+            if self.draw_colliders {
+                let wireframes = self
+                    .world
+                    .get_entities_with_component::<model::WireframeMesh>();
 
-                for entity in wireframes {
-                    let wireframe = self
-                        .world
-                        .get_component::<model::WireframeMesh>(entity)
-                        .unwrap();
-                    // Use the same instance buffer that's used for the physics body
-                    let instance_buffer =
-                        self.world.get_component::<BufferComponent>(entity).unwrap();
+                if !wireframes.is_empty() {
+                    render_pass.set_wireframe_pipeline(
+                        &self.collider_render_pipeline,
+                        &self.camera_bind_group,
+                    );
 
-                    // Lock and read components
-                    let wireframe = wireframe.read().unwrap();
-                    let instance_buffer = instance_buffer.read().unwrap();
+                    for entity in wireframes {
+                        let wireframe = self
+                            .world
+                            .get_component::<model::WireframeMesh>(entity)
+                            .unwrap();
+                        // Use the same instance buffer that's used for the physics body
+                        let instance_buffer =
+                            self.world.get_component::<BufferComponent>(entity).unwrap();
 
-                    render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
+                        // Lock and read components
+                        let wireframe = wireframe.read().unwrap();
+                        let instance_buffer = instance_buffer.read().unwrap();
+
+                        render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
+                    }
                 }
             }
         }

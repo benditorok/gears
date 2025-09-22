@@ -27,6 +27,12 @@
 //!     CombatDefend,
 //! }
 //!
+//! impl std::fmt::Display for MyStateId {
+//!     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//!         write!(f, "{}", self.as_str())
+//!     }
+//! }
+//!
 //! impl StateIdentifier for MyStateId {
 //!     fn as_str(&self) -> &'static str {
 //!         match self {
@@ -55,6 +61,34 @@
 //!         } else {
 //!             None
 //!         }
+//!     }
+//! }
+//!
+//! // Additional states for the example
+//! #[derive(Debug)]
+//! struct CombatState;
+//!
+//! impl State<MyStateId> for CombatState {
+//!     fn on_enter(&mut self, context: &mut StateContext) {
+//!         println!("Entered combat state");
+//!     }
+//! }
+//!
+//! #[derive(Debug)]
+//! struct AttackState;
+//!
+//! impl State<MyStateId> for AttackState {
+//!     fn on_enter(&mut self, context: &mut StateContext) {
+//!         println!("Entered attack state");
+//!     }
+//! }
+//!
+//! #[derive(Debug)]
+//! struct DefendState;
+//!
+//! impl State<MyStateId> for DefendState {
+//!     fn on_enter(&mut self, context: &mut StateContext) {
+//!         println!("Entered defend state");
 //!     }
 //! }
 //!
@@ -290,19 +324,34 @@ impl StateContext {
 /// ## Usage in ECS
 ///
 /// ```rust
+/// use gears_ecs::components::fsm::*;
+///
 /// // Using default state types
-/// let mut fsm = FiniteStateMachine::new();
+/// let mut fsm: FiniteStateMachine = FiniteStateMachine::new();
 ///
-/// // Or with custom state enum
-/// let mut fsm = FiniteStateMachine::<MyStateId>::new();
+/// // Or with custom state enum (define MyStateId first)
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// enum MyStateId {
+///     Idle,
+///     Moving,
+/// }
 ///
-/// // Add to an entity using the new_entity! macro
-/// let entity = new_entity!(
-///     app,
-///     Name("Character"),
-///     Pos3::default(),
-///     character_fsm, // Your configured FSM
-/// );
+/// impl std::fmt::Display for MyStateId {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         write!(f, "{}", self.as_str())
+///     }
+/// }
+///
+/// impl StateIdentifier for MyStateId {
+///     fn as_str(&self) -> &'static str {
+///         match self {
+///             MyStateId::Idle => "idle",
+///             MyStateId::Moving => "moving",
+///         }
+///     }
+/// }
+///
+/// let mut custom_fsm = FiniteStateMachine::<MyStateId>::new();
 /// ```
 #[derive(Debug)]
 pub struct FiniteStateMachine<S: StateIdentifier = DefaultStateId> {

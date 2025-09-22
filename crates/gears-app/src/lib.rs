@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod macros;
 pub mod prelude;
 pub mod systems;
@@ -15,6 +16,8 @@ use systems::SystemCollection;
 use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::WindowAttributes;
+
+use crate::errors::EngineError;
 
 // This struct is used to manage the entire application.
 /// The application can also be used to create entities, add components, windows etc. to itself.
@@ -68,7 +71,7 @@ impl GearsApp {
     }
 
     /// Run the application and start the event loop.
-    pub async fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> Result<(), EngineError> {
         info!("Starting Gears...");
         let windows = self.egui_windows.take();
 
@@ -80,43 +83,44 @@ impl GearsApp {
         self.external_async_systems.add_system(system);
     }
 
-    async fn run_systems(&self, sa: &systems::SystemAccessors<'_>) {
-        debug!("Starting system execution cycle");
+    async fn run_external_systems(&self, sa: &systems::SystemAccessors<'_>) {
+        debug!("Starting external system execution cycle");
 
-        match sa {
-            systems::SystemAccessors::Internal { .. } => {
-                let futures = self.internal_async_systems.systems().iter().map(|system| {
-                    debug!("Preparing internal system: {}", system.name());
-                    async move {
-                        let result = system.run(sa).await;
-                        if let Err(err) = &result {
-                            log::error!("Internal system '{}' failed: {}", system.name(), err);
-                        }
-                        result
-                    }
-                });
-
-                // Run all futures concurrently and wait for completion
-                futures::future::join_all(futures).await;
+        let futures = self.external_async_systems.systems().iter().map(|system| {
+            debug!("Preparing external system: {}", system.name());
+            async move {
+                let result = system.run(sa).await;
+                if let Err(err) = &result {
+                    log::error!("External system '{}' failed: {}", system.name(), err);
+                }
+                result
             }
-            systems::SystemAccessors::External { .. } => {
-                let futures = self.external_async_systems.systems().iter().map(|system| {
-                    debug!("Preparing external system: {}", system.name());
-                    async move {
-                        let result = system.run(sa).await;
-                        if let Err(err) = &result {
-                            log::error!("External system '{}' failed: {}", system.name(), err);
-                        }
-                        result
-                    }
-                });
+        });
 
-                // Run all futures concurrently and wait for completion
-                futures::future::join_all(futures).await;
+        // Run all futures concurrently and wait for completion
+        futures::future::join_all(futures).await;
+
+        debug!("All external systems completed");
+    }
+
+    async fn run_internal_systems(&self, sa: &systems::InternalSystemAccessors<'_>) {
+        debug!("Starting internal system execution cycle");
+
+        let futures = self.internal_async_systems.systems().iter().map(|system| {
+            debug!("Preparing internal system: {}", system.name());
+            async move {
+                let result = system.run(sa).await;
+                if let Err(err) = &result {
+                    log::error!("Internal system '{}' failed: {}", system.name(), err);
+                }
+                result
             }
-        }
+        });
 
-        debug!("All systems completed");
+        // Run all futures concurrently and wait for completion
+        futures::future::join_all(futures).await;
+
+        debug!("All internal systems completed");
     }
 
     /// Add a custom window to the app.
@@ -140,7 +144,7 @@ impl GearsApp {
     async fn run_engine(
         &self,
         egui_windows: Option<Vec<EguiWindowCallback>>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), EngineError> {
         // * Window creation
         let event_loop = EventLoop::new()?;
         let window_attributes = WindowAttributes::default()
@@ -160,7 +164,7 @@ impl GearsApp {
         // Proper error handling for initialization
         if let Err(e) = state.init_components().await {
             log::error!("Failed to initialize components: {}", e);
-            return Err(e);
+            return Err(EngineError::ComponentInitialization(e.to_string()));
         }
 
         let mut last_render_time = time::Instant::now();
@@ -198,14 +202,12 @@ impl GearsApp {
                             return;
                         }
 
-                        // Run systems in a more efficient way
-                        // Create a future that runs both internal and external systems concurrently
-                        let external_sa = systems::SystemAccessors::External {
+                        // Create system accessors for both external and internal systems
+                        let external_sa = systems::SystemAccessors {
                             world: &self.world,
                             dt,
                         };
-
-                        let internal_sa = systems::SystemAccessors::Internal {
+                        let internal_sa = systems::InternalSystemAccessors {
                             world: &self.world,
                             state: &state,
                             dt,
@@ -214,8 +216,8 @@ impl GearsApp {
                         // Run both system groups concurrently instead of sequentially
                         futures::executor::block_on(async {
                             futures::join!(
-                                self.run_systems(&external_sa),
-                                self.run_systems(&internal_sa)
+                                self.run_external_systems(&external_sa),
+                                self.run_internal_systems(&internal_sa)
                             )
                         });
 

@@ -36,8 +36,7 @@ strip = true # Ensures debug symbols are removed.
 # rustflags = ["-Cdebuginfo=0", "-Zthreads=8"] # Better compile performance. # requires the nightly compiler
 
 # For memory allocation tracking
-# [profile.release]
-# debug = true
+debug = true
 
 # [build]
 # rustflags = ["-Z", "threads=8"]
@@ -54,10 +53,8 @@ gears-renderer = { path = "crates/gears-renderer" }
 # External crates
 tokio = { version = "1.47.1", features = ["full"] }
 futures = "0.3.31"
-anyhow = "1.0.99"
 cfg-if = "1.0.3"
 winit = { version = "0.30.12", features = ["rwh_05"] }
-env_logger = "0.11.8"
 log = "0.4.28"
 wgpu = "22.0"
 bytemuck = { version = "1.23.2", features = ["derive"] }

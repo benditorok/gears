@@ -1,10 +1,48 @@
-use anyhow::*;
 use fs_extra::copy_items;
 use fs_extra::dir::CopyOptions;
 use std::env;
+use std::error::Error;
+use std::fmt;
 use std::path::PathBuf;
 
-fn main() -> Result<()> {
+#[derive(Debug)]
+enum BuildError {
+    EnvVar(env::VarError),
+    Io(std::io::Error),
+    FsExtra(fs_extra::error::Error),
+}
+
+impl fmt::Display for BuildError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BuildError::EnvVar(e) => write!(f, "Environment variable error: {}", e),
+            BuildError::Io(e) => write!(f, "IO error: {}", e),
+            BuildError::FsExtra(e) => write!(f, "File system operation error: {}", e),
+        }
+    }
+}
+
+impl Error for BuildError {}
+
+impl From<env::VarError> for BuildError {
+    fn from(err: env::VarError) -> Self {
+        BuildError::EnvVar(err)
+    }
+}
+
+impl From<std::io::Error> for BuildError {
+    fn from(err: std::io::Error) -> Self {
+        BuildError::Io(err)
+    }
+}
+
+impl From<fs_extra::error::Error> for BuildError {
+    fn from(err: fs_extra::error::Error) -> Self {
+        BuildError::FsExtra(err)
+    }
+}
+
+fn main() -> Result<(), BuildError> {
     // Get output directory where executable will be built
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     // Go up 3 levels to get to target/debug or target/release

@@ -148,9 +148,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.99"
+version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
+checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "approx"
@@ -796,7 +796,6 @@ checksum = "a5d9305ccc6942a704f4335694ecd3de2ea531b114ac2d51f5f843750787a92f"
 name = "examples"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "cgmath",
  "egui",
  "egui-wgpu",
@@ -965,7 +964,6 @@ dependencies = [
 name = "gears-app"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "bytemuck",
  "cfg-if",
  "cgmath",
@@ -974,7 +972,6 @@ dependencies = [
  "egui",
  "egui-wgpu",
  "egui-winit",
- "env_logger",
  "futures",
  "gears-core",
  "gears-ecs",
@@ -1047,7 +1044,6 @@ dependencies = [
  "egui",
  "egui-wgpu",
  "egui-winit",
- "env_logger",
  "fs_extra",
  "futures",
  "gears-core",
@@ -1059,6 +1055,7 @@ dependencies = [
  "image",
  "log",
  "rayon",
+ "thiserror 2.0.16",
  "tobj",
  "tokio",
  "wgpu",

@@ -5,7 +5,7 @@ use log::LevelFilter;
 use std::sync::{Arc, Mutex, mpsc};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> EngineResult<()> {
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);
@@ -133,21 +133,16 @@ async fn main() -> anyhow::Result<()> {
             });
     }));
 
-    let update_sys = async_system("handle_sphere_pos3", move |sa| {
-        let w1_frame_tx = w1_frame_tx.clone();
-        let sphere_pos_modified = sphere_pos_modified.clone();
-
-        Box::pin(async move {
-            let (world, dt) = match sa {
-                SystemAccessors::External { world, dt } => (world, dt),
-                _ => return Ok(()),
-            };
-
+    async_system!(
+        app,
+        "handle_sphere_pos3",
+        (w1_frame_tx, sphere_pos_modified),
+        |sa| {
             w1_frame_tx
-                .send(*dt)
+                .send(sa.dt)
                 .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
-            if let Some(pos3) = world.get_component::<Pos3>(sphere) {
+            if let Some(pos3) = sa.world.get_component::<Pos3>(sphere) {
                 let mut wlock_pos3 = pos3.write().unwrap();
                 let ui_modified_pos3 = sphere_pos_modified.lock().unwrap();
 
@@ -156,10 +151,9 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
             Ok(())
-        })
-    });
+        }
+    );
 
-    app.add_async_system(update_sys);
-
+    // Run the application
     app.run().await
 }
