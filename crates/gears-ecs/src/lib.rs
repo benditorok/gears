@@ -1,4 +1,5 @@
 pub mod components;
+pub mod query_system;
 pub mod utils;
 
 use dashmap::DashMap;

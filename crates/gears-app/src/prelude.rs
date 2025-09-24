@@ -25,5 +25,6 @@ pub use gears_ecs::{
         prefabs::Player,
         transforms::{Flip, Pos3, Scale},
     },
+    query_system::{ComponentQuery, WorldQueryExt},
 };
 pub use gears_macro::Component;
