@@ -1,4 +1,3 @@
-
 /// Create a new render pipeline.
 /// This function is used to create a new render pipeline for the given device.
 ///
@@ -32,7 +31,7 @@ pub(super) fn create_render_pipeline(
         layout: Some(layout),
         vertex: wgpu::VertexState {
             module: &shader,
-            entry_point: "vs_main",
+            entry_point: Some("vs_main"),
             buffers: vertex_layouts,
             compilation_options: wgpu::PipelineCompilationOptions {
                 ..Default::default()
@@ -40,7 +39,7 @@ pub(super) fn create_render_pipeline(
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
-            entry_point: "fs_main",
+            entry_point: Some("fs_main"),
             targets: &[Some(wgpu::ColorTargetState {
                 format: color_format,
                 blend: Some(if is_collider_pipeline {

@@ -295,6 +295,9 @@ impl GearsApp {
                                     Err(wgpu::SurfaceError::Timeout) => {
                                         log::warn!("Surface timeout")
                                     }
+                                    Err(wgpu::SurfaceError::Other) => {
+                                        log::error!("Acquiring a texture failed with a generic error. Check error callbacks for more information.");
+                                    }
                                 }
                             }
                             _ => {}

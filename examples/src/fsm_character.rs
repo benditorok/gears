@@ -1,8 +1,6 @@
 use cgmath::InnerSpace;
 use egui::Align2;
-use gears_app::systems::SystemError;
-use gears_app::{prelude::*, systems};
-use gears_macro::Component;
+use gears_app::prelude::*;
 use log::{LevelFilter, info};
 use std::f32::consts::PI;
 use std::sync::mpsc;
@@ -461,6 +459,7 @@ async fn main() -> EngineResult<()> {
                 ui.label("Space - Jump");
                 ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
+                ui.label("F1 - Toggle debug mode");
             });
     }));
 
