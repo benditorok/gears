@@ -177,39 +177,39 @@ async fn main() -> EngineResult<()> {
 
     // Update loop
 
-    async_system!(app, "update_sys", move |sa| {
+    async_system!(app, "update_sys", move |world, dt| {
         // ! Here we are inside a loop, so this has to lock on all iterations.
         let circle_speed = 8.0f32;
         let light_speed_multiplier = 3.0f32;
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            let pos3 = sa.world.get_component::<Pos3>(*sphere).unwrap();
+            let pos3 = world.get_component::<Pos3>(*sphere).unwrap();
 
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed),
+                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
             ) * wlock_pos3.pos;
         }
 
         // Move the red and blue lights in a circle considering accumulated time
-        if let Some(pos3) = sa.world.get_component::<Pos3>(red_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(red_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
             ) * wlock_pos3.pos;
         }
 
-        if let Some(pos3) = sa.world.get_component::<Pos3>(blue_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(blue_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
             ) * wlock_pos3.pos;
         }
 

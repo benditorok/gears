@@ -237,9 +237,9 @@ async fn main() -> EngineResult<()> {
         Health::default(),
     );
 
-    async_system!(app, "update", (w1_frame_tx), |sa| {
+    async_system!(app, "update", (w1_frame_tx), |world, dt| {
         w1_frame_tx
-            .send(sa.dt)
+            .send(dt)
             .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
         let circle_speed = 8.0f32;
@@ -247,31 +247,31 @@ async fn main() -> EngineResult<()> {
 
         // Move the spheres in a circle considering accumulated time
         for sphere in moving_spheres.iter() {
-            if let Some(pos3) = sa.world.get_component::<Pos3>(*sphere) {
+            if let Some(pos3) = world.get_component::<Pos3>(*sphere) {
                 let mut wlock_pos3 = pos3.write().unwrap();
                 wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                     (0.0, 1.0, 0.0).into(),
-                    cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed),
+                    cgmath::Deg(PI * dt.as_secs_f32() * circle_speed),
                 ) * wlock_pos3.pos;
             }
         }
 
         // Handle lights movement
-        if let Some(pos3) = sa.world.get_component::<Pos3>(red_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(red_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
             ) * wlock_pos3.pos;
         }
 
-        if let Some(pos3) = sa.world.get_component::<Pos3>(blue_light) {
+        if let Some(pos3) = world.get_component::<Pos3>(blue_light) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
                 (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * sa.dt.as_secs_f32() * circle_speed * light_speed_multiplier),
+                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
             ) * wlock_pos3.pos;
         }
 

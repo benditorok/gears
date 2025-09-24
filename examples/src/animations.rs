@@ -138,6 +138,7 @@ async fn main() -> EngineResult<()> {
                 ui.label("Shift - Fly down");
                 ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
+                ui.label("F1 - Toggle debug mode");
             });
     }));
 
@@ -148,16 +149,16 @@ async fn main() -> EngineResult<()> {
         app,
         "update",
         (w1_frame_tx, update_sys_accumulated_time),
-        |sa| {
+        |world, dt| {
             // Update accumulated time only when not paused
             let elapsed_time = {
                 let mut time = update_sys_accumulated_time.lock().unwrap();
-                *time += sa.dt.as_secs_f32();
+                *time += dt.as_secs_f32();
                 *time
             };
 
             // Create animations for the helmet by modifying the position and rotation
-            if let Some(pos3) = sa.world.get_component::<Pos3>(animated_helmet) {
+            if let Some(pos3) = world.get_component::<Pos3>(animated_helmet) {
                 let mut pos_guard = pos3.write().unwrap();
 
                 // Create a complex animation pattern for the mercenary
@@ -193,7 +194,7 @@ async fn main() -> EngineResult<()> {
             }
 
             // Send frame time for UI
-            let _ = w1_frame_tx.send(sa.dt);
+            let _ = w1_frame_tx.send(dt);
 
             Ok(())
         }
@@ -202,29 +203,35 @@ async fn main() -> EngineResult<()> {
     // Run gltf animations
     // Track accumulated time for GLTF animations
     let model_accumulated_time = Arc::new(Mutex::new(0.0f32));
-    async_system!(app, "gltf_animations", (model_accumulated_time), |sa| {
-        // Update accumulated time only when not paused
-        let elapsed_time = {
-            let mut time = model_accumulated_time.lock().unwrap();
-            *time += sa.dt.as_secs_f32();
-            *time
-        };
+    async_system!(
+        app,
+        "gltf_animations",
+        (model_accumulated_time),
+        |world, dt| {
+            // Update accumulated time only when not paused
+            let elapsed_time = {
+                let mut time = model_accumulated_time.lock().unwrap();
+                *time += dt.as_secs_f32();
+                *time
+            };
 
-        // Animate the cube with GLTF animation every 5 seconds
-        if (elapsed_time as u64) % 5 == 0 && sa.dt.as_secs_f32() > 0.0 {
-            if let Some(animation_queue) = sa.world.get_component::<AnimationQueue>(animated_cube) {
-                let mut queue = animation_queue.write().unwrap();
-                if !queue.has_queued_animations() {
-                    queue.push("animation_AnimatedCube".to_string());
-                    queue.set_transition_duration(0.5);
-                    queue.set_auto_transition(true);
-                    log::info!("Started cube GLTF animation");
+            // Animate the cube with GLTF animation every 5 seconds
+            if (elapsed_time as u64) % 5 == 0 && dt.as_secs_f32() > 0.0 {
+                if let Some(animation_queue) = world.get_component::<AnimationQueue>(animated_cube)
+                {
+                    let mut queue = animation_queue.write().unwrap();
+                    if !queue.has_queued_animations() {
+                        queue.push("animation_AnimatedCube".to_string());
+                        queue.set_transition_duration(0.5);
+                        queue.set_auto_transition(true);
+                        log::info!("Started cube GLTF animation");
+                    }
                 }
             }
-        }
 
-        Ok(())
-    });
+            Ok(())
+        }
+    );
 
     // Run the application
     app.run().await
