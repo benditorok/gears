@@ -15,7 +15,6 @@ publish = false
 [dependencies]
 gears-app = { workspace = true }
 tokio = { workspace = true }
-futures = { workspace = true }
 rand = { workspace = true }
 cgmath = { workspace = true }
 log = { workspace = true }

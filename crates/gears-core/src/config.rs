@@ -1,9 +1,9 @@
 pub struct Config {
-    pub threadpool_size: usize,
+    // Configuration options can be added here as needed
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config { threadpool_size: 8 }
+        Config {}
     }
 }
