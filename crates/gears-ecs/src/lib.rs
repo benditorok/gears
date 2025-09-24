@@ -149,9 +149,9 @@ pub struct World {
     storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 }
 
-unsafe impl Send for World {}
+// unsafe impl Send for World {}
 
-unsafe impl Sync for World {}
+// unsafe impl Sync for World {}
 
 impl Default for World {
     /// Create a new World instance with a default capacity of 41.
@@ -182,7 +182,7 @@ impl World {
 
     /// Create a new World instance with a specified
     /// initial capacity.
-    ///     
+    ///
     /// # Returns
     ///
     /// A new World instance.
