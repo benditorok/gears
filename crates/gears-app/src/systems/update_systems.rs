@@ -10,16 +10,16 @@ use gears_renderer::{BufferComponent, animation, instance, light, model};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 /// Update the lights in the scene.
 pub(super) fn update_lights(
     world: Arc<World>,
-    state: Arc<Mutex<State>>,
-    dt: time::Duration,
+    state: Arc<RwLock<State>>,
+    _dt: time::Duration,
 ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
     Box::pin(async move {
-        let state = state.lock().unwrap();
+        let state = state.read().unwrap();
         let light_entities = world.get_entities_with_component::<Light>();
 
         // Collect light uniforms in parallel
@@ -73,11 +73,11 @@ pub(super) fn update_lights(
 /// Update the models in the scene.
 pub(super) fn update_models(
     world: Arc<World>,
-    state: Arc<Mutex<State>>,
-    dt: time::Duration,
+    state: Arc<RwLock<State>>,
+    _dt: time::Duration,
 ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
     Box::pin(async move {
-        let state = state.lock().unwrap();
+        let state = state.write().unwrap();
         let model_entities =
             world.get_entities_with_component::<components::misc::StaticModelMarker>();
 
@@ -293,7 +293,7 @@ pub(super) fn update_models(
 /// Update the physics system
 pub(super) fn update_physics(
     world: Arc<World>,
-    state: Arc<Mutex<State>>,
+    state: Arc<RwLock<State>>,
     dt: time::Duration,
 ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
     Box::pin(async move {
@@ -301,7 +301,7 @@ pub(super) fn update_physics(
         let mut physics_bodies = Vec::new();
 
         // Get all entities with RigidBody component
-        let state = state.lock().unwrap();
+        let state = state.read().unwrap();
         let physics_entities =
             world.get_entities_with_component::<components::physics::RigidBody<AABBCollisionBox>>();
 

@@ -6,7 +6,7 @@ use gears_ecs::World;
 use gears_renderer::state::State;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 pub use errors::{SystemError, SystemResult};
 
@@ -24,7 +24,7 @@ pub(crate) trait InternalAsyncSystemFn: Send + Sync {
     fn call(
         &self,
         world: Arc<World>,
-        state: Arc<Mutex<State>>,
+        state: Arc<RwLock<State>>,
         dt: time::Duration,
     ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>;
 }
@@ -70,7 +70,7 @@ impl<F> InternalAsyncSystemFn for InternalAsyncSystemClosure<F>
 where
     F: Fn(
             Arc<World>,
-            Arc<Mutex<State>>,
+            Arc<RwLock<State>>,
             time::Duration,
         ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>
         + Send
@@ -79,7 +79,7 @@ where
     fn call(
         &self,
         world: Arc<World>,
-        state: Arc<Mutex<State>>,
+        state: Arc<RwLock<State>>,
         dt: time::Duration,
     ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
         (self.func)(world, state, dt)
@@ -89,13 +89,13 @@ where
 /// An async system with a name and function
 pub struct AsyncSystem {
     name: &'static str,
-    func: Box<dyn AsyncSystemFn>,
+    pub(crate) func: Box<dyn AsyncSystemFn>,
 }
 
 /// An internal async system with a name and function
 pub(crate) struct InternalAsyncSystem {
     name: &'static str,
-    func: Box<dyn InternalAsyncSystemFn>,
+    pub(crate) func: Box<dyn InternalAsyncSystemFn>,
 }
 
 impl AsyncSystem {
@@ -136,7 +136,7 @@ impl InternalAsyncSystem {
     pub async fn run(
         &self,
         world: Arc<World>,
-        state: Arc<Mutex<State>>,
+        state: Arc<RwLock<State>>,
         dt: time::Duration,
     ) -> SystemResult<()> {
         self.func.call(world, state, dt).await
@@ -159,7 +159,7 @@ pub(crate) fn internal_system<F>(name: &'static str, func: F) -> InternalAsyncSy
 where
     F: Fn(
             Arc<World>,
-            Arc<Mutex<State>>,
+            Arc<RwLock<State>>,
             time::Duration,
         ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>
         + Send
