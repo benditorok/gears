@@ -4,13 +4,12 @@ pub mod prelude;
 pub mod systems;
 
 use gears_core::config::{self, Config};
-use gears_core::threadpool::ThreadPool;
 use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_gui::EguiWindowCallback;
 use gears_renderer::state::State;
 use log::{debug, info};
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex, RwLock};
 use std::time;
 use systems::SystemCollection;
 use winit::event::{DeviceEvent, Event, WindowEvent};
@@ -23,8 +22,7 @@ use crate::errors::EngineError;
 /// The application can also be used to create entities, add components, windows etc. to itself.
 pub struct GearsApp {
     config: Config,
-    world: World,
-    pub thread_pool: ThreadPool,
+    world: Arc<World>,
     egui_windows: Option<Vec<EguiWindowCallback>>,
     is_running: Arc<AtomicBool>,
     internal_async_systems: systems::InternalSystemCollection,
@@ -35,8 +33,7 @@ impl Default for GearsApp {
     fn default() -> Self {
         GearsApp {
             config: config::Config::default(),
-            world: World::default(),
-            thread_pool: ThreadPool::new(8),
+            world: Arc::new(World::default()),
             egui_windows: None,
             is_running: Arc::new(AtomicBool::new(true)),
             internal_async_systems: systems::InternalSystemCollection::default(),
@@ -57,12 +54,9 @@ impl GearsApp {
     ///
     /// A new instance of the application.
     pub fn new(config: config::Config) -> Self {
-        assert!(config.threadpool_size >= 1);
-
         Self {
-            thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            world: World::default(),
+            world: Arc::new(World::default()),
             egui_windows: None,
             is_running: Arc::new(AtomicBool::new(true)),
             internal_async_systems: systems::InternalSystemCollection::default(),
@@ -83,42 +77,66 @@ impl GearsApp {
         self.external_async_systems.add_system(system);
     }
 
-    async fn run_external_systems(&self, sa: &systems::SystemAccessors<'_>) {
+    async fn run_external_systems(&self, world: Arc<World>, dt: time::Duration) {
         debug!("Starting external system execution cycle");
 
-        let futures = self.external_async_systems.systems().iter().map(|system| {
-            debug!("Preparing external system: {}", system.name());
-            async move {
-                let result = system.run(sa).await;
+        let mut join_set = tokio::task::JoinSet::new();
+
+        for system in self.external_async_systems.systems() {
+            let system_name = system.name();
+            let world = Arc::clone(&world);
+            debug!("Spawning external system task: {}", system_name);
+
+            join_set.spawn(async move {
+                let result = system.run(world, dt).await;
                 if let Err(err) = &result {
-                    log::error!("External system '{}' failed: {}", system.name(), err);
+                    log::error!("External system '{}' failed: {}", system_name, err);
                 }
                 result
-            }
-        });
+            });
+        }
 
-        // Run all futures concurrently and wait for completion
-        futures::future::join_all(futures).await;
+        // Wait for all tasks to complete
+        while let Some(result) = join_set.join_next().await {
+            if let Err(e) = result {
+                log::error!("External system task panicked: {}", e);
+            }
+        }
 
         debug!("All external systems completed");
     }
 
-    async fn run_internal_systems(&self, sa: &systems::InternalSystemAccessors<'_>) {
+    async fn run_internal_systems(
+        &self,
+        world: Arc<World>,
+        state: Arc<Mutex<State>>,
+        dt: time::Duration,
+    ) {
         debug!("Starting internal system execution cycle");
 
-        let futures = self.internal_async_systems.systems().iter().map(|system| {
-            debug!("Preparing internal system: {}", system.name());
-            async move {
-                let result = system.run(sa).await;
+        let mut join_set = tokio::task::JoinSet::new();
+
+        for system in self.internal_async_systems.systems() {
+            let system_name = system.name();
+            let world = Arc::clone(&world);
+            let state = Arc::clone(&state);
+            debug!("Spawning internal system task: {}", system_name);
+
+            join_set.spawn(async move {
+                let result = system.run(world, state, dt).await;
                 if let Err(err) = &result {
-                    log::error!("Internal system '{}' failed: {}", system.name(), err);
+                    log::error!("Internal system '{}' failed: {}", system_name, err);
                 }
                 result
-            }
-        });
+            });
+        }
 
-        // Run all futures concurrently and wait for completion
-        futures::future::join_all(futures).await;
+        // Wait for all tasks to complete
+        while let Some(result) = join_set.join_next().await {
+            if let Err(e) = result {
+                log::error!("Internal system task panicked: {}", e);
+            }
+        }
 
         debug!("All internal systems completed");
     }
@@ -154,8 +172,8 @@ impl GearsApp {
             .with_active(true)
             .with_window_icon(None);
 
-        let window = event_loop.create_window(window_attributes)?;
-        let mut state = State::new(&window, &self.world).await;
+        let window = Arc::new(event_loop.create_window(window_attributes)?);
+        let mut state = State::new(Arc::clone(&window), Arc::clone(&self.world)).await;
 
         if let Some(windows) = egui_windows {
             state.add_windows(windows);
@@ -202,25 +220,22 @@ impl GearsApp {
                             return;
                         }
 
-                        // Create system accessors for both external and internal systems
-                        let external_sa = systems::SystemAccessors {
-                            world: &self.world,
-                            dt,
-                        };
-                        let internal_sa = systems::InternalSystemAccessors {
-                            world: &self.world,
-                            state: &state,
-                            dt,
-                        };
+                        // Clone Arc for systems and wrap state in Arc<Mutex>
+                        let world = Arc::clone(&self.world);
+                        let state_arc = Arc::new(Mutex::new(state));
 
-                        // Run both system groups concurrently instead of sequentially
-                        futures::executor::block_on(async {
-                            futures::join!(
-                                self.run_external_systems(&external_sa),
-                                self.run_internal_systems(&internal_sa)
-                            )
+                        // Run both system groups concurrently using Tokio runtime
+                        tokio::task::block_in_place(|| {
+                            tokio::runtime::Handle::current().block_on(async {
+                                tokio::join!(
+                                    self.run_external_systems(Arc::clone(&world), dt),
+                                    self.run_internal_systems(Arc::clone(&world), Arc::clone(&state_arc), dt)
+                                )
+                            })
                         });
 
+                        // Extract state back from Arc
+                        let state = Arc::try_unwrap(state_arc).unwrap().into_inner().unwrap();
                         state.window().request_redraw();
                     }
                     // todo HANDLE this on a separate thread
@@ -273,7 +288,7 @@ impl GearsApp {
                                 last_render_time = now;
 
                                 // Handle update errors
-                                if let Err(e) = futures::executor::block_on(state.update(dt)) {
+                                if let Err(e) = tokio::runtime::Handle::current().block_on(state.update(dt)) {
                                     log::error!("Update failed: {}", e);
                                     ewlt.exit();
                                     return;

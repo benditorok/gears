@@ -87,7 +87,7 @@ pub(super) async fn models(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
-    world: &World,
+    world: &Arc<World>,
 ) {
     let model_entities = world.get_entities_with_component::<components::misc::StaticModelMarker>();
 
@@ -184,7 +184,7 @@ pub(super) async fn physics_models(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
-    world: &World,
+    world: &Arc<World>,
 ) {
     let physics_entities = world.get_entities_with_component::<components::misc::RigidBodyMarker>();
 

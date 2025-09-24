@@ -61,14 +61,14 @@ async fn main() -> EngineResult<()> {
     );
 
     // Use the update loop to spin all spheres using the new simplified async_system! macro
-    async_system!(app, "update_rot", move |sa| {
+    async_system!(app, "update_rot", move |world, dt| {
         let spin_speed = 0.5f32;
-        if let Some(pos3) = sa.world.get_component::<Pos3>(sphere_entity) {
+        if let Some(pos3) = world.get_component::<Pos3>(sphere_entity) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             let rotation = wlock_pos3.rot;
             wlock_pos3.rot =
-                Quaternion::from_angle_y(cgmath::Rad(sa.dt.as_secs_f32() * spin_speed)) * rotation;
+                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
         }
 
         Ok(())

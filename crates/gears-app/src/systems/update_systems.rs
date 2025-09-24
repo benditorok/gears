@@ -1,26 +1,32 @@
-use super::{InternalSystemAccessors, SystemError, SystemResult};
+use super::{SystemError, SystemResult};
 
+use core::time;
+use gears_ecs::World;
 use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::components::{self, lights::Light};
 use gears_renderer::light::LightUniform;
+use gears_renderer::state::State;
 use gears_renderer::{BufferComponent, animation, instance, light, model};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex, RwLock};
 
 /// Update the lights in the scene.
-pub(super) fn update_lights<'a>(
-    sa: &'a InternalSystemAccessors<'a>,
-) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>> {
+pub(super) fn update_lights(
+    world: Arc<World>,
+    state: Arc<Mutex<State>>,
+    dt: time::Duration,
+) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
     Box::pin(async move {
-        let light_entities = sa.world.get_entities_with_component::<Light>();
+        let state = state.lock().unwrap();
+        let light_entities = world.get_entities_with_component::<Light>();
 
         // Collect light uniforms in parallel
         let light_uniforms: Vec<light::LightUniform> = light_entities
             .par_iter()
             .map(|&entity| {
-                let pos = sa
-                    .world
+                let pos = world
                     .get_component::<components::transforms::Pos3>(entity)
                     .ok_or_else(|| {
                         SystemError::MissingComponent(format!(
@@ -29,7 +35,7 @@ pub(super) fn update_lights<'a>(
                         ))
                     })?;
 
-                let light = sa.world.get_component::<Light>(entity).ok_or_else(|| {
+                let light = world.get_component::<Light>(entity).ok_or_else(|| {
                     SystemError::MissingComponent(format!(
                         "Light component missing for entity {:?}",
                         entity
@@ -56,30 +62,29 @@ pub(super) fn update_lights<'a>(
             _padding: [0; 3],
         };
 
-        sa.state.queue.write_buffer(
-            &sa.state.light_buffer,
-            0,
-            bytemuck::cast_slice(&[light_data]),
-        );
+        state
+            .queue
+            .write_buffer(&state.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
 
         Ok(())
     })
 }
 
 /// Update the models in the scene.
-pub(super) fn update_models<'a>(
-    sa: &'a InternalSystemAccessors<'a>,
-) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>> {
+pub(super) fn update_models(
+    world: Arc<World>,
+    state: Arc<Mutex<State>>,
+    dt: time::Duration,
+) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
     Box::pin(async move {
-        let model_entities = sa
-            .world
-            .get_entities_with_component::<components::misc::StaticModelMarker>();
+        let state = state.lock().unwrap();
+        let model_entities =
+            world.get_entities_with_component::<components::misc::StaticModelMarker>();
 
         let results: Vec<SystemResult<()>> = model_entities
             .par_iter()
             .map(|&entity| {
-                let name = sa
-                    .world
+                let _name = world
                     .get_component::<components::misc::Name>(entity)
                     .ok_or_else(|| {
                         SystemError::MissingComponent(format!(
@@ -87,8 +92,7 @@ pub(super) fn update_models<'a>(
                             entity
                         ))
                     })?;
-                let pos3 = sa
-                    .world
+                let pos3 = world
                     .get_component::<components::transforms::Pos3>(entity)
                     .ok_or_else(|| {
                         SystemError::MissingComponent(format!(
@@ -96,8 +100,7 @@ pub(super) fn update_models<'a>(
                             entity
                         ))
                     })?;
-                let instance = sa
-                    .world
+                let instance = world
                     .get_component::<instance::Instance>(entity)
                     .ok_or_else(|| {
                         SystemError::MissingComponent(format!(
@@ -105,8 +108,7 @@ pub(super) fn update_models<'a>(
                             entity
                         ))
                     })?;
-                let buffer = sa
-                    .world
+                let buffer = world
                     .get_component::<BufferComponent>(entity)
                     .ok_or_else(|| {
                         SystemError::MissingComponent(format!(
@@ -114,18 +116,14 @@ pub(super) fn update_models<'a>(
                             entity
                         ))
                     })?;
-                let model = sa
-                    .world
-                    .get_component::<model::Model>(entity)
-                    .ok_or_else(|| {
-                        SystemError::MissingComponent(format!(
-                            "Model component missing for entity {:?} with StaticModelMarker",
-                            entity
-                        ))
-                    })?;
-                let animation_queue = sa
-                    .world
-                    .get_component::<components::misc::AnimationQueue>(entity);
+                let model = world.get_component::<model::Model>(entity).ok_or_else(|| {
+                    SystemError::MissingComponent(format!(
+                        "Model component missing for entity {:?} with StaticModelMarker",
+                        entity
+                    ))
+                })?;
+                let animation_queue =
+                    world.get_component::<components::misc::AnimationQueue>(entity);
 
                 // New animation system handling
                 if let Some(animation_queue) = animation_queue {
@@ -275,11 +273,9 @@ pub(super) fn update_models<'a>(
                     SystemError::ComponentAccess(format!("Failed to write Buffer: {}", e))
                 })?;
 
-                sa.state.queue.write_buffer(
-                    &buffer_guard.0,
-                    0,
-                    bytemuck::cast_slice(&[instance_raw]),
-                );
+                state
+                    .queue
+                    .write_buffer(&buffer_guard.0, 0, bytemuck::cast_slice(&[instance_raw]));
 
                 Ok(())
             })
@@ -295,21 +291,22 @@ pub(super) fn update_models<'a>(
 }
 
 /// Update the physics system
-pub(super) fn update_physics<'a>(
-    sa: &'a InternalSystemAccessors<'a>,
-) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>> {
+pub(super) fn update_physics(
+    world: Arc<World>,
+    state: Arc<Mutex<State>>,
+    dt: time::Duration,
+) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
     Box::pin(async move {
-        let dt = sa.dt.as_secs_f32();
+        let dt_secs = dt.as_secs_f32();
         let mut physics_bodies = Vec::new();
 
         // Get all entities with RigidBody component
-        let physics_entities = sa
-            .world
-            .get_entities_with_component::<components::physics::RigidBody<AABBCollisionBox>>();
+        let state = state.lock().unwrap();
+        let physics_entities =
+            world.get_entities_with_component::<components::physics::RigidBody<AABBCollisionBox>>();
 
         for &entity in physics_entities.iter() {
-            let physics_body = sa
-                .world
+            let physics_body = world
                 .get_component::<components::physics::RigidBody<AABBCollisionBox>>(entity)
                 .ok_or_else(|| {
                     SystemError::MissingComponent(format!(
@@ -317,8 +314,7 @@ pub(super) fn update_physics<'a>(
                         entity
                     ))
                 })?;
-            let pos3 = sa
-                .world
+            let pos3 = world
                 .get_component::<components::transforms::Pos3>(entity)
                 .ok_or_else(|| {
                     SystemError::MissingComponent(format!(
@@ -335,7 +331,7 @@ pub(super) fn update_physics<'a>(
                 let mut wlock_pos3 = pos3.write().map_err(|e| {
                     SystemError::ComponentAccess(format!("Failed to write Pos3: {}", e))
                 })?;
-                wlock_physics_body.update_pos(&mut wlock_pos3, dt);
+                wlock_physics_body.update_pos(&mut wlock_pos3, dt_secs);
             }
 
             physics_bodies.push((entity, physics_body, pos3));
@@ -374,10 +370,9 @@ pub(super) fn update_physics<'a>(
             .par_iter()
             .map(|&entity| {
                 if let (Some(instance), Some(buffer), Some(pos3)) = (
-                    sa.world.get_component::<instance::Instance>(entity),
-                    sa.world.get_component::<BufferComponent>(entity),
-                    sa.world
-                        .get_component::<components::transforms::Pos3>(entity),
+                    world.get_component::<instance::Instance>(entity),
+                    world.get_component::<BufferComponent>(entity),
+                    world.get_component::<components::transforms::Pos3>(entity),
                 ) {
                     let mut wlock_instance = instance.write().map_err(|e| {
                         SystemError::ComponentAccess(format!("Failed to write Instance: {}", e))
@@ -393,7 +388,7 @@ pub(super) fn update_physics<'a>(
                     let buffer_guard = buffer.write().map_err(|e| {
                         SystemError::ComponentAccess(format!("Failed to write Buffer: {}", e))
                     })?;
-                    sa.state.queue.write_buffer(
+                    state.queue.write_buffer(
                         &buffer_guard.0,
                         0,
                         bytemuck::cast_slice(&[instance_raw]),
