@@ -588,22 +588,20 @@ async fn main() -> EngineResult<()> {
             w1_ai_color,
             w1_pathfind_behavior
         ),
-        |sa| {
+        |world, dt| {
             w1_frame_tx
-                .send(sa.dt)
+                .send(dt)
                 .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
             // Get player position for AI targeting
-            let player_pos = if let Some(player_pos3) = sa.world.get_component::<Pos3>(player) {
+            let player_pos = if let Some(player_pos3) = world.get_component::<Pos3>(player) {
                 player_pos3.read().unwrap().pos
             } else {
                 Vector3::new(0.0, 0.0, 0.0)
             };
 
             // Update intelligent AI entities
-            let entities_with_ai = sa
-                .world
-                .get_entities_with_component::<IntelligentAIMarker>();
+            let entities_with_ai = world.get_entities_with_component::<IntelligentAIMarker>();
             for &entity in entities_with_ai.iter() {
                 if let (
                     Some(ai_component),
@@ -612,11 +610,11 @@ async fn main() -> EngineResult<()> {
                     Some(health_component),
                     Some(light_component),
                 ) = (
-                    sa.world.get_component::<IntelligentAI>(entity),
-                    sa.world.get_component::<Pos3>(entity),
-                    sa.world.get_component::<PathfindingComponent>(entity),
-                    sa.world.get_component::<Health>(entity),
-                    sa.world.get_component::<Light>(entity),
+                    world.get_component::<IntelligentAI>(entity),
+                    world.get_component::<Pos3>(entity),
+                    world.get_component::<PathfindingComponent>(entity),
+                    world.get_component::<Health>(entity),
+                    world.get_component::<Light>(entity),
                 ) {
                     let mut ai = ai_component.write().unwrap();
                     let current_pos = pos3_component.read().unwrap().pos;
@@ -636,7 +634,7 @@ async fn main() -> EngineResult<()> {
                         .set_float("enemy_distance", distance_to_player);
 
                     // Update FSM state machine
-                    ai.fsm.update(sa.dt);
+                    ai.fsm.update(dt);
 
                     // Get current FSM state and determine pathfinding behavior
                     let current_state = ai.fsm.current_state().unwrap_or(CharacterState::Idle);
@@ -725,11 +723,11 @@ async fn main() -> EngineResult<()> {
     );
 
     // Add pathfinding system from pathfinding example (handles A* calculation and movement)
-    async_system!(app, "pathfinding_update", move |sa| {
+    async_system!(app, "pathfinding_update", move |world, dt| {
         // Get player position (target for pathfinding)
-        let player_entities = sa.world.get_entities_with_component::<PathfindingTarget>();
+        let player_entities = world.get_entities_with_component::<PathfindingTarget>();
         let player_pos = if let Some(&player_entity) = player_entities.first() {
-            if let Some(pos3) = sa.world.get_component::<Pos3>(player_entity) {
+            if let Some(pos3) = world.get_component::<Pos3>(player_entity) {
                 let pos_guard = pos3.read().map_err(|e| {
                     SystemError::ComponentAccess(format!("Failed to read player Pos3: {}", e))
                 })?;
@@ -742,14 +740,12 @@ async fn main() -> EngineResult<()> {
         };
 
         // Pre-collect obstacle data once (performance optimization)
-        let rigid_body_entities = sa.world.get_entities_with_component::<ObstacleMarker>();
+        let rigid_body_entities = world.get_entities_with_component::<ObstacleMarker>();
         let obstacles: Vec<(Vector3<f32>, AABBCollisionBox)> = rigid_body_entities
             .iter()
             .filter_map(|&rb_entity| {
-                let pos_opt = sa.world.get_component::<Pos3>(rb_entity);
-                let rb_opt = sa
-                    .world
-                    .get_component::<RigidBody<AABBCollisionBox>>(rb_entity);
+                let pos_opt = world.get_component::<Pos3>(rb_entity);
+                let rb_opt = world.get_component::<RigidBody<AABBCollisionBox>>(rb_entity);
 
                 if let (Some(pos_comp), Some(rb_comp)) = (pos_opt, rb_opt)
                     && let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.read(), rb_comp.read())
@@ -762,19 +758,17 @@ async fn main() -> EngineResult<()> {
             .collect();
 
         // Update all pathfinding followers
-        let follower_entities = sa
-            .world
-            .get_entities_with_component::<PathfindingFollower>();
+        let follower_entities = world.get_entities_with_component::<PathfindingFollower>();
         let mut entities_needing_paths = Vec::new();
 
         // First pass: update components and collect entities needing path recalculation
         for &entity in follower_entities.iter() {
-            let pathfinding_comp = match sa.world.get_component::<PathfindingComponent>(entity) {
+            let pathfinding_comp = match world.get_component::<PathfindingComponent>(entity) {
                 Some(comp) => comp,
                 None => continue,
             };
 
-            let pos3_comp = match sa.world.get_component::<Pos3>(entity) {
+            let pos3_comp = match world.get_component::<Pos3>(entity) {
                 Some(comp) => comp,
                 None => continue,
             };
@@ -788,7 +782,7 @@ async fn main() -> EngineResult<()> {
                     ))
                 })?;
 
-                pathfinding.update(sa.dt.as_secs_f32());
+                pathfinding.update(dt.as_secs_f32());
 
                 // Check if we need pathfinding and should recalculate
                 let current_pos = {
@@ -808,11 +802,8 @@ async fn main() -> EngineResult<()> {
 
         // Second pass: calculate paths for entities that need them (limit to max 1 per frame for performance)
         if let Some(&entity) = entities_needing_paths.first() {
-            let pathfinding_comp = sa
-                .world
-                .get_component::<PathfindingComponent>(entity)
-                .unwrap();
-            let pos3_comp = sa.world.get_component::<Pos3>(entity).unwrap();
+            let pathfinding_comp = world.get_component::<PathfindingComponent>(entity).unwrap();
+            let pos3_comp = world.get_component::<Pos3>(entity).unwrap();
 
             // Get current position and target
             let current_pos = {
@@ -849,20 +840,17 @@ async fn main() -> EngineResult<()> {
 
         // Third pass: move entities along their paths using physics
         for &entity in follower_entities.iter() {
-            let pathfinding_comp = match sa.world.get_component::<PathfindingComponent>(entity) {
+            let pathfinding_comp = match world.get_component::<PathfindingComponent>(entity) {
                 Some(comp) => comp,
                 None => continue,
             };
 
-            let pos3_comp = match sa.world.get_component::<Pos3>(entity) {
+            let pos3_comp = match world.get_component::<Pos3>(entity) {
                 Some(comp) => comp,
                 None => continue,
             };
 
-            let rigidbody_comp = match sa
-                .world
-                .get_component::<RigidBody<AABBCollisionBox>>(entity)
-            {
+            let rigidbody_comp = match world.get_component::<RigidBody<AABBCollisionBox>>(entity) {
                 Some(comp) => comp,
                 None => continue,
             };

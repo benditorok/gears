@@ -10,7 +10,7 @@ gears-renderer = { workspace = true }
 gears-gui = { workspace = true }
 gears-ecs = { workspace = true }
 tokio = { workspace = true }
-futures = { workspace = true }
+
 cfg-if = { workspace = true }
 winit = { workspace = true }
 log = { workspace = true }

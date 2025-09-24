@@ -6,36 +6,27 @@ use gears_ecs::World;
 use gears_renderer::state::State;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::{Arc, RwLock};
 
 pub use errors::{SystemError, SystemResult};
 
-/// System accessors allow external systems to access different parts of the engine
-pub struct SystemAccessors<'a> {
-    pub world: &'a World,
-    pub dt: time::Duration,
-}
-
-/// Internal system accessors allow internal systems to access engine state
-pub(crate) struct InternalSystemAccessors<'a> {
-    pub world: &'a World,
-    pub state: &'a State<'a>,
-    pub dt: time::Duration,
-}
-
 /// Trait for async system functions that can capture variables
 pub trait AsyncSystemFn: Send + Sync {
-    fn call<'a>(
-        &'a self,
-        sa: &'a SystemAccessors<'a>,
-    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>>;
+    fn call(
+        &self,
+        world: Arc<World>,
+        dt: time::Duration,
+    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>;
 }
 
 /// Trait for internal async system functions
 pub(crate) trait InternalAsyncSystemFn: Send + Sync {
-    fn call<'a>(
-        &'a self,
-        sa: &'a InternalSystemAccessors<'a>,
-    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>>;
+    fn call(
+        &self,
+        world: Arc<World>,
+        state: Arc<RwLock<State>>,
+        dt: time::Duration,
+    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>;
 }
 
 /// Wrapper for closures that implement AsyncSystemFn
@@ -51,17 +42,16 @@ impl<F> AsyncSystemClosure<F> {
 
 impl<F> AsyncSystemFn for AsyncSystemClosure<F>
 where
-    F: for<'a> Fn(
-            &'a SystemAccessors<'a>,
-        ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>>
+    F: Fn(Arc<World>, time::Duration) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>
         + Send
         + Sync,
 {
-    fn call<'a>(
-        &'a self,
-        sa: &'a SystemAccessors<'a>,
-    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>> {
-        (self.func)(sa)
+    fn call(
+        &self,
+        world: Arc<World>,
+        dt: time::Duration,
+    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
+        (self.func)(world, dt)
     }
 }
 
@@ -78,30 +68,34 @@ impl<F> InternalAsyncSystemClosure<F> {
 
 impl<F> InternalAsyncSystemFn for InternalAsyncSystemClosure<F>
 where
-    F: for<'a> Fn(
-            &'a InternalSystemAccessors<'a>,
-        ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>>
+    F: Fn(
+            Arc<World>,
+            Arc<RwLock<State>>,
+            time::Duration,
+        ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>
         + Send
         + Sync,
 {
-    fn call<'a>(
-        &'a self,
-        sa: &'a InternalSystemAccessors<'a>,
-    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>> {
-        (self.func)(sa)
+    fn call(
+        &self,
+        world: Arc<World>,
+        state: Arc<RwLock<State>>,
+        dt: time::Duration,
+    ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>> {
+        (self.func)(world, state, dt)
     }
 }
 
 /// An async system with a name and function
 pub struct AsyncSystem {
     name: &'static str,
-    func: Box<dyn AsyncSystemFn>,
+    pub(crate) func: Box<dyn AsyncSystemFn>,
 }
 
 /// An internal async system with a name and function
 pub(crate) struct InternalAsyncSystem {
     name: &'static str,
-    func: Box<dyn InternalAsyncSystemFn>,
+    pub(crate) func: Box<dyn InternalAsyncSystemFn>,
 }
 
 impl AsyncSystem {
@@ -119,8 +113,8 @@ impl AsyncSystem {
     }
 
     /// Run the system
-    pub async fn run<'a>(&'a self, sa: &'a SystemAccessors<'a>) -> SystemResult<()> {
-        self.func.call(sa).await
+    pub async fn run(&self, world: Arc<World>, dt: time::Duration) -> SystemResult<()> {
+        self.func.call(world, dt).await
     }
 }
 
@@ -139,17 +133,20 @@ impl InternalAsyncSystem {
     }
 
     /// Run the system
-    pub async fn run<'a>(&'a self, sa: &'a InternalSystemAccessors<'a>) -> SystemResult<()> {
-        self.func.call(sa).await
+    pub async fn run(
+        &self,
+        world: Arc<World>,
+        state: Arc<RwLock<State>>,
+        dt: time::Duration,
+    ) -> SystemResult<()> {
+        self.func.call(world, state, dt).await
     }
 }
 
 /// Helper function for creating external systems from closures
 pub fn system<F>(name: &'static str, func: F) -> AsyncSystem
 where
-    F: for<'a> Fn(
-            &'a SystemAccessors<'a>,
-        ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>>
+    F: Fn(Arc<World>, time::Duration) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>
         + Send
         + Sync
         + 'static,
@@ -160,9 +157,11 @@ where
 /// Helper function for creating internal systems from closures
 pub(crate) fn internal_system<F>(name: &'static str, func: F) -> InternalAsyncSystem
 where
-    F: for<'a> Fn(
-            &'a InternalSystemAccessors<'a>,
-        ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send + 'a>>
+    F: Fn(
+            Arc<World>,
+            Arc<RwLock<State>>,
+            time::Duration,
+        ) -> Pin<Box<dyn Future<Output = SystemResult<()>> + Send>>
         + Send
         + Sync
         + 'static,

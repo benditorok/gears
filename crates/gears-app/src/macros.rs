@@ -27,9 +27,9 @@ macro_rules! new_entity {
 /// let sender = mpsc::channel().0;
 /// let counter = Arc::new(Mutex::new(0));
 ///
-/// let _system = async_system!("update", (sender, counter), |sa| {
+/// let _system = async_system!("update", (sender, counter), |world, dt| {
 ///     // Variables are automatically cloned before the async block
-///     let _ = sender.send(sa.dt);
+///     let _ = sender.send(dt);
 ///     *counter.lock().unwrap() += 1;
 ///     Ok(())
 /// });
@@ -43,9 +43,9 @@ macro_rules! new_entity {
 /// let mut app = GearsApp::default();
 /// let sender = mpsc::channel().0;
 ///
-/// async_system!(app, "update", (sender), |sa| {
+/// async_system!(app, "update", (sender), |world, dt| {
 ///     // Automatically registers the system with the app
-///     let _ = sender.send(sa.dt);
+///     let _ = sender.send(dt);
 ///     Ok(())
 /// });
 /// ```
@@ -54,9 +54,9 @@ macro_rules! new_entity {
 /// ```rust
 /// use gears_app::prelude::*;
 ///
-/// let _system = async_system!("physics_update", |sa| {
+/// let _system = async_system!("physics_update", |world, dt| {
 ///     // Simple async system without external captures
-///     println!("Delta time: {:?}", sa.dt);
+///     println!("Delta time: {:?}", dt);
 ///     Ok(())
 /// });
 /// ```
@@ -67,9 +67,9 @@ macro_rules! new_entity {
 ///
 /// let mut app = GearsApp::default();
 ///
-/// async_system!(app, "physics_update", |sa| {
+/// async_system!(app, "physics_update", |world, dt| {
 ///     // Directly registers with app
-///     println!("Delta time: {:?}", sa.dt);
+///     println!("Delta time: {:?}", dt);
 ///     Ok(())
 /// });
 /// ```
@@ -80,9 +80,9 @@ macro_rules! new_entity {
 ///
 /// let entity_id = Entity::new(123);
 ///
-/// let _system = async_system!("entity_update", move |sa| {
+/// let _system = async_system!("entity_update", move |world, dt| {
 ///     // Moves captured variables into the closure
-///     if let Some(_pos) = sa.world.get_component::<Pos3>(entity_id) {
+///     if let Some(_pos) = world.get_component::<Pos3>(entity_id) {
 ///         // Update entity logic
 ///     }
 ///     Ok(())
@@ -96,9 +96,9 @@ macro_rules! new_entity {
 /// let mut app = GearsApp::default();
 /// let entity_id = Entity::new(123);
 ///
-/// async_system!(app, "entity_update", move |sa| {
+/// async_system!(app, "entity_update", move |world, dt| {
 ///     // Moves and registers directly
-///     if let Some(_pos) = sa.world.get_component::<Pos3>(entity_id) {
+///     if let Some(_pos) = world.get_component::<Pos3>(entity_id) {
 ///         // Update entity logic
 ///     }
 ///     Ok(())
@@ -114,11 +114,11 @@ macro_rules! new_entity {
 ///
 /// let _system = async_system!("custom_system", {
 ///     let shared_data = Arc::new(Mutex::new(Vec::new()));
-///     move |sa| {
+///     move |world, dt| {
 ///         let data = shared_data.clone();
 ///         Box::pin(async move {
 ///             // Custom async logic with manual control
-///             data.lock().unwrap().push(sa.dt.as_secs_f32());
+///             data.lock().unwrap().push(dt.as_secs_f32());
 ///             Ok(())
 ///         })
 ///     }
@@ -136,10 +136,10 @@ macro_rules! new_entity {
 ///
 /// async_system!(app, "custom_system", {
 ///     let shared_data = Arc::new(Mutex::new(Vec::new()));
-///     move |sa| {
+///     move |world, dt| {
 ///         let data = shared_data.clone();
 ///         Box::pin(async move {
-///             data.lock().unwrap().push(sa.dt.as_secs_f32());
+///             data.lock().unwrap().push(dt.as_secs_f32());
 ///             Ok(())
 ///         })
 ///     }
@@ -151,14 +151,14 @@ macro_rules! new_entity {
 /// - For non-`Copy` types (like `mpsc::Sender`), use pattern 1 or 2 for automatic cloning
 /// - The `move` variants (5, 6) transfer ownership of captured variables
 /// - Custom blocks (7, 8) provide full control but require manual async setup
-/// - All systems receive `SystemAccessors` containing `world` and `dt`
+/// - All systems receive `Arc<World>` and `dt` as individual parameters
 /// - Systems should return `SystemResult<()>` (which is `Result<(), SystemError>`)
 ///
 #[macro_export]
 macro_rules! async_system {
-    ($name:expr, ($($var:ident),* $(,)?), |$sa:ident| $body:block) => {
+    ($name:expr, ($($var:ident),* $(,)?), |$world:ident, $dt:ident| $body:block) => {
         $crate::systems::system($name, {
-            move |$sa| {
+            move |$world, $dt| {
                 std::boxed::Box::pin({
                     $(let $var = $var.clone();)*
                     async move  {
@@ -168,10 +168,10 @@ macro_rules! async_system {
             }
         })
     };
-    ($app:expr, $name:expr, ($($var:ident),* $(,)?), |$sa:ident| $body:block) => {
+    ($app:expr, $name:expr, ($($var:ident),* $(,)?), |$world:ident, $dt:ident| $body:block) => {
         {
             let system = $crate::systems::system($name, {
-                move |$sa| {
+                move |$world, $dt| {
                     std::boxed::Box::pin({
                         $(let $var = $var.clone();)*
                         async move  {
@@ -183,21 +183,21 @@ macro_rules! async_system {
             $app.add_async_system(system);
         }
     };
-    ($name:expr, |$sa:ident| $body:block) => {
-        $crate::systems::system($name, |$sa| std::boxed::Box::pin(async move $body))
+    ($name:expr, |$world:ident, $dt:ident| $body:block) => {
+        $crate::systems::system($name, |$world, $dt| std::boxed::Box::pin(async move $body))
     };
-    ($app:expr, $name:expr, |$sa:ident| $body:block) => {
+    ($app:expr, $name:expr, |$world:ident, $dt:ident| $body:block) => {
         {
-            let system = $crate::systems::system($name, |$sa| std::boxed::Box::pin(async move $body));
+            let system = $crate::systems::system($name, |$world, $dt| std::boxed::Box::pin(async move $body));
             $app.add_async_system(system);
         }
     };
-    ($name:expr, move |$sa:ident| $body:block) => {
-        $crate::systems::system($name, move |$sa| std::boxed::Box::pin(async move $body))
+    ($name:expr, move |$world:ident, $dt:ident| $body:block) => {
+        $crate::systems::system($name, move |$world, $dt| std::boxed::Box::pin(async move $body))
     };
-    ($app:expr, $name:expr, move |$sa:ident| $body:block) => {
+    ($app:expr, $name:expr, move |$world:ident, $dt:ident| $body:block) => {
         {
-            let system = $crate::systems::system($name, move |$sa| std::boxed::Box::pin(async move $body));
+            let system = $crate::systems::system($name, move |$world, $dt| std::boxed::Box::pin(async move $body));
             $app.add_async_system(system);
         }
     };

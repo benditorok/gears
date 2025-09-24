@@ -28,8 +28,8 @@ use winit::{
 ///
 /// The State is responsible for handling the rendering pipeline, the camera, the lights,
 /// the models, the window, etc.
-pub struct State<'a> {
-    surface: wgpu::Surface<'a>,
+pub struct State {
+    surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     pub queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
@@ -49,8 +49,8 @@ pub struct State<'a> {
     texture_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: texture::Texture,
-    window: &'a Window,
-    world: &'a World,
+    window: Arc<Window>,
+    world: Arc<World>,
     mouse_pressed: bool,
     pub draw_colliders: bool,
     egui_renderer: EguiRenderer,
@@ -61,7 +61,7 @@ pub struct State<'a> {
     target_entities: Option<Vec<Entity>>,
 }
 
-impl<'a> State<'a> {
+impl State {
     /// Create a new instance of the State.
     ///
     /// # Arguments
@@ -72,14 +72,14 @@ impl<'a> State<'a> {
     /// # Returns
     ///
     /// A new instance of the State.
-    pub async fn new(window: &'a Window, world: &'a World) -> State<'a> {
+    pub async fn new(window: Arc<Window>, world: Arc<World>) -> State {
         // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::VULKAN,
             ..Default::default()
         });
-        let surface = instance.create_surface(window).unwrap();
+        let surface = instance.create_surface(Arc::clone(&window)).unwrap();
         let power_pref = wgpu::PowerPreference::default();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -118,7 +118,7 @@ impl<'a> State<'a> {
             .present_modes
             .iter()
             .copied()
-            .find(|&mode| mode == wgpu::PresentMode::Fifo)
+            .find(|&mode| mode == wgpu::PresentMode::AutoVsync)
             .unwrap_or(surface_caps.present_modes[0]);
 
         let config = wgpu::SurfaceConfiguration {
@@ -246,7 +246,7 @@ impl<'a> State<'a> {
         };
 
         // * Initializing the egui renderer
-        let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, window);
+        let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, &window);
         let egui_windows = Arc::new(Mutex::new(Vec::new()));
 
         // * Wireframe render pipeline
@@ -355,14 +355,14 @@ impl<'a> State<'a> {
             &self.device,
             &self.queue,
             &self.texture_bind_group_layout,
-            self.world,
+            &self.world,
         )
         .await;
         init::physics_models(
             &self.device,
             &self.queue,
             &self.texture_bind_group_layout,
-            self.world,
+            &self.world,
         )
         .await;
 
@@ -375,7 +375,7 @@ impl<'a> State<'a> {
     ///
     /// A reference to the window.
     pub fn window(&self) -> &Window {
-        self.window
+        &self.window
     }
 
     /// Resize the window when the size changes.
@@ -426,7 +426,7 @@ impl<'a> State<'a> {
         }
 
         // * Capture the input for the custom windows
-        if self.egui_renderer.handle_input(self.window, event) {
+        if self.egui_renderer.handle_input(&self.window, event) {
             // If a window consumed the event return true since no other component should handle it again
             return true;
         }
@@ -657,7 +657,7 @@ impl<'a> State<'a> {
                 &self.device,
                 &self.queue,
                 &mut encoder,
-                self.window,
+                &self.window,
                 &view,
                 &screen_descriptor,
                 &mut egui_windows,

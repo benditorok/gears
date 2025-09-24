@@ -3,28 +3,29 @@ pub mod macros;
 pub mod prelude;
 pub mod systems;
 
+use crate::errors::EngineError;
 use gears_core::config::{self, Config};
-use gears_core::threadpool::ThreadPool;
 use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_gui::EguiWindowCallback;
+use gears_renderer::errors::RendererError;
 use gears_renderer::state::State;
 use log::{debug, info};
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, RwLock};
 use std::time;
 use systems::SystemCollection;
 use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::EventLoop;
-use winit::window::WindowAttributes;
-
-use crate::errors::EngineError;
+use winit::window::{Window, WindowAttributes};
 
 // This struct is used to manage the entire application.
 /// The application can also be used to create entities, add components, windows etc. to itself.
 pub struct GearsApp {
     config: Config,
-    world: World,
-    pub thread_pool: ThreadPool,
+    event_loop: Option<EventLoop<()>>,
+    world: Arc<World>,
+    window: Arc<Window>,
+    state: Arc<RwLock<State>>,
     egui_windows: Option<Vec<EguiWindowCallback>>,
     is_running: Arc<AtomicBool>,
     internal_async_systems: systems::InternalSystemCollection,
@@ -33,10 +34,37 @@ pub struct GearsApp {
 
 impl Default for GearsApp {
     fn default() -> Self {
-        GearsApp {
+        // Window creation
+        // TODO transition to the new WINIT api to fix this not getting created on the main thread in tests
+        let event_loop = EventLoop::new().expect("Window EventLoop creation failed");
+        let window_attributes = WindowAttributes::default()
+            .with_title("gears")
+            .with_transparent(true)
+            .with_maximized(true)
+            .with_active(true)
+            .with_window_icon(None);
+
+        let world = Arc::new(World::default());
+        let window = Arc::new(
+            event_loop
+                .create_window(window_attributes)
+                .expect("Window creation failed"),
+        );
+
+        let state = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                Arc::new(RwLock::new(
+                    State::new(Arc::clone(&window), Arc::clone(&world)).await,
+                ))
+            })
+        });
+
+        Self {
             config: config::Config::default(),
-            world: World::default(),
-            thread_pool: ThreadPool::new(8),
+            event_loop: Some(event_loop),
+            world,
+            window,
+            state,
             egui_windows: None,
             is_running: Arc::new(AtomicBool::new(true)),
             internal_async_systems: systems::InternalSystemCollection::default(),
@@ -57,12 +85,37 @@ impl GearsApp {
     ///
     /// A new instance of the application.
     pub fn new(config: config::Config) -> Self {
-        assert!(config.threadpool_size >= 1);
+        // Window creation
+        // TODO transition to the new WINIT api to fix this not getting created on the main thread in tests
+        let event_loop = EventLoop::new().expect("Window EventLoop creation failed");
+        let window_attributes = WindowAttributes::default()
+            .with_title("gears")
+            .with_transparent(true)
+            .with_maximized(true)
+            .with_active(true)
+            .with_window_icon(None);
+
+        let world = Arc::new(World::default());
+        let window = Arc::new(
+            event_loop
+                .create_window(window_attributes)
+                .expect("Window creation failed"),
+        );
+
+        let state = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                Arc::new(RwLock::new(
+                    State::new(Arc::clone(&window), Arc::clone(&world)).await,
+                ))
+            })
+        });
 
         Self {
-            thread_pool: ThreadPool::new(config.threadpool_size),
             config,
-            world: World::default(),
+            event_loop: Some(event_loop),
+            world,
+            window,
+            state,
             egui_windows: None,
             is_running: Arc::new(AtomicBool::new(true)),
             internal_async_systems: systems::InternalSystemCollection::default(),
@@ -72,55 +125,142 @@ impl GearsApp {
 
     /// Run the application and start the event loop.
     pub async fn run(&mut self) -> Result<(), EngineError> {
-        info!("Starting Gears...");
-        let windows = self.egui_windows.take();
+        info!("Starting gears engine");
 
         // Run the event loop
-        GearsApp::run_engine(self, windows).await
+        GearsApp::run_engine(self).await
     }
 
     pub fn add_async_system(&mut self, system: systems::AsyncSystem) {
         self.external_async_systems.add_system(system);
     }
 
-    async fn run_external_systems(&self, sa: &systems::SystemAccessors<'_>) {
+    async fn run_external_systems(&self, world: Arc<World>, dt: time::Duration) {
         debug!("Starting external system execution cycle");
 
-        let futures = self.external_async_systems.systems().iter().map(|system| {
-            debug!("Preparing external system: {}", system.name());
-            async move {
-                let result = system.run(sa).await;
+        let system_count = self.external_async_systems.async_systems.len();
+        if system_count == 0 {
+            debug!("No external systems to run");
+            return;
+        }
+
+        let mut join_set = tokio::task::JoinSet::new();
+
+        // Use indices to avoid borrowing issues
+        for i in 0..system_count {
+            let system = &self.external_async_systems.async_systems[i];
+            let system_name = system.name();
+            let world_clone = Arc::clone(&world);
+            debug!("Spawning external system task: {}", system_name);
+
+            // Call the system function directly to get the future
+            let system_func = &system.func;
+            let future = system_func.call(world_clone, dt);
+
+            join_set.spawn(async move {
+                let result = future.await;
                 if let Err(err) = &result {
-                    log::error!("External system '{}' failed: {}", system.name(), err);
+                    log::error!("External system '{}' failed: {}", system_name, err);
                 }
-                result
+                (system_name, result)
+            });
+        }
+
+        // Wait for all tasks to complete concurrently
+        let mut completed_count = 0;
+        let total_systems = join_set.len();
+
+        while let Some(task_result) = join_set.join_next().await {
+            completed_count += 1;
+            match task_result {
+                Ok((system_name, system_result)) => {
+                    if let Err(e) = system_result {
+                        log::error!(
+                            "External system '{}' completed with error: {}",
+                            system_name,
+                            e
+                        );
+                    } else {
+                        debug!(
+                            "External system '{}' completed successfully ({}/{})",
+                            system_name, completed_count, total_systems
+                        );
+                    }
+                }
+                Err(e) => {
+                    log::error!("External system task panicked: {}", e);
+                }
             }
-        });
+        }
 
-        // Run all futures concurrently and wait for completion
-        futures::future::join_all(futures).await;
-
-        debug!("All external systems completed");
+        debug!("All {} external systems completed", total_systems);
     }
 
-    async fn run_internal_systems(&self, sa: &systems::InternalSystemAccessors<'_>) {
+    async fn run_internal_systems(
+        &self,
+        world: Arc<World>,
+        state: Arc<RwLock<State>>,
+        dt: time::Duration,
+    ) {
         debug!("Starting internal system execution cycle");
 
-        let futures = self.internal_async_systems.systems().iter().map(|system| {
-            debug!("Preparing internal system: {}", system.name());
-            async move {
-                let result = system.run(sa).await;
+        let system_count = self.internal_async_systems.async_systems.len();
+        if system_count == 0 {
+            debug!("No internal systems to run");
+            return;
+        }
+
+        let mut join_set = tokio::task::JoinSet::new();
+
+        // Use indices to avoid borrowing issues
+        for i in 0..system_count {
+            let system = &self.internal_async_systems.async_systems[i];
+            let system_name = system.name();
+            let world_clone = Arc::clone(&world);
+            let state_clone = Arc::clone(&state);
+            debug!("Spawning internal system task: {}", system_name);
+
+            // Call the system function directly to get the future
+            let system_func = &system.func;
+            let future = system_func.call(world_clone, state_clone, dt);
+
+            join_set.spawn(async move {
+                let result = future.await;
                 if let Err(err) = &result {
-                    log::error!("Internal system '{}' failed: {}", system.name(), err);
+                    log::error!("Internal system '{}' failed: {}", system_name, err);
                 }
-                result
+                (system_name, result)
+            });
+        }
+
+        // Wait for all tasks to complete concurrently
+        let mut completed_count = 0;
+        let total_systems = join_set.len();
+
+        while let Some(task_result) = join_set.join_next().await {
+            completed_count += 1;
+            match task_result {
+                Ok((system_name, system_result)) => {
+                    if let Err(e) = system_result {
+                        log::error!(
+                            "Internal system '{}' completed with error: {}",
+                            system_name,
+                            e
+                        );
+                    } else {
+                        debug!(
+                            "Internal system '{}' completed successfully ({}/{})",
+                            system_name, completed_count, total_systems
+                        );
+                    }
+                }
+                Err(e) => {
+                    log::error!("Internal system task panicked: {}", e);
+                }
             }
-        });
+        }
 
-        // Run all futures concurrently and wait for completion
-        futures::future::join_all(futures).await;
-
-        debug!("All internal systems completed");
+        debug!("All {} internal systems completed", total_systems);
     }
 
     /// Add a custom window to the app.
@@ -141,28 +281,13 @@ impl GearsApp {
     /// # Returns
     ///
     /// A future which can be awaited.
-    async fn run_engine(
-        &self,
-        egui_windows: Option<Vec<EguiWindowCallback>>,
-    ) -> Result<(), EngineError> {
-        // * Window creation
-        let event_loop = EventLoop::new()?;
-        let window_attributes = WindowAttributes::default()
-            .with_title("Winit window")
-            .with_transparent(true)
-            .with_maximized(true)
-            .with_active(true)
-            .with_window_icon(None);
-
-        let window = event_loop.create_window(window_attributes)?;
-        let mut state = State::new(&window, &self.world).await;
-
-        if let Some(windows) = egui_windows {
-            state.add_windows(windows);
+    async fn run_engine(&mut self) -> Result<(), EngineError> {
+        if let Some(windows) = self.egui_windows.take() {
+            self.state.write().unwrap().add_windows(windows);
         }
 
         // Proper error handling for initialization
-        if let Err(e) = state.init_components().await {
+        if let Err(e) = self.state.write().unwrap().init_components().await {
             log::error!("Failed to initialize components: {}", e);
             return Err(EngineError::ComponentInitialization(e.to_string()));
         }
@@ -173,12 +298,18 @@ impl GearsApp {
         // Track the previous pause state to detect transitions
         let mut was_paused = false;
 
+        // Get the event loop
+        let event_loop = self
+            .event_loop
+            .take()
+            .expect("EventLoop was not initialized");
+
         // * Event loop
         event_loop
             .run(move |event, ewlt| {
                 match event {
                     Event::AboutToWait => {
-                        let is_paused = state.is_paused();
+                        let is_paused = self.state.read().unwrap().is_paused();
 
                         // Detect pause state transitions
                         if is_paused != was_paused {
@@ -202,39 +333,29 @@ impl GearsApp {
                             return;
                         }
 
-                        // Create system accessors for both external and internal systems
-                        let external_sa = systems::SystemAccessors {
-                            world: &self.world,
-                            dt,
-                        };
-                        let internal_sa = systems::InternalSystemAccessors {
-                            world: &self.world,
-                            state: &state,
-                            dt,
-                        };
-
-                        // Run both system groups concurrently instead of sequentially
-                        futures::executor::block_on(async {
-                            futures::join!(
-                                self.run_external_systems(&external_sa),
-                                self.run_internal_systems(&internal_sa)
-                            )
+                        // Run both system groups concurrently using Tokio runtime
+                        tokio::task::block_in_place(|| {
+                            tokio::runtime::Handle::current().block_on(async {
+                                tokio::join!(
+                                    self.run_external_systems(Arc::clone(&self.world), dt),
+                                    self.run_internal_systems(Arc::clone(&self.world), Arc::clone(&self.state), dt)
+                                )
+                            })
                         });
 
-                        state.window().request_redraw();
+                        self.state.read().unwrap().window().request_redraw();
                     }
-                    // todo HANDLE this on a separate thread
                     Event::DeviceEvent {
                         event: DeviceEvent::MouseMotion { delta },
                         ..
                     } => {
-                        // Ignore mouse events if the app is paused ??
-                        if state.is_paused() {
+                        // Ignore mouse events if the app is paused
+                        if self.state.read().unwrap().is_paused() {
                             return;
                         }
 
                         // TODO bench for performance??
-                        if let Some(view_controller) = &state.view_controller {
+                        if let Some(view_controller) = &self.state.read().unwrap().view_controller {
                             let mut wlock_view_controller = view_controller.write().unwrap();
                             wlock_view_controller.process_mouse(delta.0, delta.1);
                         }
@@ -243,18 +364,20 @@ impl GearsApp {
                         ref event,
                         window_id,
                         // TODO the state.input should handle device events as well as window events
-                    } if window_id == state.window().id() && !state.input(event) => {
+                    } if {
+                        window_id == self.state.read().unwrap().window().id() && !self.state.write().unwrap().input(event)
+                    } => {
                         match event {
                             WindowEvent::CloseRequested => ewlt.exit(),
                             WindowEvent::Resized(physical_size) => {
-                                state.resize(*physical_size);
+                                self.state.write().unwrap().resize(*physical_size);
                             }
                             // WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {
                             //     *inner_size_writer = state.size.to_logical::<f64>(*scale_factor);
                             // }
                             WindowEvent::RedrawRequested => {
                                 // Skip update and render when paused
-                                if state.is_paused() {
+                                if self.state.read().unwrap().is_paused() {
                                     return;
                                 }
 
@@ -273,19 +396,26 @@ impl GearsApp {
                                 last_render_time = now;
 
                                 // Handle update errors
-                                if let Err(e) = futures::executor::block_on(state.update(dt)) {
-                                    log::error!("Update failed: {}", e);
-                                    ewlt.exit();
-                                    return;
-                                }
+                                tokio::task::block_in_place(|| {
+                                    tokio::runtime::Handle::current().block_on(async {
+                                        if let Err(e) = self.state.write().unwrap().update(dt).await {
+                                            log::error!("Update failed: {}", e);
+                                            ewlt.exit();
+                                            return;
+                                        }
+                                    })
+                                });
 
                                 // Handle render errors
-                                match state.render() {
+                                match self.state.write().unwrap().render() {
                                     Ok(_) => {}
                                     // Reconfigure the surface if it's lost or outdated
                                     Err(
                                         wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated,
-                                    ) => state.resize(state.size),
+                                    ) => {
+                                        let size = self.state.read().unwrap().size;
+                                        self.state.write().unwrap().resize(size);
+                                    }
                                     // The system is out of memory and must exit
                                     Err(e @ wgpu::SurfaceError::OutOfMemory) => {
                                         log::error!("Critical render error: {}", e);

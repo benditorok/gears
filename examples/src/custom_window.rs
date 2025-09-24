@@ -137,12 +137,12 @@ async fn main() -> EngineResult<()> {
         app,
         "handle_sphere_pos3",
         (w1_frame_tx, sphere_pos_modified),
-        |sa| {
+        |world, dt| {
             w1_frame_tx
-                .send(sa.dt)
+                .send(dt)
                 .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
-            if let Some(pos3) = sa.world.get_component::<Pos3>(sphere) {
+            if let Some(pos3) = world.get_component::<Pos3>(sphere) {
                 let mut wlock_pos3 = pos3.write().unwrap();
                 let ui_modified_pos3 = sphere_pos_modified.lock().unwrap();
 

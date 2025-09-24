@@ -592,25 +592,24 @@ async fn main() -> EngineResult<()> {
             w1_character_sub_state,
             w1_character_color
         ),
-        |sa| {
+        |world, dt| {
             w1_frame_tx
-                .send(sa.dt)
+                .send(dt)
                 .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 
             // Get player position
-            let player_pos = if let Some(player_pos3) = sa.world.get_component::<Pos3>(player) {
+            let player_pos = if let Some(player_pos3) = world.get_component::<Pos3>(player) {
                 player_pos3.read().unwrap().pos
             } else {
                 cgmath::Vector3::new(0.0, 0.0, 0.0)
             };
 
             // Update character FSM
-            if let Some(character_pos3) = sa.world.get_component::<Pos3>(character) {
-                if let Some(character_fsm) = sa
-                    .world
-                    .get_component::<FiniteStateMachine<CharacterState>>(character)
+            if let Some(character_pos3) = world.get_component::<Pos3>(character) {
+                if let Some(character_fsm) =
+                    world.get_component::<FiniteStateMachine<CharacterState>>(character)
                 {
-                    if let Some(character_health) = sa.world.get_component::<Health>(character) {
+                    if let Some(character_health) = world.get_component::<Health>(character) {
                         let char_pos = character_pos3.read().unwrap().pos;
                         let distance = (player_pos - char_pos).magnitude();
 
@@ -623,7 +622,7 @@ async fn main() -> EngineResult<()> {
                         fsm.context_mut().set_float("enemy_distance", distance);
 
                         // Update FSM
-                        fsm.update(sa.dt);
+                        fsm.update(dt);
 
                         // Apply FSM-driven behavior
                         let speed = fsm.context().get_float("speed").unwrap_or(2.0);
@@ -661,37 +660,35 @@ async fn main() -> EngineResult<()> {
                                     Some(CharacterState::AttackApproach) => {
                                         // Move towards player
                                         let direction = (player_pos - pos_guard.pos).normalize();
-                                        pos_guard.pos += direction * speed * sa.dt.as_secs_f32();
+                                        pos_guard.pos += direction * speed * dt.as_secs_f32();
                                     }
                                     Some(CharacterState::AttackStrike) => {
                                         // Stay close and strike (minimal movement)
                                         let direction = (player_pos - pos_guard.pos).normalize();
-                                        pos_guard.pos +=
-                                            direction * speed * 0.2 * sa.dt.as_secs_f32();
+                                        pos_guard.pos += direction * speed * 0.2 * dt.as_secs_f32();
                                     }
                                     Some(CharacterState::AttackRetreat) => {
                                         // Move away briefly
                                         let direction = (pos_guard.pos - player_pos).normalize();
-                                        pos_guard.pos +=
-                                            direction * speed * 0.5 * sa.dt.as_secs_f32();
+                                        pos_guard.pos += direction * speed * 0.5 * dt.as_secs_f32();
                                     }
                                     _ => {
                                         // Default attack behavior
                                         let direction = (player_pos - pos_guard.pos).normalize();
-                                        pos_guard.pos += direction * speed * sa.dt.as_secs_f32();
+                                        pos_guard.pos += direction * speed * dt.as_secs_f32();
                                     }
                                 }
                             }
                             CharacterState::Escape => {
                                 // Move away from player
                                 let direction = (pos_guard.pos - player_pos).normalize();
-                                pos_guard.pos += direction * speed * sa.dt.as_secs_f32();
+                                pos_guard.pos += direction * speed * dt.as_secs_f32();
                             }
                             CharacterState::Defend => {
                                 // Maintain distance, slight backing away
                                 if distance < 8.0 {
                                     let direction = (pos_guard.pos - player_pos).normalize();
-                                    pos_guard.pos += direction * speed * 0.5 * sa.dt.as_secs_f32();
+                                    pos_guard.pos += direction * speed * 0.5 * dt.as_secs_f32();
                                 }
                             }
                             CharacterState::Idle => {
@@ -699,8 +696,8 @@ async fn main() -> EngineResult<()> {
                                 let wander_time = fsm.context().time_in_state.as_secs_f32();
                                 let wander_x = (wander_time * 0.7).sin() * 0.5;
                                 let wander_z = (wander_time * 0.5).cos() * 0.5;
-                                pos_guard.pos.x += wander_x * sa.dt.as_secs_f32();
-                                pos_guard.pos.z += wander_z * sa.dt.as_secs_f32();
+                                pos_guard.pos.x += wander_x * dt.as_secs_f32();
+                                pos_guard.pos.z += wander_z * dt.as_secs_f32();
                             }
                             _ => {}
                         }
