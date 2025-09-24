@@ -35,6 +35,7 @@ pub struct GearsApp {
 impl Default for GearsApp {
     fn default() -> Self {
         // Window creation
+        // TODO transition to the new WINIT api to fix this not getting created on the main thread in tests
         let event_loop = EventLoop::new().expect("Window EventLoop creation failed");
         let window_attributes = WindowAttributes::default()
             .with_title("gears")
@@ -85,6 +86,7 @@ impl GearsApp {
     /// A new instance of the application.
     pub fn new(config: config::Config) -> Self {
         // Window creation
+        // TODO transition to the new WINIT api to fix this not getting created on the main thread in tests
         let event_loop = EventLoop::new().expect("Window EventLoop creation failed");
         let window_attributes = WindowAttributes::default()
             .with_title("gears")
