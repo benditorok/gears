@@ -2,7 +2,7 @@ use super::{
     misc::Health,
     physics::{CollisionBox, RigidBody},
 };
-use crate::{components::controllers::ViewController, components::transforms::Pos3, Component};
+use crate::{Component, components::controllers::ViewController, components::transforms::Pos3};
 use gears_macro::Component;
 
 #[derive(Component, Debug, Clone, Copy)]

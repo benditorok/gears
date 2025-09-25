@@ -3,11 +3,100 @@
 //! This module provides a query-based system for acquiring multiple component locks
 //! atomically to prevent deadlocks and resource starvation in concurrent systems.
 
-use crate::{Component, Entity, QueryId, World};
+use crate::{Component, Entity, World};
 use std::any::TypeId;
+use std::cell::RefCell;
 use std::collections::HashSet;
-use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
+
+/// Unique identifier for a query request
+pub type QueryId = u64;
+
+/// Global query coordination system
+pub struct QueryCoordinator {
+    active_queries: Mutex<Vec<(QueryId, ComponentQuery, Instant)>>,
+    next_query_id: AtomicU64,
+}
+
+impl QueryCoordinator {
+    pub fn new() -> Self {
+        Self {
+            active_queries: Mutex::new(Vec::new()),
+            next_query_id: AtomicU64::new(0),
+        }
+    }
+
+    fn generate_query_id(&self) -> QueryId {
+        self.next_query_id.fetch_add(1, Ordering::SeqCst)
+    }
+
+    fn register_query(&self, query_id: QueryId, query: ComponentQuery) -> bool {
+        match self.active_queries.try_lock() {
+            Ok(mut active_queries) => {
+                // Clean up expired queries
+                let now = Instant::now();
+                let expired_threshold = Duration::from_secs(1);
+                active_queries.retain(|(_, _, query_time)| {
+                    now.duration_since(*query_time) <= expired_threshold
+                });
+
+                // Check for conflicts
+                let has_conflicts = active_queries
+                    .iter()
+                    .any(|(_, active_query, _)| query.conflicts_with(active_query));
+
+                if !has_conflicts {
+                    active_queries.push((query_id, query, now));
+                    true
+                } else {
+                    false
+                }
+            }
+            Err(_) => false,
+        }
+    }
+
+    fn unregister_query(&self, query_id: QueryId) {
+        if let Ok(mut active_queries) = self.active_queries.lock() {
+            active_queries.retain(|(id, _, _)| *id != query_id);
+        }
+    }
+
+    pub fn active_query_count(&self) -> usize {
+        self.active_queries
+            .lock()
+            .map(|queries| queries.len())
+            .unwrap_or(0)
+    }
+
+    pub fn clear_active_queries(&self) {
+        if let Ok(mut queries) = self.active_queries.lock() {
+            queries.clear();
+        }
+    }
+
+    pub fn cleanup_expired_queries(&self) {
+        if let Ok(mut queries) = self.active_queries.lock() {
+            let now = Instant::now();
+            let expired_threshold = Duration::from_secs(1);
+            queries
+                .retain(|(_, _, query_time)| now.duration_since(*query_time) <= expired_threshold);
+        }
+    }
+}
+
+impl Default for QueryCoordinator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// Thread-local storage for the query coordinator
+thread_local! {
+    static QUERY_COORDINATOR: RefCell<QueryCoordinator> = RefCell::new(QueryCoordinator::new());
+}
 
 /// Represents the type of access needed for a component
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,9 +236,9 @@ impl<'a> AcquiredResources<'a> {
 impl<'a> Drop for AcquiredResources<'a> {
     fn drop(&mut self) {
         // Remove this query from active queries when resources are released
-        if let Ok(mut active_queries) = self.world.active_queries.lock() {
-            active_queries.retain(|(id, _, _)| *id != self.query_id);
-        }
+        QUERY_COORDINATOR.with(|coord| {
+            coord.borrow().unregister_query(self.query_id);
+        });
     }
 }
 
@@ -175,9 +264,7 @@ impl WorldQueryExt for World {
         let start_time = Instant::now();
 
         // Generate unique query ID
-        let query_id = self
-            .next_query_id
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let query_id = QUERY_COORDINATOR.with(|coord| coord.borrow().generate_query_id());
 
         // Sort requests by TypeId to ensure consistent ordering and prevent deadlocks
         let mut sorted_requests = query.requests.clone();
@@ -196,68 +283,9 @@ impl WorldQueryExt for World {
             }
         }
 
-        // Check for conflicts with currently active queries
-        let conflicts = {
-            match self.active_queries.try_lock() {
-                Ok(active_queries) => {
-                    // Clean up expired queries (older than 1 second - indicates a stuck system)
-                    let now = Instant::now();
-                    let expired_threshold = Duration::from_secs(1);
-
-                    let mut has_conflicts = false;
-                    for (_, active_query, query_time) in active_queries.iter() {
-                        // Skip expired queries
-                        if now.duration_since(*query_time) > expired_threshold {
-                            continue;
-                        }
-
-                        if query.conflicts_with(active_query) {
-                            has_conflicts = true;
-                            break;
-                        }
-                    }
-                    has_conflicts
-                }
-                Err(_) => {
-                    // If we can't acquire the lock, assume conflict to be safe
-                    true
-                }
-            }
-        };
-
-        if conflicts {
-            return None; // Resource conflict detected
-        }
-
-        // Try to acquire the active queries lock to register our query
-        let registration_success = {
-            match self.active_queries.try_lock() {
-                Ok(mut active_queries) => {
-                    // Double-check for conflicts now that we have the lock
-                    let now = Instant::now();
-                    let expired_threshold = Duration::from_secs(1);
-
-                    // Clean up expired queries
-                    active_queries.retain(|(_, _, query_time)| {
-                        now.duration_since(*query_time) <= expired_threshold
-                    });
-
-                    // Check for conflicts again
-                    let has_conflicts = active_queries
-                        .iter()
-                        .any(|(_, active_query, _)| query.conflicts_with(active_query));
-
-                    if !has_conflicts {
-                        // No conflicts, register our query
-                        active_queries.push((query_id, query.clone(), Instant::now()));
-                        true
-                    } else {
-                        false
-                    }
-                }
-                Err(_) => false, // Couldn't acquire lock
-            }
-        };
+        // Try to register the query with the coordinator
+        let registration_success =
+            QUERY_COORDINATOR.with(|coord| coord.borrow().register_query(query_id, query.clone()));
 
         if !registration_success {
             return None; // Failed to register query due to conflicts
@@ -280,33 +308,25 @@ impl WorldQueryExt for World {
 impl World {
     /// Get the number of currently active queries (for debugging/monitoring)
     pub fn active_query_count(&self) -> usize {
-        self.active_queries
-            .lock()
-            .map(|queries| queries.len())
-            .unwrap_or(0)
+        QUERY_COORDINATOR.with(|coord| coord.borrow().active_query_count())
     }
 
     /// Clear all active queries (for emergency cleanup)
     pub fn clear_active_queries(&self) {
-        if let Ok(mut queries) = self.active_queries.lock() {
-            queries.clear();
-        }
+        QUERY_COORDINATOR.with(|coord| {
+            coord.borrow().clear_active_queries();
+        });
     }
 
     /// Clean up expired queries manually (called automatically, but can be used for debugging)
     pub fn cleanup_expired_queries(&self) {
-        if let Ok(mut queries) = self.active_queries.lock() {
-            let now = Instant::now();
-            let expired_threshold = Duration::from_secs(1);
-            queries
-                .retain(|(_, _, query_time)| now.duration_since(*query_time) <= expired_threshold);
-        }
+        QUERY_COORDINATOR.with(|coord| {
+            coord.borrow().cleanup_expired_queries();
+        });
     }
+
     /// Check if an entity has a component of a specific type (by TypeId)
     fn has_component_of_type(&self, entity: Entity, type_id: TypeId) -> bool {
-        // For the simplified implementation, we just check if the storage exists
-        // and the entity ID is valid. In a real implementation, you'd check
-        // if the specific entity has the component in that storage.
         if let Some(_storage) = self.storage.get(&type_id) {
             // Check if it's a valid entity ID that has been created
             *entity < self.next_entity.load(std::sync::atomic::Ordering::SeqCst)

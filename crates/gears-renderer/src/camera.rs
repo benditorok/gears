@@ -1,4 +1,4 @@
-use cgmath::{perspective, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3};
+use cgmath::{InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3, perspective};
 use gears_core::OPENGL_TO_WGPU_MATRIX;
 use gears_ecs::components;
 

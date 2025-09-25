@@ -633,11 +633,11 @@ async fn main() -> EngineResult<()> {
                             Ok(health),
                             Ok(mut light),
                         ) = (
-                            ai_component.try_write(),
-                            pos3_component.try_read(),
-                            pathfinding_component.try_write(),
-                            health_component.try_read(),
-                            light_component.try_write(),
+                            ai_component.write(),
+                            pos3_component.read(),
+                            pathfinding_component.write(),
+                            health_component.read(),
+                            light_component.write(),
                         ) {
                             let distance_to_player = (player_pos - current_pos.pos).magnitude();
 
@@ -772,8 +772,7 @@ async fn main() -> EngineResult<()> {
                     resources.get::<Pos3>(obstacle_entity),
                     resources.get::<RigidBody<AABBCollisionBox>>(obstacle_entity),
                 ) {
-                    if let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.try_read(), rb_comp.try_read())
-                    {
+                    if let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.read(), rb_comp.read()) {
                         obstacles.push((pos_guard.pos, rb_guard.collision_box.clone()));
                     }
                 }
@@ -797,9 +796,9 @@ async fn main() -> EngineResult<()> {
                     resources.get::<RigidBody<AABBCollisionBox>>(entity),
                 ) {
                     if let (Ok(mut pathfinding), Ok(pos3), Ok(mut rigidbody)) = (
-                        pathfinding_comp.try_write(),
-                        pos3_comp.try_read(),
-                        rigidbody_comp.try_write(),
+                        pathfinding_comp.write(),
+                        pos3_comp.read(),
+                        rigidbody_comp.write(),
                     ) {
                         pathfinding.update(dt.as_secs_f32());
                         let current_pos = pos3.pos;
