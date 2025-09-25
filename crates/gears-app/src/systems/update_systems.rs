@@ -12,7 +12,6 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 
 /// Update the lights in the scene.
 pub(super) fn update_lights(
@@ -33,36 +32,34 @@ pub(super) fn update_lights(
             .read::<Pos3>(light_entities.clone())
             .read::<Light>(light_entities.clone());
 
-        // Try to acquire resources with timeout
-        let resources = world
-            .try_acquire_query(query, Duration::from_millis(50))
-            .ok_or_else(|| {
-                SystemError::ComponentAccess("Failed to acquire light components".to_string())
-            })?;
+        // Acquire resources (blocking)
+        let resources = world.acquire_query(query).ok_or_else(|| {
+            SystemError::ComponentAccess("Failed to acquire light components".to_string())
+        })?;
 
-        let light_uniforms = light_entities
-            .par_iter()
-            .map(|&entity| {
-                if let (Some(pos3_component), Some(light_component)) = (
-                    resources.get::<Pos3>(entity),
-                    resources.get::<Light>(entity),
-                ) {
-                    let pos3 = pos3_component.read().map_err(|e| {
-                        SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
-                    })?;
-                    let light = light_component.read().map_err(|e| {
-                        SystemError::ComponentAccess(format!("Failed to read Light: {}", e))
-                    })?;
+        let mut light_uniforms = Vec::new();
 
-                    Ok(LightUniform::from_components(&light, &pos3))
-                } else {
-                    Err(SystemError::MissingComponent(format!(
-                        "Required components missing for light entity {:?}",
-                        entity
-                    )))
-                }
-            })
-            .collect::<Result<Vec<light::LightUniform>, SystemError>>()?;
+        for &entity in &light_entities {
+            if let (Some(pos3_component), Some(light_component)) = (
+                resources.get::<Pos3>(entity),
+                resources.get::<Light>(entity),
+            ) {
+                let pos3 = pos3_component.read().map_err(|e| {
+                    SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
+                })?;
+                let light = light_component.read().map_err(|e| {
+                    SystemError::ComponentAccess(format!("Failed to read Light: {}", e))
+                })?;
+
+                let light_uniform = LightUniform::from_components(&light, &pos3);
+                light_uniforms.push(light_uniform);
+            } else {
+                return Err(SystemError::MissingComponent(format!(
+                    "Required components missing for light entity {:?}",
+                    entity
+                )));
+            }
+        }
 
         let num_lights = light_uniforms.len() as u32;
         let light_data = light::LightData {
@@ -111,8 +108,8 @@ pub(super) fn update_models(
                     .read::<model::Model>(vec![entity])
                     .write::<components::misc::AnimationQueue>(vec![entity]);
 
-                // Try to acquire resources with timeout
-                if let Some(resources) = world.try_acquire_query(query, Duration::from_millis(10)) {
+                // Try to acquire resources immediately
+                if let Some(resources) = world.try_acquire_query_immediate(query) {
                     let _name =
                         resources
                             .get::<components::misc::Name>(entity)
@@ -356,7 +353,7 @@ pub(super) fn update_physics(
                     .write::<components::physics::RigidBody<AABBCollisionBox>>(vec![entity])
                     .write::<components::transforms::Pos3>(vec![entity]);
 
-                if let Some(resources) = world.try_acquire_query(query, Duration::from_millis(10)) {
+                if let Some(resources) = world.try_acquire_query_immediate(query) {
                     if let (Some(physics_body), Some(pos3)) = (
                         resources.get::<components::physics::RigidBody<AABBCollisionBox>>(entity),
                         resources.get::<components::transforms::Pos3>(entity),
@@ -392,7 +389,7 @@ pub(super) fn update_physics(
                     ])
                     .write::<components::transforms::Pos3>(vec![entity_a, entity_b]);
 
-                if let Some(resources) = world.try_acquire_query(query, Duration::from_millis(5)) {
+                if let Some(resources) = world.try_acquire_query_immediate(query) {
                     if let (
                         Some(physics_body_a),
                         Some(pos3_a),
@@ -443,7 +440,7 @@ pub(super) fn update_physics(
                     .read::<BufferComponent>(vec![entity])
                     .read::<Pos3>(vec![entity]);
 
-                if let Some(resources) = world.try_acquire_query(query, Duration::from_millis(5)) {
+                if let Some(resources) = world.try_acquire_query_immediate(query) {
                     if let (Some(instance), Some(buffer), Some(pos3)) = (
                         resources.get::<instance::Instance>(entity),
                         resources.get::<BufferComponent>(entity),
