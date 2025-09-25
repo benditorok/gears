@@ -728,8 +728,7 @@ async fn main() -> EngineResult<()> {
                         }
                     }
                 } else {
-                    // Couldn't acquire all resources, skip this entity this frame
-                    info!("Skipping AI entity {} - resources locked", *entity);
+                    info!("Missing components for entity {}", *entity);
                 }
             }
 
@@ -743,13 +742,7 @@ async fn main() -> EngineResult<()> {
         let player_entities = world.get_entities_with_component::<PathfindingTarget>();
         let player_pos = if let Some(&player_entity) = player_entities.first() {
             if let Some(pos3) = world.get_component::<Pos3>(player_entity) {
-                match pos3.try_read() {
-                    Ok(pos_guard) => pos_guard.pos,
-                    Err(_) => {
-                        info!("Skipping pathfinding - player position locked");
-                        return Ok(());
-                    }
-                }
+                pos3.read().unwrap().pos
             } else {
                 return Ok(());
             }
@@ -844,6 +837,8 @@ async fn main() -> EngineResult<()> {
                         }
                     }
                 }
+            } else {
+                info!("Missing components for entity {}", *entity);
             }
         }
 

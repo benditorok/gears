@@ -62,11 +62,3 @@ path = "src/pathfinding.rs"
 [[example]]
 name = "intelligent_ai"
 path = "src/intelligent_ai.rs"
-
-[[example]]
-name = "intelligent_ai_fixed"
-path = "src/intelligent_ai_fixed.rs"
-
-[[example]]
-name = "simple_query"
-path = "src/simple_query.rs"
