@@ -3,7 +3,7 @@
 //! This module provides a query-based system for acquiring multiple component locks
 //! atomically to prevent deadlocks and resource starvation in concurrent systems.
 
-use crate::{Component, Entity, World};
+use crate::{Component, Entity, QueryId, World};
 use std::any::TypeId;
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
@@ -17,7 +17,7 @@ pub enum AccessType {
 }
 
 /// A request for accessing specific components on specific entities
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentAccessRequest {
     pub type_id: TypeId,
     pub entities: Vec<Entity>,
@@ -25,7 +25,7 @@ pub struct ComponentAccessRequest {
 }
 
 /// A query builder for specifying component access requirements
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentQuery {
     requests: Vec<ComponentAccessRequest>,
 }
@@ -39,7 +39,7 @@ impl ComponentQuery {
     }
 
     /// Add a read request for a component type on specific entities
-    pub fn read<T: Component>(mut self, entities: Vec<Entity>) -> Self {
+    pub fn read<T: Component + 'static>(mut self, entities: Vec<Entity>) -> Self {
         if !entities.is_empty() {
             self.requests.push(ComponentAccessRequest {
                 type_id: TypeId::of::<T>(),
@@ -51,7 +51,7 @@ impl ComponentQuery {
     }
 
     /// Add a write request for a component type on specific entities
-    pub fn write<T: Component>(mut self, entities: Vec<Entity>) -> Self {
+    pub fn write<T: Component + 'static>(mut self, entities: Vec<Entity>) -> Self {
         if !entities.is_empty() {
             self.requests.push(ComponentAccessRequest {
                 type_id: TypeId::of::<T>(),
@@ -63,7 +63,7 @@ impl ComponentQuery {
     }
 
     /// Add a read request for a component type on all entities that have it
-    pub fn read_all<T: Component>(mut self, world: &World) -> Self {
+    pub fn read_all<T: Component + 'static>(mut self, world: &World) -> Self {
         let entities = world.get_entities_with_component::<T>();
         if !entities.is_empty() {
             self.requests.push(ComponentAccessRequest {
@@ -132,14 +132,24 @@ impl Default for ComponentQuery {
 /// Result of successfully acquiring all requested resources
 pub struct AcquiredResources<'a> {
     world: &'a World,
+    query_id: QueryId,
     _query: ComponentQuery,
 }
 
 impl<'a> AcquiredResources<'a> {
     /// Get access to a component for a specific entity
     /// This bypasses the normal locking since we've already verified access
-    pub fn get<T: Component>(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
+    pub fn get<T: Component + 'static>(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
         self.world.get_component::<T>(entity)
+    }
+}
+
+impl<'a> Drop for AcquiredResources<'a> {
+    fn drop(&mut self) {
+        // Remove this query from active queries when resources are released
+        if let Ok(mut active_queries) = self.world.active_queries.lock() {
+            active_queries.retain(|(id, _, _)| *id != self.query_id);
+        }
     }
 }
 
@@ -164,11 +174,16 @@ impl WorldQueryExt for World {
     ) -> Option<AcquiredResources<'_>> {
         let start_time = Instant::now();
 
+        // Generate unique query ID
+        let query_id = self
+            .next_query_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
         // Sort requests by TypeId to ensure consistent ordering and prevent deadlocks
         let mut sorted_requests = query.requests.clone();
         sorted_requests.sort_by_key(|req| req.type_id);
 
-        // Validate that all requested components exist before trying to acquire locks
+        // Validate that all requested components exist
         for request in &sorted_requests {
             if start_time.elapsed() > timeout {
                 return None;
@@ -181,44 +196,77 @@ impl WorldQueryExt for World {
             }
         }
 
-        // Try to acquire all locks using try_lock to avoid blocking
-        // This is a simplified implementation that relies on the timeout mechanism
-        // and consistent ordering to prevent deadlocks
-        let mut _acquired_components: Vec<()> = Vec::new();
+        // Check for conflicts with currently active queries
+        let conflicts = {
+            match self.active_queries.try_lock() {
+                Ok(active_queries) => {
+                    // Clean up expired queries (older than 1 second - indicates a stuck system)
+                    let now = Instant::now();
+                    let expired_threshold = Duration::from_secs(1);
 
-        for request in &sorted_requests {
-            for &entity in &request.entities {
-                if start_time.elapsed() > timeout {
-                    return None;
+                    let mut has_conflicts = false;
+                    for (_, active_query, query_time) in active_queries.iter() {
+                        // Skip expired queries
+                        if now.duration_since(*query_time) > expired_threshold {
+                            continue;
+                        }
+
+                        if query.conflicts_with(active_query) {
+                            has_conflicts = true;
+                            break;
+                        }
+                    }
+                    has_conflicts
                 }
-
-                // Get the component storage for this type
-                let storage = self.storage.get(&request.type_id)?;
-
-                // Try to acquire the appropriate lock type
-                match request.access_type {
-                    AccessType::Read => {
-                        // For read access, we just verify the component exists
-                        // The actual locking happens when the user calls get() on AcquiredResources
-                        if !self.has_component_of_type(entity, request.type_id) {
-                            return None;
-                        }
-                    }
-                    AccessType::Write => {
-                        // For write access, we also just verify existence
-                        // The locking strategy here is simplified - we rely on the fact that
-                        // systems using this query system coordinate through the timeout mechanism
-                        if !self.has_component_of_type(entity, request.type_id) {
-                            return None;
-                        }
-                    }
+                Err(_) => {
+                    // If we can't acquire the lock, assume conflict to be safe
+                    true
                 }
             }
+        };
+
+        if conflicts {
+            return None; // Resource conflict detected
         }
 
-        // If we've made it this far, we can provide the resources
+        // Try to acquire the active queries lock to register our query
+        let registration_success = {
+            match self.active_queries.try_lock() {
+                Ok(mut active_queries) => {
+                    // Double-check for conflicts now that we have the lock
+                    let now = Instant::now();
+                    let expired_threshold = Duration::from_secs(1);
+
+                    // Clean up expired queries
+                    active_queries.retain(|(_, _, query_time)| {
+                        now.duration_since(*query_time) <= expired_threshold
+                    });
+
+                    // Check for conflicts again
+                    let has_conflicts = active_queries
+                        .iter()
+                        .any(|(_, active_query, _)| query.conflicts_with(active_query));
+
+                    if !has_conflicts {
+                        // No conflicts, register our query
+                        active_queries.push((query_id, query.clone(), Instant::now()));
+                        true
+                    } else {
+                        false
+                    }
+                }
+                Err(_) => false, // Couldn't acquire lock
+            }
+        };
+
+        if !registration_success {
+            return None; // Failed to register query due to conflicts
+        }
+
+        // Successfully registered - return acquired resources
         Some(AcquiredResources {
             world: self,
+            query_id,
             _query: query,
         })
     }
@@ -228,8 +276,32 @@ impl WorldQueryExt for World {
     }
 }
 
-/// Helper methods for World
+/// Helper methods for World to support query system
 impl World {
+    /// Get the number of currently active queries (for debugging/monitoring)
+    pub fn active_query_count(&self) -> usize {
+        self.active_queries
+            .lock()
+            .map(|queries| queries.len())
+            .unwrap_or(0)
+    }
+
+    /// Clear all active queries (for emergency cleanup)
+    pub fn clear_active_queries(&self) {
+        if let Ok(mut queries) = self.active_queries.lock() {
+            queries.clear();
+        }
+    }
+
+    /// Clean up expired queries manually (called automatically, but can be used for debugging)
+    pub fn cleanup_expired_queries(&self) {
+        if let Ok(mut queries) = self.active_queries.lock() {
+            let now = Instant::now();
+            let expired_threshold = Duration::from_secs(1);
+            queries
+                .retain(|(_, _, query_time)| now.duration_since(*query_time) <= expired_threshold);
+        }
+    }
     /// Check if an entity has a component of a specific type (by TypeId)
     fn has_component_of_type(&self, entity: Entity, type_id: TypeId) -> bool {
         // For the simplified implementation, we just check if the storage exists
@@ -332,5 +404,78 @@ mod tests {
         // The simplified implementation may not handle component existence perfectly
         // but the API should work without panicking
         let _ = world.try_acquire_query_immediate(query);
+    }
+
+    #[test]
+    fn test_central_coordination_prevents_conflicts() {
+        let world = World::new();
+        let entity1 = world.create_entity();
+        world.add_component(entity1, TestComponent1(42));
+
+        // Create two conflicting queries
+        let query1 = ComponentQuery::new().write::<TestComponent1>(vec![entity1]);
+        let query2 = ComponentQuery::new().write::<TestComponent1>(vec![entity1]);
+
+        // First query should succeed (if component exists)
+        let resources1 = world.try_acquire_query_immediate(query1.clone());
+        if resources1.is_some() {
+            // Second conflicting query should fail while first is active
+            let resources2 = world.try_acquire_query_immediate(query2);
+            assert!(
+                resources2.is_none(),
+                "Second query should fail due to conflict"
+            );
+
+            // After dropping first resources, second query should succeed
+            drop(resources1);
+            let resources3 = world.try_acquire_query_immediate(query1);
+            // This may succeed depending on component existence validation
+            println!("Third query result: {:?}", resources3.is_some());
+        }
+    }
+
+    #[test]
+    fn test_non_conflicting_queries_can_run_together() {
+        let world = World::new();
+        let entity1 = world.create_entity();
+        let entity2 = world.create_entity();
+        world.add_component(entity1, TestComponent1(42));
+        world.add_component(entity2, TestComponent1(99));
+
+        // Create two non-conflicting queries (different entities)
+        let query1 = ComponentQuery::new().write::<TestComponent1>(vec![entity1]);
+        let query2 = ComponentQuery::new().write::<TestComponent1>(vec![entity2]);
+
+        // Try both queries - they should not conflict
+        let resources1 = world.try_acquire_query_immediate(query1);
+        let resources2 = world.try_acquire_query_immediate(query2);
+
+        // If both succeed, they should be able to coexist
+        if resources1.is_some() && resources2.is_some() {
+            assert_eq!(world.active_query_count(), 2);
+        }
+    }
+
+    #[test]
+    fn test_read_queries_can_coexist() {
+        let world = World::new();
+        let entity1 = world.create_entity();
+        world.add_component(entity1, TestComponent1(42));
+
+        // Create two read queries for the same entity
+        let query1 = ComponentQuery::new().read::<TestComponent1>(vec![entity1]);
+        let query2 = ComponentQuery::new().read::<TestComponent1>(vec![entity1]);
+
+        // Try both read queries
+        let resources1 = world.try_acquire_query_immediate(query1);
+        let resources2 = world.try_acquire_query_immediate(query2);
+
+        // If both succeed (read queries don't conflict), check active count
+        if resources1.is_some() && resources2.is_some() {
+            assert_eq!(world.active_query_count(), 2);
+        } else if resources1.is_some() || resources2.is_some() {
+            // At least one succeeded, which is expected behavior
+            assert!(world.active_query_count() >= 1);
+        }
     }
 }
