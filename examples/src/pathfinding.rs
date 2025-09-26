@@ -303,7 +303,7 @@ async fn main() -> EngineResult<()> {
 
             // Move the entity along its path
             let query = ComponentQuery::new()
-                .read::<PathfindingComponent>(vec![entity])
+                .write::<PathfindingComponent>(vec![entity])
                 .read::<Pos3>(vec![entity])
                 .write::<RigidBody<AABBCollisionBox>>(vec![entity]);
 
@@ -313,7 +313,7 @@ async fn main() -> EngineResult<()> {
                     resources.get::<Pos3>(entity),
                     resources.get::<RigidBody<AABBCollisionBox>>(entity),
                 ) {
-                    let pathfinding = pathfinding_comp.read().map_err(|e| {
+                    let pathfinding = pathfinding_comp.write().map_err(|e| {
                         SystemError::ComponentAccess(format!(
                             "Failed to read PathfindingComponent: {}",
                             e
@@ -326,65 +326,45 @@ async fn main() -> EngineResult<()> {
                         SystemError::ComponentAccess(format!("Failed to write RigidBody: {}", e))
                     })?;
 
-                    let should_advance_waypoint =
-                        if let Some(waypoint) = pathfinding.current_waypoint() {
-                            let mut direction = waypoint - pos3.pos;
-                            direction.y = 0.0; // Only horizontal movement
+                    let should_advance_waypoint = if let Some(waypoint) =
+                        pathfinding.current_waypoint()
+                    {
+                        let mut direction = waypoint - pos3.pos;
+                        direction.y = 0.0; // Only horizontal movement
 
-                            if direction.magnitude() > pathfinding.waypoint_threshold {
-                                // Move toward waypoint
-                                let normalized_dir = direction.normalize();
-                                let target_acceleration = normalized_dir * pathfinding.speed * 8.0;
+                        if direction.magnitude() > pathfinding.waypoint_threshold {
+                            // Move toward waypoint
+                            let normalized_dir = direction.normalize();
+                            let target_acceleration = normalized_dir * pathfinding.speed * 8.0;
 
-                                rigidbody.acceleration.x = target_acceleration.x;
-                                rigidbody.acceleration.z = target_acceleration.z;
-                                rigidbody.velocity.x *= 0.85;
-                                rigidbody.velocity.z *= 0.85;
+                            rigidbody.acceleration.x = target_acceleration.x;
+                            rigidbody.acceleration.z = target_acceleration.z;
+                            rigidbody.velocity.x *= 0.85;
+                            rigidbody.velocity.z *= 0.85;
 
-                                info!("Entity {:?} moving toward waypoint {:?}", entity, waypoint);
-                                false // Don't advance waypoint
-                            } else {
-                                // Reached waypoint - stop movement and mark for advancement
-                                rigidbody.acceleration.x = 0.0;
-                                rigidbody.acceleration.z = 0.0;
-                                rigidbody.velocity.x *= 0.5;
-                                rigidbody.velocity.z *= 0.5;
-                                true // Advance waypoint
-                            }
+                            info!("Entity {:?} moving toward waypoint {:?}", entity, waypoint);
+                            false // Don't advance waypoint
                         } else {
-                            // No waypoint, stop movement
+                            // Reached waypoint - stop movement and mark for advancement
                             rigidbody.acceleration.x = 0.0;
                             rigidbody.acceleration.z = 0.0;
-                            rigidbody.velocity.x *= 0.8;
-                            rigidbody.velocity.z *= 0.8;
-                            false // No waypoint to advance
-                        };
-
-                    // Release all locks before potentially acquiring new query
-                    drop(pathfinding);
-                    drop(pos3);
-                    drop(rigidbody);
+                            rigidbody.velocity.x *= 0.5;
+                            rigidbody.velocity.z *= 0.5;
+                            true // Advance waypoint
+                        }
+                    } else {
+                        // No waypoint, stop movement
+                        rigidbody.acceleration.x = 0.0;
+                        rigidbody.acceleration.z = 0.0;
+                        rigidbody.velocity.x *= 0.8;
+                        rigidbody.velocity.z *= 0.8;
+                        false // No waypoint to advance
+                    };
 
                     // If we need to advance waypoint, do it with a separate query
                     if should_advance_waypoint {
-                        let advance_query =
-                            ComponentQuery::new().write::<PathfindingComponent>(vec![entity]);
-
-                        if let Some(advance_resources) = world.acquire_query(advance_query) {
-                            if let Some(pathfinding_advance) =
-                                advance_resources.get::<PathfindingComponent>(entity)
-                            {
-                                let mut pathfinding_mut =
-                                    pathfinding_advance.write().map_err(|e| {
-                                        SystemError::ComponentAccess(format!(
-                                            "Failed to write PathfindingComponent: {}",
-                                            e
-                                        ))
-                                    })?;
-                                pathfinding_mut.advance_waypoint();
-                                info!("Advanced waypoint for entity {:?}", entity);
-                            }
-                        }
+                        pathfinding.advance_waypoint();
+                        info!("Advanced waypoint for entity {:?}", entity);
                     }
                 }
             }
