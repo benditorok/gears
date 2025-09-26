@@ -65,7 +65,7 @@ impl Marker for TargetMarker {
     }
 }
 
-/// Simple enemy marker for entities that track the player
+/// Enemy marker for entities that track the player
 #[derive(Component, Debug, Clone, Copy)]
 pub struct EnemyMarker;
 

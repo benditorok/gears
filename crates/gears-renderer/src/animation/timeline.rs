@@ -496,10 +496,7 @@ impl AnimationTimeline {
     /// Undo the last operation
     pub fn undo(&mut self) -> Result<(), String> {
         if let Some(_operation) = self.history.undo() {
-            // For simplicity, we would need to implement reverse operations
-            // This is a complex topic that would require storing the previous state
-            // or implementing reverse operations for each operation type
-            Err("Undo not fully implemented yet".to_string())
+            unimplemented!("Undo not implemented")
         } else {
             Err("Nothing to undo".to_string())
         }

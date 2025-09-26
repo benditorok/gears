@@ -108,8 +108,7 @@ pub(super) fn update_models(
                     .read::<model::Model>(vec![entity])
                     .write::<components::misc::AnimationQueue>(vec![entity]);
 
-                // Try to acquire resources immediately
-                if let Some(resources) = world.try_acquire_query_immediate(query) {
+                if let Some(resources) = world.acquire_query(query) {
                     let _name =
                         resources
                             .get::<components::misc::Name>(entity)
@@ -353,7 +352,7 @@ pub(super) fn update_physics(
                     .write::<components::physics::RigidBody<AABBCollisionBox>>(vec![entity])
                     .write::<components::transforms::Pos3>(vec![entity]);
 
-                if let Some(resources) = world.try_acquire_query_immediate(query) {
+                if let Some(resources) = world.acquire_query(query) {
                     if let (Some(physics_body), Some(pos3)) = (
                         resources.get::<components::physics::RigidBody<AABBCollisionBox>>(entity),
                         resources.get::<components::transforms::Pos3>(entity),
@@ -389,7 +388,7 @@ pub(super) fn update_physics(
                     ])
                     .write::<components::transforms::Pos3>(vec![entity_a, entity_b]);
 
-                if let Some(resources) = world.try_acquire_query_immediate(query) {
+                if let Some(resources) = world.acquire_query(query) {
                     if let (
                         Some(physics_body_a),
                         Some(pos3_a),
@@ -440,7 +439,7 @@ pub(super) fn update_physics(
                     .read::<BufferComponent>(vec![entity])
                     .read::<Pos3>(vec![entity]);
 
-                if let Some(resources) = world.try_acquire_query_immediate(query) {
+                if let Some(resources) = world.acquire_query(query) {
                     if let (Some(instance), Some(buffer), Some(pos3)) = (
                         resources.get::<instance::Instance>(entity),
                         resources.get::<BufferComponent>(entity),

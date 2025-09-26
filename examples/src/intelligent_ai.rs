@@ -759,7 +759,7 @@ async fn main() -> EngineResult<()> {
                 .read::<Pos3>(vec![obstacle_entity])
                 .read::<RigidBody<AABBCollisionBox>>(vec![obstacle_entity]);
 
-            if let Some(resources) = world.try_acquire_query_immediate(query) {
+            if let Some(resources) = world.acquire_query(query) {
                 if let (Some(pos_comp), Some(rb_comp)) = (
                     resources.get::<Pos3>(obstacle_entity),
                     resources.get::<RigidBody<AABBCollisionBox>>(obstacle_entity),
@@ -774,7 +774,6 @@ async fn main() -> EngineResult<()> {
         // Update pathfinding followers
         let follower_entities = world.get_entities_with_component::<PathfindingFollower>();
 
-        // Process one entity per frame to avoid lock contention
         if let Some(&entity) = follower_entities.first() {
             let query = ComponentQuery::new()
                 .write::<PathfindingComponent>(vec![entity])

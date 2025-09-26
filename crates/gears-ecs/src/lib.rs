@@ -152,14 +152,12 @@ pub type QueryId = u64;
 pub struct World {
     next_entity: AtomicU32,
     storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
-    // Query system coordination - high-performance lockless access tracking
-    pub(crate) active_accesses:
-        DashMap<(Entity, std::any::TypeId), Vec<crate::query_system::ResourceAccess>>,
+    pub(crate) active_accesses: DashMap<(Entity, TypeId), Vec<query_system::ResourceAccess>>,
     pub(crate) next_query_id: AtomicU64,
 }
 
 impl Default for World {
-    /// Create a new World instance with a default capacity of 41.
+    /// Create a new World instance.
     ///
     /// # Returns
     ///
@@ -167,8 +165,8 @@ impl Default for World {
     fn default() -> Self {
         Self {
             next_entity: AtomicU32::new(0),
-            storage: DashMap::with_capacity(41),
-            active_accesses: DashMap::new(),
+            storage: DashMap::with_capacity(47),
+            active_accesses: DashMap::with_capacity(97),
             next_query_id: AtomicU64::new(0),
         }
     }
