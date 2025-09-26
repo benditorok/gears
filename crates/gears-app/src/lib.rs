@@ -336,10 +336,10 @@ impl GearsApp {
                         // Run both system groups concurrently using Tokio runtime
                         tokio::task::block_in_place(|| {
                             tokio::runtime::Handle::current().block_on(async {
-                                tokio::join!(
-                                    self.run_external_systems(Arc::clone(&self.world), dt),
-                                    self.run_internal_systems(Arc::clone(&self.world), Arc::clone(&self.state), dt)
-                                )
+                                // System collections should be run one after another to ensure proper ordering
+                                // as to avoid any potential issues with data consistency and synchronization.
+                                self.run_external_systems(Arc::clone(&self.world), dt).await;
+                                self.run_internal_systems(Arc::clone(&self.world), Arc::clone(&self.state), dt).await;
                             })
                         });
 
