@@ -7,7 +7,9 @@ use crate::{BufferComponent, errors::RendererError};
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
 use gears_core::config::Config;
-use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox};
+use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox, RigidBody};
+use gears_ecs::components::transforms::Pos3;
+use gears_ecs::query_system::{ComponentQuery, WorldQueryExt};
 use gears_ecs::{self, Entity, World, components};
 use gears_gui::{EguiRenderer, EguiWindowCallback};
 use image::imageops::FilterType::Triangle;
@@ -495,53 +497,69 @@ impl State {
         // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {
             let camera_entity = self.camera_owner_entity.unwrap();
-            let pos3 = self.world.get_component(camera_entity).unwrap();
-            let mut wlock_pos3 = pos3.write().unwrap();
-            let mut wlock_view_controller = view_controller.write().unwrap();
-            wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
 
-            if let Some(movement_controller) = &self.movement_controller {
-                let mut wlock_movement_controller = movement_controller.write().unwrap();
-                if let Some(rigid_body) = self
-                    .world
-                    .get_component::<components::physics::RigidBody<AABBCollisionBox>>(
-                        camera_entity,
-                    )
-                {
-                    let mut wlock_rigid_body = rigid_body.write().unwrap();
+            // Build query for camera components
+            let mut query = ComponentQuery::new().write::<Pos3>(vec![camera_entity]);
 
-                    wlock_movement_controller.update_pos(
+            // Check if we also need rigidbody access
+            let has_rigidbody = self
+                .world
+                .get_entities_with_component::<RigidBody<AABBCollisionBox>>()
+                .contains(&camera_entity);
+
+            if has_rigidbody {
+                query = query.write::<RigidBody<AABBCollisionBox>>(vec![camera_entity]);
+            }
+
+            if let Some(resources) = self.world.acquire_query(query) {
+                if let Some(pos3_comp) = resources.get::<Pos3>(camera_entity) {
+                    let mut wlock_pos3 = pos3_comp.write().unwrap();
+                    let mut wlock_view_controller = view_controller.write().unwrap();
+                    wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
+
+                    if let Some(movement_controller) = &self.movement_controller {
+                        let mut wlock_movement_controller = movement_controller.write().unwrap();
+
+                        if has_rigidbody {
+                            if let Some(rigid_body_comp) =
+                                resources.get::<RigidBody<AABBCollisionBox>>(camera_entity)
+                            {
+                                let mut wlock_rigid_body = rigid_body_comp.write().unwrap();
+                                wlock_movement_controller.update_pos(
+                                    &wlock_view_controller,
+                                    &mut wlock_pos3,
+                                    Some(&mut wlock_rigid_body),
+                                    dt.as_secs_f32(),
+                                );
+                            }
+                        } else {
+                            wlock_movement_controller.update_pos(
+                                &wlock_view_controller,
+                                &mut wlock_pos3,
+                                None::<
+                                    &mut gears_ecs::components::physics::RigidBody<
+                                        AABBCollisionBox,
+                                    >,
+                                >,
+                                dt.as_secs_f32(),
+                            );
+                        }
+                    }
+
+                    self.camera_uniform.update_view_proj(
+                        &wlock_pos3,
                         &wlock_view_controller,
-                        &mut wlock_pos3,
-                        Some(&mut wlock_rigid_body),
-                        dt.as_secs_f32(),
+                        &self.camera_projection,
                     );
-                } else {
-                    wlock_movement_controller.update_pos(
-                        &wlock_view_controller,
-                        &mut wlock_pos3,
-                        None::<&mut gears_ecs::components::physics::RigidBody<AABBCollisionBox>>,
-                        dt.as_secs_f32(),
+
+                    self.queue.write_buffer(
+                        &self.camera_buffer,
+                        0,
+                        bytemuck::cast_slice(&[self.camera_uniform]),
                     );
                 }
             }
-
-            self.camera_uniform.update_view_proj(
-                &wlock_pos3,
-                &wlock_view_controller,
-                &self.camera_projection,
-            );
-
-            self.queue.write_buffer(
-                &self.camera_buffer,
-                0,
-                bytemuck::cast_slice(&[self.camera_uniform]),
-            );
         }
-
-        //update::lights(self);
-        //update::models(self);
-        //update::physics_system(self, dt);
 
         Ok(())
     }
@@ -602,14 +620,21 @@ impl State {
                 );
 
                 for entity in models {
-                    let model = self.world.get_component::<model::Model>(entity).unwrap();
-                    let instance_buffer =
-                        self.world.get_component::<BufferComponent>(entity).unwrap();
+                    let query = ComponentQuery::new()
+                        .read::<model::Model>(vec![entity])
+                        .read::<BufferComponent>(vec![entity]);
 
-                    let rlock_model = model.read().unwrap();
-                    let rlock_instance_buffer = instance_buffer.read().unwrap();
+                    if let Some(resources) = self.world.acquire_query(query) {
+                        if let (Some(model_comp), Some(buffer_comp)) = (
+                            resources.get::<model::Model>(entity),
+                            resources.get::<BufferComponent>(entity),
+                        ) {
+                            let rlock_model = model_comp.read().unwrap();
+                            let rlock_instance_buffer = buffer_comp.read().unwrap();
 
-                    render_pass.draw_model(&rlock_model, &rlock_instance_buffer);
+                            render_pass.draw_model(&rlock_model, &rlock_instance_buffer);
+                        }
+                    }
                 }
             }
 
@@ -626,19 +651,21 @@ impl State {
                     );
 
                     for entity in wireframes {
-                        let wireframe = self
-                            .world
-                            .get_component::<model::WireframeMesh>(entity)
-                            .unwrap();
-                        // Use the same instance buffer that's used for the physics body
-                        let instance_buffer =
-                            self.world.get_component::<BufferComponent>(entity).unwrap();
+                        let query = ComponentQuery::new()
+                            .read::<model::WireframeMesh>(vec![entity])
+                            .read::<BufferComponent>(vec![entity]);
 
-                        // Lock and read components
-                        let wireframe = wireframe.read().unwrap();
-                        let instance_buffer = instance_buffer.read().unwrap();
+                        if let Some(resources) = self.world.acquire_query(query) {
+                            if let (Some(wireframe_comp), Some(buffer_comp)) = (
+                                resources.get::<model::WireframeMesh>(entity),
+                                resources.get::<BufferComponent>(entity),
+                            ) {
+                                let wireframe = wireframe_comp.read().unwrap();
+                                let instance_buffer = buffer_comp.read().unwrap();
 
-                        render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
+                                render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
+                            }
+                        }
                     }
                 }
             }
