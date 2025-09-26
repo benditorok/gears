@@ -313,7 +313,7 @@ async fn main() -> EngineResult<()> {
                     resources.get::<Pos3>(entity),
                     resources.get::<RigidBody<AABBCollisionBox>>(entity),
                 ) {
-                    let pathfinding = pathfinding_comp.write().map_err(|e| {
+                    let mut pathfinding = pathfinding_comp.write().map_err(|e| {
                         SystemError::ComponentAccess(format!(
                             "Failed to read PathfindingComponent: {}",
                             e
@@ -326,40 +326,39 @@ async fn main() -> EngineResult<()> {
                         SystemError::ComponentAccess(format!("Failed to write RigidBody: {}", e))
                     })?;
 
-                    let should_advance_waypoint = if let Some(waypoint) =
-                        pathfinding.current_waypoint()
-                    {
-                        let mut direction = waypoint - pos3.pos;
-                        direction.y = 0.0; // Only horizontal movement
+                    let should_advance_waypoint =
+                        if let Some(waypoint) = pathfinding.current_waypoint() {
+                            let mut direction = waypoint - pos3.pos;
+                            direction.y = 0.0; // Only horizontal movement
 
-                        if direction.magnitude() > pathfinding.waypoint_threshold {
-                            // Move toward waypoint
-                            let normalized_dir = direction.normalize();
-                            let target_acceleration = normalized_dir * pathfinding.speed * 8.0;
+                            if direction.magnitude() > pathfinding.waypoint_threshold {
+                                // Move toward waypoint
+                                let normalized_dir = direction.normalize();
+                                let target_acceleration = normalized_dir * pathfinding.speed * 8.0;
 
-                            rigidbody.acceleration.x = target_acceleration.x;
-                            rigidbody.acceleration.z = target_acceleration.z;
-                            rigidbody.velocity.x *= 0.85;
-                            rigidbody.velocity.z *= 0.85;
+                                rigidbody.acceleration.x = target_acceleration.x;
+                                rigidbody.acceleration.z = target_acceleration.z;
+                                rigidbody.velocity.x *= 0.85;
+                                rigidbody.velocity.z *= 0.85;
 
-                            info!("Entity {:?} moving toward waypoint {:?}", entity, waypoint);
-                            false // Don't advance waypoint
+                                info!("Entity {:?} moving toward waypoint {:?}", entity, waypoint);
+                                false // Don't advance waypoint
+                            } else {
+                                // Reached waypoint - stop movement and mark for advancement
+                                rigidbody.acceleration.x = 0.0;
+                                rigidbody.acceleration.z = 0.0;
+                                rigidbody.velocity.x *= 0.5;
+                                rigidbody.velocity.z *= 0.5;
+                                true // Advance waypoint
+                            }
                         } else {
-                            // Reached waypoint - stop movement and mark for advancement
+                            // No waypoint, stop movement
                             rigidbody.acceleration.x = 0.0;
                             rigidbody.acceleration.z = 0.0;
-                            rigidbody.velocity.x *= 0.5;
-                            rigidbody.velocity.z *= 0.5;
-                            true // Advance waypoint
-                        }
-                    } else {
-                        // No waypoint, stop movement
-                        rigidbody.acceleration.x = 0.0;
-                        rigidbody.acceleration.z = 0.0;
-                        rigidbody.velocity.x *= 0.8;
-                        rigidbody.velocity.z *= 0.8;
-                        false // No waypoint to advance
-                    };
+                            rigidbody.velocity.x *= 0.8;
+                            rigidbody.velocity.z *= 0.8;
+                            false // No waypoint to advance
+                        };
 
                     // If we need to advance waypoint, do it with a separate query
                     if should_advance_waypoint {

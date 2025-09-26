@@ -1,5 +1,5 @@
 pub mod components;
-pub mod query_system;
+pub mod query;
 pub mod utils;
 
 use dashmap::DashMap;
@@ -152,7 +152,7 @@ pub type QueryId = u64;
 pub struct World {
     next_entity: AtomicU32,
     storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
-    pub(crate) active_accesses: DashMap<(Entity, TypeId), Vec<query_system::ResourceAccess>>,
+    pub(crate) active_accesses: DashMap<(Entity, TypeId), Vec<query::ResourceAccess>>,
     pub(crate) next_query_id: AtomicU64,
 }
 

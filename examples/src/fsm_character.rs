@@ -593,10 +593,7 @@ async fn main() -> EngineResult<()> {
             w1_character_color
         ),
         |world, dt| {
-            let comp_lock = world.get_component::<Pos3>(character).unwrap();
-
-            comp_lock
-                .w1_frame_tx
+            w1_frame_tx
                 .send(dt)
                 .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
 

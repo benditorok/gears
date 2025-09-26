@@ -9,7 +9,7 @@ use egui_wgpu::ScreenDescriptor;
 use gears_core::config::Config;
 use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox, RigidBody};
 use gears_ecs::components::transforms::Pos3;
-use gears_ecs::query_system::{ComponentQuery, WorldQueryExt};
+use gears_ecs::query::{ComponentQuery, WorldQueryExt};
 use gears_ecs::{self, Entity, World, components};
 use gears_gui::{EguiRenderer, EguiWindowCallback};
 use image::imageops::FilterType::Triangle;

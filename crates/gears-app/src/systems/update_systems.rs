@@ -4,7 +4,7 @@ use gears_ecs::World;
 use gears_ecs::components::physics::AABBCollisionBox;
 use gears_ecs::components::transforms::Pos3;
 use gears_ecs::components::{self, lights::Light};
-use gears_ecs::query_system::{ComponentQuery, WorldQueryExt};
+use gears_ecs::query::{ComponentQuery, WorldQueryExt};
 use gears_renderer::light::LightUniform;
 use gears_renderer::state::State;
 use gears_renderer::{BufferComponent, animation, instance, light, model};
