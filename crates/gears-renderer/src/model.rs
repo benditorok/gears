@@ -17,7 +17,9 @@ pub(crate) trait Vertex {
 pub(crate) struct ModelVertex {
     pub position: [f32; 3],
     pub tex_coords: [f32; 2],
-    pub normal: [f32; 3],
+    pub normal: [f32; 3],    // Direction of the surface normal
+    pub tangent: [f32; 3], // Direction of the tangent vector (any vector parallel to the surface normal)
+    pub bitangent: [f32; 3], // Direction of the bitangent vector (any vector perpendicular to the tangent)
 }
 
 impl Vertex for ModelVertex {
@@ -40,6 +42,17 @@ impl Vertex for ModelVertex {
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
                     shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                // Tangent and bitangent
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 11]>() as wgpu::BufferAddress,
+                    shader_location: 4,
                     format: wgpu::VertexFormat::Float32x3,
                 },
             ],
