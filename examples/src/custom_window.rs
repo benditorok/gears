@@ -1,4 +1,4 @@
-use cgmath::{Euler, Quaternion, Rad, Rotation3};
+use cgmath::{Euler, Quaternion, Rad};
 use egui::Align2;
 use gears_app::prelude::*;
 use log::LevelFilter;
@@ -155,5 +155,5 @@ async fn main() -> EngineResult<()> {
     );
 
     // Run the application
-    app.run().await
+    app.run()
 }
