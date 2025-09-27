@@ -1,6 +1,7 @@
-// Intelligent AI System - Combines A* Pathfinding with Hierarchical FSM Behavioral States
+// Intelligent AI System - Fixed version using Query System to prevent deadlocks
 // This system demonstrates sophisticated AI enemies that use A* pathfinding for navigation
 // while exhibiting complex behavioral states with physics-based movement.
+// The key difference is using the query system to prevent resource starvation.
 
 use cgmath::{InnerSpace, Vector3, Zero};
 use gears_app::prelude::*;
@@ -460,13 +461,6 @@ async fn main() -> EngineResult<()> {
                 ui.label("Alt - Keep the cursor within the window's bounds.");
                 ui.label("Esc - Pause");
                 ui.label("F1 - Toggle debug mode");
-
-                ui.separator();
-                ui.label("AI Behavior:");
-                ui.label("- Health > 60% & Close → Attack");
-                ui.label("- Health ≤ 60% & Very Close → Defend");
-                ui.label("- Health < 30% → Escape");
-                ui.label("- Far from player → Idle/Wander");
             });
     }));
 
@@ -508,7 +502,7 @@ async fn main() -> EngineResult<()> {
     let player = new_entity!(
         app,
         PlayerMarker,
-        PathfindingTarget, // Mark player as pathfinding target for A* system
+        PathfindingTarget,
         player_prefab.pos3.take().unwrap(),
         player_prefab.model_source.take().unwrap(),
         player_prefab.movement_controller.take().unwrap(),
@@ -526,7 +520,7 @@ async fn main() -> EngineResult<()> {
         new_entity!(
             app,
             RigidBodyMarker,
-            ObstacleMarker, // Mark as obstacle for A* pathfinding
+            ObstacleMarker,
             Name("Obstacle"),
             Pos3::new(Vector3::new(x, 1.0, z)),
             RigidBody::new_static(AABBCollisionBox {
@@ -541,25 +535,20 @@ async fn main() -> EngineResult<()> {
     let mut intelligent_ai = IntelligentAI::default();
     intelligent_ai.target_entity = Some(player);
 
-    // Create pathfinding component that will use A* algorithm
-    let pathfinding = PathfindingComponent::new(
-        Vector3::new(0.0, 1.0, 0.0), // Initial target
-        25.0,                        // Movement speed
-        2.0,                         // Grid cell size
-    );
+    let pathfinding = PathfindingComponent::new(Vector3::new(0.0, 1.0, 0.0), 25.0, 2.0);
 
     let ai_enemy = new_entity!(
         app,
         IntelligentAIMarker,
-        PathfindingFollower, // Mark as pathfinding follower for A* system
-        RigidBodyMarker,     // Mark as physics object for proper rendering
-        StaticModelMarker,   // Mark for rendering
+        PathfindingFollower,
+        RigidBodyMarker,
+        StaticModelMarker,
         Name("Intelligent AI Enemy"),
         Pos3::new(Vector3::new(15.0, 1.5, 0.0)),
         RigidBody::new(
-            1.5,                           // mass
-            Vector3::zero(),               // velocity
-            Vector3::new(0.0, -20.0, 0.0), // acceleration (gravity)
+            1.5,
+            Vector3::zero(),
+            Vector3::new(0.0, -20.0, 0.0),
             AABBCollisionBox {
                 min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
                 max: cgmath::Vector3::new(1.0, 1.0, 1.0),
@@ -577,10 +566,10 @@ async fn main() -> EngineResult<()> {
         },
     );
 
-    // Intelligent AI Update System - Integrates FSM with A* Pathfinding and Physics
+    // Intelligent AI Update System using Query System
     async_system!(
         app,
-        "intelligent_ai_update",
+        "intelligent_ai_update_query",
         (
             w1_frame_tx,
             w1_ai_state,
@@ -595,126 +584,151 @@ async fn main() -> EngineResult<()> {
 
             // Get player position for AI targeting
             let player_pos = if let Some(player_pos3) = world.get_component::<Pos3>(player) {
-                player_pos3.read().unwrap().pos
+                match player_pos3.try_read() {
+                    Ok(pos_guard) => pos_guard.pos,
+                    Err(_) => {
+                        // Skip this frame if player position is locked
+                        info!("Skipping AI update - player position locked");
+                        return Ok(());
+                    }
+                }
             } else {
                 Vector3::new(0.0, 0.0, 0.0)
             };
 
-            // Update intelligent AI entities
-            let entities_with_ai = world.get_entities_with_component::<IntelligentAIMarker>();
-            for &entity in entities_with_ai.iter() {
-                if let (
-                    Some(ai_component),
-                    Some(pos3_component),
-                    Some(pathfinding_component),
-                    Some(health_component),
-                    Some(light_component),
-                ) = (
-                    world.get_component::<IntelligentAI>(entity),
-                    world.get_component::<Pos3>(entity),
-                    world.get_component::<PathfindingComponent>(entity),
-                    world.get_component::<Health>(entity),
-                    world.get_component::<Light>(entity),
-                ) {
-                    let mut ai = ai_component.write().unwrap();
-                    let current_pos = pos3_component.read().unwrap().pos;
-                    let mut pathfinding = pathfinding_component.write().unwrap();
-                    let health = health_component.read().unwrap();
-                    let mut light = light_component.write().unwrap();
+            // Get AI entities
+            let ai_entities = world.get_entities_with_component::<IntelligentAIMarker>();
 
-                    // Calculate distance to target
-                    let distance_to_player = (player_pos - current_pos).magnitude();
+            for &entity in ai_entities.iter() {
+                // Build query for this AI entity - we need read/write access to multiple components
+                let query = ComponentQuery::new()
+                    .write::<IntelligentAI>(vec![entity])
+                    .read::<Pos3>(vec![entity])
+                    .write::<PathfindingComponent>(vec![entity])
+                    .read::<Health>(vec![entity])
+                    .write::<Light>(vec![entity]);
 
-                    // Update FSM context with current game state
-                    ai.fsm
-                        .context_mut()
-                        .set_float("health", health.get_health());
-                    ai.fsm
-                        .context_mut()
-                        .set_float("enemy_distance", distance_to_player);
+                // Try to acquire resources with a short timeout
+                if let Some(resources) = world.acquire_query(query) {
+                    // We have exclusive access to all needed components
+                    if let (
+                        Some(ai_component),
+                        Some(pos3_component),
+                        Some(pathfinding_component),
+                        Some(health_component),
+                        Some(light_component),
+                    ) = (
+                        resources.get::<IntelligentAI>(entity),
+                        resources.get::<Pos3>(entity),
+                        resources.get::<PathfindingComponent>(entity),
+                        resources.get::<Health>(entity),
+                        resources.get::<Light>(entity),
+                    ) {
+                        // Now we can safely work with all components
+                        if let (
+                            Ok(mut ai),
+                            Ok(current_pos),
+                            Ok(mut pathfinding),
+                            Ok(health),
+                            Ok(mut light),
+                        ) = (
+                            ai_component.write(),
+                            pos3_component.read(),
+                            pathfinding_component.write(),
+                            health_component.read(),
+                            light_component.write(),
+                        ) {
+                            let distance_to_player = (player_pos - current_pos.pos).magnitude();
 
-                    // Update FSM state machine
-                    ai.fsm.update(dt);
+                            // Update FSM context
+                            ai.fsm
+                                .context_mut()
+                                .set_float("health", health.get_health());
+                            ai.fsm
+                                .context_mut()
+                                .set_float("enemy_distance", distance_to_player);
 
-                    // Get current FSM state and determine pathfinding behavior
-                    let current_state = ai.fsm.current_state().unwrap_or(CharacterState::Idle);
-                    let current_sub_state = ai.fsm.current_sub_state();
+                            // Update FSM
+                            ai.fsm.update(dt);
 
-                    // Update pathfinding behavior based on FSM state
-                    ai.pathfinding_behavior = match current_state {
-                        CharacterState::Attack => match current_sub_state {
-                            Some(CharacterState::AttackApproach) => PathfindingBehavior::Pursue,
-                            Some(CharacterState::AttackStrike) => PathfindingBehavior::Pursue,
-                            Some(CharacterState::AttackRetreat) => PathfindingBehavior::Maintain,
-                            _ => PathfindingBehavior::Pursue,
-                        },
-                        CharacterState::Defend => PathfindingBehavior::Maintain,
-                        CharacterState::Escape => PathfindingBehavior::Flee,
-                        CharacterState::Idle => PathfindingBehavior::Wander,
-                        _ => PathfindingBehavior::Wander,
-                    };
+                            // Get current states
+                            let current_state =
+                                ai.fsm.current_state().unwrap_or(CharacterState::Idle);
+                            let current_sub_state = ai.fsm.current_sub_state();
 
-                    // Update debug UI information and light color
-                    {
-                        *w1_ai_state.lock().unwrap() = current_state;
-                        *w1_ai_sub_state.lock().unwrap() = current_sub_state;
-                        *w1_pathfind_behavior.lock().unwrap() = ai.pathfinding_behavior;
+                            // Update pathfinding behavior
+                            ai.pathfinding_behavior = match current_state {
+                                CharacterState::Attack => match current_sub_state {
+                                    Some(CharacterState::AttackApproach) => {
+                                        PathfindingBehavior::Pursue
+                                    }
+                                    Some(CharacterState::AttackStrike) => {
+                                        PathfindingBehavior::Pursue
+                                    }
+                                    Some(CharacterState::AttackRetreat) => {
+                                        PathfindingBehavior::Maintain
+                                    }
+                                    _ => PathfindingBehavior::Pursue,
+                                },
+                                CharacterState::Defend => PathfindingBehavior::Maintain,
+                                CharacterState::Escape => PathfindingBehavior::Flee,
+                                CharacterState::Idle => PathfindingBehavior::Wander,
+                                _ => PathfindingBehavior::Wander,
+                            };
 
-                        if let Some(color_vec) = ai.fsm.context().get_vector3("color") {
-                            let mut debug_color = w1_ai_color.lock().unwrap();
-                            debug_color[0] = color_vec.x;
-                            debug_color[1] = color_vec.y;
-                            debug_color[2] = color_vec.z;
+                            // Update debug UI
+                            {
+                                *w1_ai_state.lock().unwrap() = current_state;
+                                *w1_ai_sub_state.lock().unwrap() = current_sub_state;
+                                *w1_pathfind_behavior.lock().unwrap() = ai.pathfinding_behavior;
 
-                            // Update the entity's light color to match FSM state
-                            if let Light::PointColoured { color, .. } = &mut *light {
-                                color[0] = color_vec.x;
-                                color[1] = color_vec.y;
-                                color[2] = color_vec.z;
+                                if let Some(color_vec) = ai.fsm.context().get_vector3("color") {
+                                    let mut debug_color = w1_ai_color.lock().unwrap();
+                                    debug_color[0] = color_vec.x;
+                                    debug_color[1] = color_vec.y;
+                                    debug_color[2] = color_vec.z;
+
+                                    if let Light::PointColoured { color, .. } = &mut *light {
+                                        color[0] = color_vec.x;
+                                        color[1] = color_vec.y;
+                                        color[2] = color_vec.z;
+                                    }
+                                }
                             }
+
+                            // Update pathfinding target
+                            let target_pos = match ai.pathfinding_behavior {
+                                PathfindingBehavior::Pursue => player_pos,
+                                PathfindingBehavior::Maintain => {
+                                    let direction_away = (current_pos.pos - player_pos).normalize();
+                                    let safe_distance = 10.0;
+                                    player_pos + direction_away * safe_distance
+                                }
+                                PathfindingBehavior::Flee => {
+                                    let direction_away = (current_pos.pos - player_pos).normalize();
+                                    let flee_distance = 30.0;
+                                    current_pos.pos + direction_away * flee_distance
+                                }
+                                PathfindingBehavior::Wander => {
+                                    let wander_radius = 15.0;
+                                    let random_angle =
+                                        ai.fsm.context().time_in_state.as_secs_f32() * 0.3;
+                                    Vector3::new(
+                                        current_pos.pos.x + random_angle.cos() * wander_radius,
+                                        current_pos.pos.y,
+                                        current_pos.pos.z + random_angle.sin() * wander_radius,
+                                    )
+                                }
+                                PathfindingBehavior::Guard => current_pos.pos,
+                            };
+
+                            pathfinding.set_target(target_pos);
+                            let speed = ai.fsm.context().get_float("speed").unwrap_or(2.0);
+                            pathfinding.speed = speed;
                         }
                     }
-
-                    // Update pathfinding target based on FSM behavior
-                    let target_pos = match ai.pathfinding_behavior {
-                        PathfindingBehavior::Pursue => {
-                            // Move towards player using A* pathfinding
-                            player_pos
-                        }
-                        PathfindingBehavior::Maintain => {
-                            // Maintain safe distance (8-12 units from player)
-                            let direction_away = (current_pos - player_pos).normalize();
-                            let safe_distance = 10.0;
-                            player_pos + direction_away * safe_distance
-                        }
-                        PathfindingBehavior::Flee => {
-                            // Move away from player using A* to find escape routes
-                            let direction_away = (current_pos - player_pos).normalize();
-                            let flee_distance = 30.0;
-                            current_pos + direction_away * flee_distance
-                        }
-                        PathfindingBehavior::Wander => {
-                            // Random wandering around current position
-                            let wander_radius = 15.0;
-                            let random_angle = ai.fsm.context().time_in_state.as_secs_f32() * 0.3;
-                            Vector3::new(
-                                current_pos.x + random_angle.cos() * wander_radius,
-                                current_pos.y,
-                                current_pos.z + random_angle.sin() * wander_radius,
-                            )
-                        }
-                        PathfindingBehavior::Guard => {
-                            // Stay in area (not implemented in this demo)
-                            current_pos
-                        }
-                    };
-
-                    // Update pathfinding component target (A* system will handle path calculation)
-                    pathfinding.set_target(target_pos);
-
-                    // Update speed based on FSM context
-                    let speed = ai.fsm.context().get_float("speed").unwrap_or(2.0);
-                    pathfinding.speed = speed;
+                } else {
+                    info!("Missing components for entity {}", *entity);
                 }
             }
 
@@ -722,16 +736,13 @@ async fn main() -> EngineResult<()> {
         }
     );
 
-    // Add pathfinding system from pathfinding example (handles A* calculation and movement)
-    async_system!(app, "pathfinding_update", move |world, dt| {
-        // Get player position (target for pathfinding)
+    // Pathfinding System using Query System
+    async_system!(app, "pathfinding_update_query", move |world, dt| {
+        // Get player position
         let player_entities = world.get_entities_with_component::<PathfindingTarget>();
         let player_pos = if let Some(&player_entity) = player_entities.first() {
             if let Some(pos3) = world.get_component::<Pos3>(player_entity) {
-                let pos_guard = pos3.read().map_err(|e| {
-                    SystemError::ComponentAccess(format!("Failed to read player Pos3: {}", e))
-                })?;
-                pos_guard.pos
+                pos3.read().unwrap().pos
             } else {
                 return Ok(());
             }
@@ -739,187 +750,99 @@ async fn main() -> EngineResult<()> {
             return Ok(());
         };
 
-        // Pre-collect obstacle data once (performance optimization)
-        let rigid_body_entities = world.get_entities_with_component::<ObstacleMarker>();
-        let obstacles: Vec<(Vector3<f32>, AABBCollisionBox)> = rigid_body_entities
-            .iter()
-            .filter_map(|&rb_entity| {
-                let pos_opt = world.get_component::<Pos3>(rb_entity);
-                let rb_opt = world.get_component::<RigidBody<AABBCollisionBox>>(rb_entity);
+        // Pre-collect obstacle data
+        let obstacle_entities = world.get_entities_with_component::<ObstacleMarker>();
+        let mut obstacles = Vec::new();
 
-                if let (Some(pos_comp), Some(rb_comp)) = (pos_opt, rb_opt)
-                    && let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.read(), rb_comp.read())
-                {
-                    return Some((pos_guard.pos, rb_guard.collision_box.clone()));
-                }
+        for &obstacle_entity in obstacle_entities.iter() {
+            let query = ComponentQuery::new()
+                .read::<Pos3>(vec![obstacle_entity])
+                .read::<RigidBody<AABBCollisionBox>>(vec![obstacle_entity]);
 
-                None
-            })
-            .collect();
-
-        // Update all pathfinding followers
-        let follower_entities = world.get_entities_with_component::<PathfindingFollower>();
-        let mut entities_needing_paths = Vec::new();
-
-        // First pass: update components and collect entities needing path recalculation
-        for &entity in follower_entities.iter() {
-            let pathfinding_comp = match world.get_component::<PathfindingComponent>(entity) {
-                Some(comp) => comp,
-                None => continue,
-            };
-
-            let pos3_comp = match world.get_component::<Pos3>(entity) {
-                Some(comp) => comp,
-                None => continue,
-            };
-
-            // Update pathfinding component
-            {
-                let mut pathfinding = pathfinding_comp.write().map_err(|e| {
-                    SystemError::ComponentAccess(format!(
-                        "Failed to write PathfindingComponent: {}",
-                        e
-                    ))
-                })?;
-
-                pathfinding.update(dt.as_secs_f32());
-
-                // Check if we need pathfinding and should recalculate
-                let current_pos = {
-                    let pos3 = pos3_comp.read().map_err(|e| {
-                        SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
-                    })?;
-                    pos3.pos
-                };
-
-                if pathfinding.needs_pathfinding(current_pos)
-                    && pathfinding.should_recalculate_path()
-                {
-                    entities_needing_paths.push(entity);
-                }
-            }
-        }
-
-        // Second pass: calculate paths for entities that need them (limit to max 1 per frame for performance)
-        if let Some(&entity) = entities_needing_paths.first() {
-            let pathfinding_comp = world.get_component::<PathfindingComponent>(entity).unwrap();
-            let pos3_comp = world.get_component::<Pos3>(entity).unwrap();
-
-            // Get current position and target
-            let current_pos = {
-                let pos3 = pos3_comp.read().map_err(|e| {
-                    SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
-                })?;
-                pos3.pos
-            };
-
-            let target_pos = {
-                let pathfinding = pathfinding_comp.read().map_err(|e| {
-                    SystemError::ComponentAccess(format!(
-                        "Failed to read PathfindingComponent: {}",
-                        e
-                    ))
-                })?;
-                pathfinding.target
-            };
-
-            // Build pathfinding grid from collected obstacles (excluding this entity)
-            let mut astar = AStar::new(2.0, DistanceHeuristic::Manhattan);
-            astar.build_grid_from_entities(obstacles.iter().map(|(pos, cb)| (pos, cb)));
-
-            if let Some(path) = astar.find_path(current_pos, target_pos) {
-                let mut pathfinding = pathfinding_comp.write().map_err(|e| {
-                    SystemError::ComponentAccess(format!(
-                        "Failed to write PathfindingComponent: {}",
-                        e
-                    ))
-                })?;
-                pathfinding.set_path(path);
-            }
-        }
-
-        // Third pass: move entities along their paths using physics
-        for &entity in follower_entities.iter() {
-            let pathfinding_comp = match world.get_component::<PathfindingComponent>(entity) {
-                Some(comp) => comp,
-                None => continue,
-            };
-
-            let pos3_comp = match world.get_component::<Pos3>(entity) {
-                Some(comp) => comp,
-                None => continue,
-            };
-
-            let rigidbody_comp = match world.get_component::<RigidBody<AABBCollisionBox>>(entity) {
-                Some(comp) => comp,
-                None => continue,
-            };
-
-            // Move along the current path using physics
-            {
-                let pathfinding = pathfinding_comp.read().map_err(|e| {
-                    SystemError::ComponentAccess(format!(
-                        "Failed to read PathfindingComponent: {}",
-                        e
-                    ))
-                })?;
-
-                let pos3 = pos3_comp.read().map_err(|e| {
-                    SystemError::ComponentAccess(format!("Failed to read Pos3: {}", e))
-                })?;
-
-                let mut rigidbody = rigidbody_comp.write().map_err(|e| {
-                    SystemError::ComponentAccess(format!("Failed to write RigidBody: {}", e))
-                })?;
-
-                if let Some(waypoint) = pathfinding.current_waypoint() {
-                    // Calculate direction to waypoint (only horizontal movement for pathfinding)
-                    let mut direction = waypoint - pos3.pos;
-                    direction.y = 0.0; // Don't try to move vertically through pathfinding
-
-                    if direction.magnitude() > pathfinding.waypoint_threshold {
-                        // Apply horizontal acceleration toward target
-                        let normalized_dir = direction.normalize();
-                        let target_acceleration = normalized_dir * pathfinding.speed * 12.0; // Multiply for stronger acceleration
-
-                        // Keep gravity (y-component of acceleration) and add horizontal movement
-                        rigidbody.acceleration.x = target_acceleration.x;
-                        rigidbody.acceleration.z = target_acceleration.z;
-                        // Leave rigidbody.acceleration.y unchanged (gravity)
-
-                        // Apply some damping to horizontal velocity to prevent overshooting
-                        rigidbody.velocity.x *= 0.85;
-                        rigidbody.velocity.z *= 0.85;
-                    } else {
-                        // Reached waypoint, advance to next
-                        // Stop horizontal movement
-                        rigidbody.acceleration.x = 0.0;
-                        rigidbody.acceleration.z = 0.0;
-                        rigidbody.velocity.x *= 0.5; // Brake
-                        rigidbody.velocity.z *= 0.5; // Brake
-
-                        drop(pathfinding); // Release read lock
-                        let mut pathfinding_mut = pathfinding_comp.write().map_err(|e| {
-                            SystemError::ComponentAccess(format!(
-                                "Failed to write PathfindingComponent: {}",
-                                e
-                            ))
-                        })?;
-                        pathfinding_mut.advance_waypoint();
+            if let Some(resources) = world.acquire_query(query) {
+                if let (Some(pos_comp), Some(rb_comp)) = (
+                    resources.get::<Pos3>(obstacle_entity),
+                    resources.get::<RigidBody<AABBCollisionBox>>(obstacle_entity),
+                ) {
+                    if let (Ok(pos_guard), Ok(rb_guard)) = (pos_comp.read(), rb_comp.read()) {
+                        obstacles.push((pos_guard.pos, rb_guard.collision_box.clone()));
                     }
-                } else {
-                    // No waypoint, stop horizontal movement
-                    rigidbody.acceleration.x = 0.0;
-                    rigidbody.acceleration.z = 0.0;
-                    rigidbody.velocity.x *= 0.8; // Gradual stop
-                    rigidbody.velocity.z *= 0.8; // Gradual stop
                 }
+            }
+        }
+
+        // Update pathfinding followers
+        let follower_entities = world.get_entities_with_component::<PathfindingFollower>();
+
+        if let Some(&entity) = follower_entities.first() {
+            let query = ComponentQuery::new()
+                .write::<PathfindingComponent>(vec![entity])
+                .read::<Pos3>(vec![entity])
+                .write::<RigidBody<AABBCollisionBox>>(vec![entity]);
+
+            if let Some(resources) = world.acquire_query(query) {
+                if let (Some(pathfinding_comp), Some(pos3_comp), Some(rigidbody_comp)) = (
+                    resources.get::<PathfindingComponent>(entity),
+                    resources.get::<Pos3>(entity),
+                    resources.get::<RigidBody<AABBCollisionBox>>(entity),
+                ) {
+                    if let (Ok(mut pathfinding), Ok(pos3), Ok(mut rigidbody)) = (
+                        pathfinding_comp.write(),
+                        pos3_comp.read(),
+                        rigidbody_comp.write(),
+                    ) {
+                        pathfinding.update(dt.as_secs_f32());
+                        let current_pos = pos3.pos;
+
+                        // Check if we need to recalculate path
+                        if pathfinding.needs_pathfinding(current_pos)
+                            && pathfinding.should_recalculate_path()
+                        {
+                            let mut astar = AStar::new(2.0, DistanceHeuristic::Manhattan);
+                            astar.build_grid_from_entities(
+                                obstacles.iter().map(|(pos, cb)| (pos, cb)),
+                            );
+
+                            if let Some(path) = astar.find_path(current_pos, pathfinding.target) {
+                                pathfinding.set_path(path);
+                            }
+                        }
+
+                        // Move along path
+                        if let Some(waypoint) = pathfinding.current_waypoint() {
+                            let mut direction = waypoint - pos3.pos;
+                            direction.y = 0.0;
+
+                            if direction.magnitude() > pathfinding.waypoint_threshold {
+                                let normalized_dir = direction.normalize();
+                                let target_acceleration = normalized_dir * pathfinding.speed * 12.0;
+
+                                rigidbody.acceleration.x = target_acceleration.x;
+                                rigidbody.acceleration.z = target_acceleration.z;
+                                rigidbody.velocity.x *= 0.85;
+                                rigidbody.velocity.z *= 0.85;
+                            } else {
+                                rigidbody.acceleration.x = 0.0;
+                                rigidbody.acceleration.z = 0.0;
+                                rigidbody.velocity.x *= 0.5;
+                                rigidbody.velocity.z *= 0.5;
+                                pathfinding.advance_waypoint();
+                            }
+                        } else {
+                            rigidbody.acceleration.x = 0.0;
+                            rigidbody.acceleration.z = 0.0;
+                            rigidbody.velocity.x *= 0.8;
+                            rigidbody.velocity.z *= 0.8;
+                        }
+                    }
+                }
+            } else {
+                info!("Missing components for entity {}", *entity);
             }
         }
 
         Ok(())
     });
 
-    // Run the application
     app.run().await
 }

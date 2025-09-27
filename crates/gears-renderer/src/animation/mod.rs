@@ -1,12 +1,4 @@
-//! Animation system
-//!
-//! This module supports:
-//! - Animation states and transitions
-//! - Animation blending and mixing
-//! - Multiple interpolation modes
-//! - Animation events and callbacks
-//! - Layered animation support
-//! - Complex timing controls
+//! Animation system.
 
 pub mod clip;
 pub mod controller;

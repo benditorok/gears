@@ -1,4 +1,4 @@
-use crate::{components::misc::PlayerMarker, Component};
+use crate::{Component, components::misc::PlayerMarker};
 
 use super::{
     controllers::{MovementController, ViewController},

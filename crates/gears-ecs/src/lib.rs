@@ -1,4 +1,5 @@
 pub mod components;
+pub mod query;
 pub mod utils;
 
 use dashmap::DashMap;
@@ -6,7 +7,7 @@ use log::debug;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::ops::Deref;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 /// The EntityBuilder trait is responsible for creating entities and adding components to them.
@@ -20,6 +21,7 @@ pub trait EntityBuilder {
 pub trait Component: Send + Sync + Any + Debug {}
 
 impl Component for Box<dyn Component> {}
+
 /// An entity is a unique identifier that can be attached to components.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(u32);
@@ -142,15 +144,20 @@ impl<T: Component> ComponentStorage<T> {
     }
 }
 
+/// Unique identifier for a query request
+pub type QueryId = u64;
+
 /// The World struct is the main entry point for the ECS system.
 /// It is responsible for creating entities and storing components.
 pub struct World {
     next_entity: AtomicU32,
     storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    pub(crate) active_accesses: DashMap<(Entity, TypeId), Vec<query::ResourceAccess>>,
+    pub(crate) next_query_id: AtomicU64,
 }
 
 impl Default for World {
-    /// Create a new World instance with a default capacity of 41.
+    /// Create a new World instance.
     ///
     /// # Returns
     ///
@@ -158,7 +165,9 @@ impl Default for World {
     fn default() -> Self {
         Self {
             next_entity: AtomicU32::new(0),
-            storage: DashMap::with_capacity(41),
+            storage: DashMap::with_capacity(47),
+            active_accesses: DashMap::with_capacity(97),
+            next_query_id: AtomicU64::new(0),
         }
     }
 }
@@ -173,6 +182,8 @@ impl World {
         Self {
             next_entity: AtomicU32::new(0),
             storage: DashMap::new(),
+            active_accesses: DashMap::new(),
+            next_query_id: AtomicU64::new(0),
         }
     }
 
@@ -186,6 +197,8 @@ impl World {
         Self {
             next_entity: AtomicU32::new(0),
             storage: DashMap::with_capacity(capacity as usize),
+            active_accesses: DashMap::new(),
+            next_query_id: AtomicU64::new(0),
         }
     }
 
