@@ -74,5 +74,5 @@ async fn main() -> EngineResult<()> {
         Ok(())
     });
 
-    app.run().await
+    app.run()
 }

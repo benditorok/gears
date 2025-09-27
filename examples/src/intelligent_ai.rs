@@ -844,5 +844,6 @@ async fn main() -> EngineResult<()> {
         Ok(())
     });
 
-    app.run().await
+    // Run the application
+    app.run()
 }
