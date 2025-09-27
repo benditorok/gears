@@ -115,33 +115,36 @@ pub(crate) async fn load_model_obj(
     for m in obj_materials? {
         let diffuse_texture = load_texture(
             model_root_dir
-                .join(m.diffuse_texture.as_ref().unwrap())
+                .join(m.diffuse_texture.as_ref().expect(
+                    format!("Diffuse texture is required for material {}", &m.name).as_str(),
+                ))
                 .to_str()
                 .unwrap(),
             device,
             queue,
         )
         .await?;
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: None,
-        });
 
-        materials.push(model::Material {
-            name: m.name,
+        // Try to load the normal texture if it exists for this material
+        let normal_texture = if let Some(normal_texture) = m.normal_texture {
+            load_texture(
+                model_root_dir.join(normal_texture).to_str().unwrap(),
+                device,
+                queue,
+            )
+            .await?
+        } else {
+            // Default normal texture if none is provided
+            texture::Texture::default_normal(device, queue)
+        };
+
+        materials.push(model::Material::new(
+            device,
+            &m.name,
             diffuse_texture,
-            bind_group,
-        })
+            normal_texture,
+            layout,
+        ));
     }
 
     let meshes = models
@@ -392,29 +395,15 @@ pub(crate) async fn load_model_gltf(
                     &buffer_data[view.buffer().index()],
                     file_name,
                 )?;
-                // Removed the invalid cloning line:
-                // texture.view = texture.view.clone();
+                // TODO load in normal texture
 
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                materials.push(model::Material::new(
+                    device,
+                    material.name().unwrap_or("Default Material"),
+                    texture,
+                    texture::Texture::default_normal(device, queue),
                     layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::TextureView(&texture.view),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                        },
-                    ],
-                    label: None,
-                });
-
-                materials.push(model::Material {
-                    name: material.name().unwrap_or("Default Material").to_string(),
-                    diffuse_texture: texture,
-                    bind_group,
-                });
+                ));
             }
             // Removed mime_type
             gltf::image::Source::Uri { uri, .. } => {
@@ -423,26 +412,14 @@ pub(crate) async fn load_model_gltf(
                 // Removed the invalid cloning line:
                 // diffuse_texture.view = diffuse_texture.view.clone();
 
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                        },
-                    ],
-                    label: None,
-                });
-
-                materials.push(model::Material {
-                    name: material.name().unwrap_or("Default Material").to_string(),
+                // TODO load in normal texture
+                materials.push(model::Material::new(
+                    device,
+                    material.name().unwrap_or("Default Material"),
                     diffuse_texture,
-                    bind_group,
-                });
+                    texture::Texture::default_normal(device, queue),
+                    layout,
+                ));
             }
         };
     }
