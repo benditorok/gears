@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod components;
 pub mod query;
 pub mod utils;

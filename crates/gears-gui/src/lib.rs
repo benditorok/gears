@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
+#![forbid(unsafe_code)]
 
 use egui::Context;
 use egui_wgpu::wgpu::{CommandEncoder, Device, Queue, StoreOp, TextureFormat, TextureView};
 use egui_wgpu::{Renderer, ScreenDescriptor, wgpu};
 use egui_winit::State;
+use std::sync::{Arc, Mutex};
 use winit::event::WindowEvent;
 use winit::window::Window;
 
