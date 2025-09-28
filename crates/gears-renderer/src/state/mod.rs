@@ -1,8 +1,9 @@
 mod init;
-mod resources;
+pub mod resources;
 
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
+use crate::hdr;
 use crate::{BufferComponent, errors::RendererError};
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
@@ -37,6 +38,7 @@ pub struct State {
     config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
+    hdr_pipeline: hdr::HdrPipeline,
     movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
     pub view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
     player_entity: Option<Entity>,
@@ -237,6 +239,9 @@ impl State {
             label: Some("light_bind_group"),
         });
 
+        // ! HDR Pipeline
+        let hdr_pipeline = hdr::HdrPipeline::new(&device, &config);
+
         // ! Global render pipeline
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
@@ -257,11 +262,11 @@ impl State {
             resources::create_render_pipeline(
                 &device,
                 &layout,
-                config.format,
+                hdr_pipeline.format(), // Use the format that the HDR pipeline uses
                 Some(texture::Texture::DEPTH_FORMAT),
                 &[model::ModelVertex::desc(), instance::InstanceRaw::desc()],
+                wgpu::PrimitiveTopology::TriangleList,
                 shader,
-                "Main Render Pipeline",
             )
         };
 
@@ -283,14 +288,13 @@ impl State {
                 ),
             };
 
-            resources::create_render_pipeline(
+            resources::create_wireframe_render_pipeline(
                 &device,
                 &layout,
-                config.format,
+                hdr_pipeline.format(), // Use the format that the HDR pipeline uses
                 Some(texture::Texture::DEPTH_FORMAT),
                 &[model::ColliderVertex::desc(), instance::InstanceRaw::desc()],
                 shader,
-                "Collider Render Pipeline",
             )
         };
 
@@ -301,6 +305,7 @@ impl State {
             config,
             size,
             render_pipeline,
+            hdr_pipeline,
             movement_controller: None,
             view_controller: None,
             camera_owner_entity: None,
@@ -415,6 +420,8 @@ impl State {
             self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
+            self.hdr_pipeline
+                .resize(&self.device, new_size.width, new_size.height);
         }
     }
 
@@ -590,9 +597,11 @@ impl State {
     /// A result indicating if the rendering was successful or not.
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(self.config.format.add_srgb_suffix()),
+            ..Default::default()
+        });
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -604,7 +613,7 @@ impl State {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: self.hdr_pipeline.view(),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -708,6 +717,9 @@ impl State {
                 &mut egui_windows,
             );
         }
+
+        // Apply tonemapping
+        self.hdr_pipeline.process(&mut encoder, &view);
 
         self.queue.submit(iter::once(encoder.finish()));
         output.present();
