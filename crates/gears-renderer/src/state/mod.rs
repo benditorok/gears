@@ -1,9 +1,9 @@
 mod init;
-pub mod resources;
+mod pipeline;
+mod resources;
 
 use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
 use super::{camera, instance, light, texture};
-use crate::hdr;
 use crate::{BufferComponent, errors::RendererError};
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
@@ -38,7 +38,7 @@ pub struct State {
     config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    hdr_pipeline: hdr::HdrPipeline,
+    hdr_pipeline: pipeline::hdr::HdrPipeline,
     movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
     pub view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
     player_entity: Option<Entity>,
@@ -240,7 +240,7 @@ impl State {
         });
 
         // ! HDR Pipeline
-        let hdr_pipeline = hdr::HdrPipeline::new(&device, &config);
+        let hdr_pipeline = pipeline::hdr::HdrPipeline::new(&device, &config);
 
         // ! Global render pipeline
         let depth_texture =

@@ -1,9 +1,5 @@
+use crate::{state::resources, texture};
 use wgpu::Operations;
-
-use crate::{
-    state::{self, resources::create_render_pipeline},
-    texture,
-};
 
 /// Owns the render texture and controls tonemapping
 pub struct HdrPipeline {
@@ -21,8 +17,6 @@ impl HdrPipeline {
         let width = config.width;
         let height = config.height;
 
-        // We could use `Rgba32Float`, but that requires some extra
-        // features to be enabled for rendering.
         let format = wgpu::TextureFormat::Rgba16Float;
 
         let texture = texture::Texture::create_2d_texture(
@@ -57,6 +51,7 @@ impl HdrPipeline {
                 },
             ],
         });
+
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Hdr::bind_group"),
             layout: &layout,
@@ -72,20 +67,19 @@ impl HdrPipeline {
             ],
         });
 
-        let shader = wgpu::include_wgsl!("../shaders/hdr.wgsl");
+        let shader = wgpu::include_wgsl!("../../../shaders/hdr.wgsl");
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&layout],
             push_constant_ranges: &[],
         });
 
-        let pipeline = state::resources::create_render_pipeline(
+        let pipeline = resources::create_render_pipeline(
             device,
             &pipeline_layout,
             config.format.add_srgb_suffix(),
             None,
-            // We'll use some math to generate the vertex data in
-            // the shader, so we don't need any vertex buffers
+            // Vertex data is generated in the shader
             &[],
             wgpu::PrimitiveTopology::TriangleList,
             shader,
@@ -141,8 +135,7 @@ impl HdrPipeline {
         self.format
     }
 
-    /// This renders the internal HDR texture to the [TextureView]
-    /// supplied as parameter.
+    /// Renders the internal HDR texture to the [`output`]
     pub fn process(&self, encoder: &mut wgpu::CommandEncoder, output: &wgpu::TextureView) {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Hdr::process"),
