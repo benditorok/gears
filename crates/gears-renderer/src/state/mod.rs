@@ -698,6 +698,9 @@ impl State {
             }
         }
 
+        // Apply tonemapping
+        self.hdr_pipeline.process(&mut encoder, &view);
+
         // ! Egui render pass for the custom UI windows
         let mut egui_windows = self.egui_windows.lock();
         if !egui_windows.is_empty() {
@@ -717,9 +720,6 @@ impl State {
                 &mut egui_windows,
             );
         }
-
-        // Apply tonemapping
-        self.hdr_pipeline.process(&mut encoder, &view);
 
         self.queue.submit(iter::once(encoder.finish()));
         output.present();
