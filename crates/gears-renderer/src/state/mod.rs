@@ -2,8 +2,8 @@ mod init;
 mod pipeline;
 mod resources;
 
+use super::instance;
 use super::model::{self, DrawModelMesh, DrawWireframeMesh};
-use super::{instance, light};
 use crate::{BufferComponent, errors::RendererError};
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;

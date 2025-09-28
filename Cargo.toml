@@ -66,7 +66,7 @@ wgpu = {version = "25.0.2", default-features = false, features = [
 ] } # TODO upgrade to ^0.26.x once egui starts using it
 bytemuck = { version = "1.23.2", features = ["derive"] }
 cgmath = "0.18"
-tobj = { version = "4.0.3", features = ["async"] }
+tobj = { version = "4.0.3", features = ["async", "tokio"] }
 image = { version = "0.25.8", default-features = false, features = [
     "png",
     "jpeg",

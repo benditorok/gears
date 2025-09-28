@@ -96,10 +96,10 @@ pub(crate) async fn load_model_obj(
 
     let obj_text = load_string(file_path).await?;
     let obj_cursor = Cursor::new(obj_text);
-    let mut obj_reader = BufReader::new(obj_cursor);
+    let mut async_obj_reader = tokio::io::BufReader::new(obj_cursor);
 
-    let (models, obj_materials) = tobj::load_obj_buf_async(
-        &mut obj_reader,
+    let (models, obj_materials) = tobj::tokio::load_obj_buf(
+        &mut async_obj_reader,
         &tobj::LoadOptions {
             triangulate: true,
             single_index: true,
@@ -110,7 +110,8 @@ pub(crate) async fn load_model_obj(
                 .await
                 .unwrap_or_default();
 
-            tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
+            let mut async_mat_text_reader = tokio::io::BufReader::new(Cursor::new(mat_text));
+            tobj::tokio::load_mtl_buf(&mut async_mat_text_reader).await
         },
     )
     .await?;
