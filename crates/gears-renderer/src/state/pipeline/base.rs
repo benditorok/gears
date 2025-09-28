@@ -5,12 +5,11 @@ use crate::{
     texture,
 };
 use gears_ecs::components;
-use wgpu::{Operations, util::DeviceExt};
+use wgpu::util::DeviceExt;
 
 /// The base pipeline for rendering
 pub struct BasePipeline {
     pipeline: wgpu::RenderPipeline,
-    // texture_bind_group: wgpu::BindGroup,
     light_bind_group: wgpu::BindGroup,
     camera_bind_group: wgpu::BindGroup,
     texture: texture::Texture,
@@ -149,20 +148,6 @@ impl BasePipeline {
             }],
             label: Some("Base::light_bind_group"),
         });
-        // let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        //     label: Some("Base::texture_bind_group"),
-        //     layout: &texture_layout,
-        //     entries: &[
-        //         wgpu::BindGroupEntry {
-        //             binding: 0,
-        //             resource: wgpu::BindingResource::TextureView(&depth_texture.view),
-        //         },
-        //         wgpu::BindGroupEntry {
-        //             binding: 1,
-        //             resource: wgpu::BindingResource::Sampler(&depth_texture.sampler),
-        //         },
-        //     ],
-        // });
 
         // Prepare the shader and pipeline layout
         let shader = wgpu::ShaderModuleDescriptor {
@@ -207,7 +192,7 @@ impl BasePipeline {
     }
 
     /// Resize the depth texture
-    pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+    pub(crate) fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.texture = texture::Texture::create_depth_texture(
             &device,
             width,
@@ -215,54 +200,30 @@ impl BasePipeline {
             Some("Base::depth_texture"),
         );
 
-        // self.texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        //     label: Some("Base::texture_bind_group"),
-        //     layout: &self.texture_layout,
-        //     entries: &[
-        //         wgpu::BindGroupEntry {
-        //             binding: 0,
-        //             resource: wgpu::BindingResource::TextureView(&self.texture.view),
-        //         },
-        //         wgpu::BindGroupEntry {
-        //             binding: 1,
-        //             resource: wgpu::BindingResource::Sampler(&self.texture.sampler),
-        //         },
-        //     ],
-        // });
-
         self.width = width;
         self.height = height;
     }
 
     /// Exposes the texture view
-    pub fn texture_view(&self) -> &wgpu::TextureView {
+    #[allow(unused)]
+    pub(crate) fn texture_view(&self) -> &wgpu::TextureView {
         &self.texture.view
     }
 
     /// The format of the texture
-    pub fn format(&self) -> wgpu::TextureFormat {
+    #[allow(unused)]
+    pub(crate) fn format(&self) -> wgpu::TextureFormat {
         self.format
     }
 
     /// Begins a render pass for the internal texture
-    pub fn begin<'a>(
+    pub(crate) fn begin<'a>(
         &self,
         encoder: &'a mut wgpu::CommandEncoder,
         output: &wgpu::TextureView,
     ) -> wgpu::RenderPass<'a> {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Base::render_pass"),
-            // color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            //     view: &output,
-            //     resolve_target: None,
-            //     ops: Operations {
-            //         load: wgpu::LoadOp::Load,
-            //         store: wgpu::StoreOp::Store,
-            //     },
-            // })],
-            // depth_stencil_attachment: None,
-            // occlusion_query_set: None,
-            // timestamp_writes: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &output,
                 resolve_target: None,
@@ -289,15 +250,11 @@ impl BasePipeline {
         })
     }
 
-    pub fn pipeline(&self) -> &wgpu::RenderPipeline {
+    pub(crate) fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
     }
 
-    // pub fn texture_bind_group(&self) -> &wgpu::BindGroup {
-    //     &self.texture_bind_group
-    // }
-
-    pub fn camera_bind_group(&self) -> &wgpu::BindGroup {
+    pub(crate) fn camera_bind_group(&self) -> &wgpu::BindGroup {
         &self.camera_bind_group
     }
 
@@ -313,19 +270,15 @@ impl BasePipeline {
         &self.camera_layout
     }
 
-    pub fn camera_projection_mut(&mut self) -> &mut camera::Projection {
+    pub(crate) fn camera_projection_mut(&mut self) -> &mut camera::Projection {
         &mut self.camera_projection
     }
 
-    pub fn camera_uniform(&self) -> &camera::CameraUniform {
+    pub(crate) fn camera_uniform(&self) -> &camera::CameraUniform {
         &self.camera_uniform
     }
 
-    pub fn camera_uniform_mut(&mut self) -> &mut camera::CameraUniform {
-        &mut self.camera_uniform
-    }
-
-    pub fn camera_buffer(&self) -> &wgpu::Buffer {
+    pub(crate) fn camera_buffer(&self) -> &wgpu::Buffer {
         &self.camera_buffer
     }
 
@@ -333,7 +286,7 @@ impl BasePipeline {
         &self.light_buffer
     }
 
-    pub fn update_camera_view_proj(
+    pub(crate) fn update_camera_view_proj(
         &mut self,
         pos3: &components::transforms::Pos3,
         controller: &components::controllers::ViewController,

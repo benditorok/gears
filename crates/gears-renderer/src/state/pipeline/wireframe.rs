@@ -15,13 +15,10 @@ pub struct WireframePipeline {
 impl WireframePipeline {
     pub fn new(
         device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
+        _config: &wgpu::SurfaceConfiguration,
         camera_layout: &wgpu::BindGroupLayout,
         hdr_pipeline: &HdrPipeline,
     ) -> Self {
-        let width = config.width;
-        let height = config.height;
-
         // Prepare the shader and pipeline layout
         let shader = wgpu::ShaderModuleDescriptor {
             label: Some("Base::wireframe_shader"),

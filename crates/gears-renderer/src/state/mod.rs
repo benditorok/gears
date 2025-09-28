@@ -2,24 +2,20 @@ mod init;
 mod pipeline;
 mod resources;
 
-use super::model::{self, DrawModelMesh, DrawWireframeMesh, Vertex};
-use super::{camera, instance, light, texture};
+use super::model::{self, DrawModelMesh, DrawWireframeMesh};
+use super::{instance, light};
 use crate::{BufferComponent, errors::RendererError};
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
-use gears_core::config::Config;
-use gears_ecs::components::physics::{AABBCollisionBox, CollisionBox, RigidBody};
+use gears_ecs::components::physics::{AABBCollisionBox, RigidBody};
 use gears_ecs::components::transforms::Pos3;
 use gears_ecs::query::{ComponentQuery, WorldQueryExt};
 use gears_ecs::{self, Entity, World, components};
 use gears_gui::{EguiRenderer, EguiWindowCallback};
-use image::imageops::FilterType::Triangle;
-use std::any::Any;
 use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{self};
-use wgpu::util::DeviceExt;
 use winit::event::*;
 use winit::window::CursorGrabMode;
 use winit::{
