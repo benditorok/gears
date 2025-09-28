@@ -45,7 +45,7 @@ async fn main() -> EngineResult<()> {
     app.new_entity() // Add ambient light
         .add_component(LightMarker)
         .add_component(Name("Ambient Light"))
-        .add_component(Light::Ambient { intensity: 0.05 })
+        .add_component(Light::Ambient { intensity: 0.1 })
         .add_component(Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
         .new_entity() // Add directional light
         .add_component(LightMarker)
@@ -76,13 +76,49 @@ async fn main() -> EngineResult<()> {
         AnimationQueue::default(),
     );
 
-    // Add another helmet with procedural animation
+    // Add another helmet with procedural "animation"
     let animated_helmet = new_entity!(
         app,
         StaticModelMarker,
         Name("Animated Helmet"),
         ModelSource::Gltf("gltf/helmet/DamagedHelmet.gltf"),
         Pos3::new(cgmath::Vector3::new(3.0, 0.0, 0.0)),
+        AnimationQueue::default(),
+    );
+
+    new_entity!(
+        app,
+        StaticModelMarker,
+        Name("scifi helmet"),
+        ModelSource::Gltf("gltf/scifi_helmet/SciFiHelmet.gltf"),
+        Pos3::new(cgmath::Vector3::new(-3.0, 0.0, 5.0)),
+        AnimationQueue::default(),
+    );
+
+    new_entity!(
+        app,
+        StaticModelMarker,
+        Name("merc"),
+        ModelSource::Gltf("gltf/merc/scene.gltf"),
+        Pos3::new(cgmath::Vector3::new(-10.0, 0.0, 5.0)),
+        AnimationQueue::default(),
+    );
+
+    new_entity!(
+        app,
+        StaticModelMarker,
+        Name("lantern"),
+        ModelSource::Gltf("gltf/lantern/Lantern.gltf"),
+        Pos3::new(cgmath::Vector3::new(-3.0, 0.0, 10.0)),
+        AnimationQueue::default(),
+    );
+
+    new_entity!(
+        app,
+        StaticModelMarker,
+        Name("figure"),
+        ModelSource::Gltf("gltf/figure/RiggedFigure.gltf"),
+        Pos3::new(cgmath::Vector3::new(-3.0, 0.0, 8.0)),
         AnimationQueue::default(),
     );
 
