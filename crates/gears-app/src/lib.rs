@@ -337,7 +337,7 @@ impl ApplicationHandler for GearsApp {
                 }
 
                 // TODO bench for performance??
-                if let Some(view_controller) = &state.read().unwrap().view_controller {
+                if let Some(view_controller) = &state.read().unwrap().view_controller() {
                     let mut wlock_view_controller = view_controller.write().unwrap();
                     wlock_view_controller.process_mouse(delta.0, delta.1);
                 }
@@ -399,8 +399,7 @@ impl ApplicationHandler for GearsApp {
                         Ok(_) => {}
                         // Reconfigure the surface if it's lost or outdated
                         Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            let size = state.read().unwrap().size;
-                            state.write().unwrap().resize(size);
+                            state.write().unwrap().resize_self();
                         }
                         // The system is out of memory and must exit
                         Err(e @ wgpu::SurfaceError::OutOfMemory) => {

@@ -35,13 +35,13 @@ pub(super) fn player(state: &mut State) -> bool {
             .world
             .get_component::<components::controllers::ViewController>(player_entity)
             .unwrap_or_else(|| panic!("{}", components::misc::PlayerMarker::describe()));
-        state.view_controller = Some(Arc::clone(&view_controller));
+        state.set_view_controller(Some(Arc::clone(&view_controller)));
 
         let movement_controller = state
             .world
             .get_component::<components::controllers::MovementController>(player_entity)
             .unwrap_or_else(|| panic!("{}", components::misc::PlayerMarker::describe()));
-        state.movement_controller = Some(Arc::clone(&movement_controller));
+        state.set_movement_controller(Some(Arc::clone(&movement_controller)));
 
         return true;
     }
@@ -64,13 +64,13 @@ pub(super) fn camera(state: &mut State) {
             .world
             .get_component::<components::controllers::ViewController>(static_camera_entity)
             .unwrap_or_else(|| panic!("{}", components::misc::CameraMarker::describe()));
-        state.view_controller = Some(Arc::clone(&view_controller));
+        state.set_view_controller(Some(Arc::clone(&view_controller)));
 
         let movement_controller = state
             .world
             .get_component::<components::controllers::MovementController>(static_camera_entity);
         if let Some(movement_controller) = movement_controller {
-            state.movement_controller = Some(Arc::clone(&movement_controller));
+            state.set_movement_controller(Some(Arc::clone(&movement_controller)));
         }
         return;
     }

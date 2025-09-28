@@ -16,6 +16,7 @@ use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{self};
+use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::window::CursorGrabMode;
 use winit::{
@@ -30,14 +31,14 @@ use winit::{
 pub struct State {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
-    pub queue: wgpu::Queue,
+    queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    pub size: winit::dpi::PhysicalSize<u32>,
+    size: winit::dpi::PhysicalSize<u32>,
     base_pipeline: pipeline::base::BasePipeline,
     hdr_pipeline: pipeline::hdr::HdrPipeline,
     wireframe_pipeline: pipeline::wireframe::WireframePipeline,
     movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
-    pub view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
+    view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
     player_entity: Option<Entity>,
     camera_owner_entity: Option<Entity>,
     light_entities: Option<Vec<Entity>>,
@@ -171,6 +172,38 @@ impl State {
         &self.base_pipeline
     }
 
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.queue
+    }
+
+    pub fn view_controller(&self) -> Option<&Arc<RwLock<components::controllers::ViewController>>> {
+        self.view_controller.as_ref()
+    }
+
+    pub fn set_view_controller(
+        &mut self,
+        view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
+    ) {
+        self.view_controller = view_controller;
+    }
+
+    pub fn movement_controller(
+        &self,
+    ) -> Option<&Arc<RwLock<components::controllers::MovementController>>> {
+        self.movement_controller.as_ref()
+    }
+
+    pub fn set_movement_controller(
+        &mut self,
+        movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
+    ) {
+        self.movement_controller = movement_controller;
+    }
+
+    pub fn size(&self) -> &PhysicalSize<u32> {
+        &self.size
+    }
+
     /// Toggle the debug mode.
     pub fn toggle_debug(&mut self) {
         self.draw_colliders = !self.draw_colliders;
@@ -239,6 +272,11 @@ impl State {
     /// A reference to the window.
     pub fn window(&self) -> &Window {
         &self.window
+    }
+
+    // Reconfigure the surface with the same size.
+    pub fn resize_self(&mut self) {
+        self.resize(self.size);
     }
 
     /// Resize the window when the size changes.
