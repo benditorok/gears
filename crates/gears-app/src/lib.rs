@@ -237,7 +237,7 @@ impl ApplicationHandler for GearsApp {
             let window_attributes = WindowAttributes::default()
                 .with_title(self.config.window_title)
                 .with_transparent(true)
-                .with_maximized(true)
+                .with_maximized(self.config.maximized)
                 .with_active(true)
                 .with_window_icon(None);
 
