@@ -72,9 +72,11 @@ pub(super) fn update_lights(
             _padding: [0; 3],
         };
 
-        state
-            .queue
-            .write_buffer(&state.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
+        state.queue.write_buffer(
+            &state.base_pipeline().light_buffer(),
+            0,
+            bytemuck::cast_slice(&[light_data]),
+        );
 
         Ok(())
     })
