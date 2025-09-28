@@ -1,6 +1,6 @@
 use super::State;
+use super::instance;
 use super::model;
-use super::{instance, light};
 use crate::BufferComponent;
 use crate::resources::{load_model_gltf, load_model_obj};
 use cgmath::prelude::*;
@@ -104,7 +104,8 @@ pub(super) async fn models(
 
         let flip = world.get_component::<components::transforms::Flip>(*entity);
 
-        let scale = world.get_component::<components::transforms::Scale>(*entity);
+        // TODO handle scale?
+        let _scale = world.get_component::<components::transforms::Scale>(*entity);
 
         let obj_model = {
             let rlock_model_source = model_source.read().unwrap();
@@ -205,7 +206,8 @@ pub(super) async fn physics_models(
 
         let flip = world.get_component::<components::transforms::Flip>(*entity);
 
-        let scale = world.get_component::<components::transforms::Scale>(*entity);
+        // TODO handle scale?
+        let _scale = world.get_component::<components::transforms::Scale>(*entity);
 
         let obj_model = {
             let rlock_model_source = model_source.read().unwrap();

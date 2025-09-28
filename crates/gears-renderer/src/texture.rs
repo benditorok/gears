@@ -8,6 +8,7 @@ pub(crate) struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    #[allow(unused)]
     pub size: wgpu::Extent3d,
 }
 

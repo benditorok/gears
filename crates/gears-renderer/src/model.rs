@@ -269,9 +269,9 @@ impl DrawWireframeMesh for wgpu::RenderPass<'_> {
 
 #[derive(Component)]
 pub struct Model {
-    pub meshes: Vec<Mesh>,
-    pub materials: Vec<Material>,
-    pub animations: Vec<super::animation::AnimationClip>,
+    pub(crate) meshes: Vec<Mesh>,
+    pub(crate) materials: Vec<Material>,
+    pub(crate) animations: Vec<super::animation::AnimationClip>,
 }
 
 impl Debug for Model {
