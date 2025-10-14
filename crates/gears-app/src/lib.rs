@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod errors;
 pub mod macros;
 pub mod prelude;
@@ -237,7 +239,7 @@ impl ApplicationHandler for GearsApp {
             let window_attributes = WindowAttributes::default()
                 .with_title(self.config.window_title)
                 .with_transparent(true)
-                .with_maximized(true)
+                .with_maximized(self.config.maximized)
                 .with_active(true)
                 .with_window_icon(None);
 
@@ -337,7 +339,7 @@ impl ApplicationHandler for GearsApp {
                 }
 
                 // TODO bench for performance??
-                if let Some(view_controller) = &state.read().unwrap().view_controller {
+                if let Some(view_controller) = &state.read().unwrap().view_controller() {
                     let mut wlock_view_controller = view_controller.write().unwrap();
                     wlock_view_controller.process_mouse(delta.0, delta.1);
                 }
@@ -399,8 +401,7 @@ impl ApplicationHandler for GearsApp {
                         Ok(_) => {}
                         // Reconfigure the surface if it's lost or outdated
                         Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            let size = state.read().unwrap().size;
-                            state.write().unwrap().resize(size);
+                            state.write().unwrap().resize_self();
                         }
                         // The system is out of memory and must exit
                         Err(e @ wgpu::SurfaceError::OutOfMemory) => {

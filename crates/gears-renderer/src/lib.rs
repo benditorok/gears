@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod animation;
 pub mod camera;
 pub mod errors;

@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod components;
 pub mod query;
 pub mod utils;
@@ -107,6 +109,7 @@ impl<T: Component> ComponentStorage<T> {
     /// # Arguments
     ///
     /// * `capacity` - The capacity of the storage.
+    #[allow(unused)]
     fn new_with_capacity(capacity: usize) -> Self {
         Self {
             storage: DashMap::with_capacity(capacity),

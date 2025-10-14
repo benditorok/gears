@@ -245,10 +245,12 @@ mod tests {
     use crate::Component;
 
     #[derive(Debug)]
+    #[allow(unused)]
     struct TestComponent1(u32);
     impl Component for TestComponent1 {}
 
     #[derive(Debug)]
+    #[allow(unused)]
     struct TestComponent2(String);
     impl Component for TestComponent2 {}
 

@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod config;
 
 use std::f32::consts::FRAC_PI_2;

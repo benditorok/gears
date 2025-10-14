@@ -1,6 +1,6 @@
 use gears_ecs::{
     Component,
-    components::{self, lights::Light, transforms::Pos3},
+    components::{lights::Light, transforms::Pos3},
 };
 use gears_macro::Component;
 

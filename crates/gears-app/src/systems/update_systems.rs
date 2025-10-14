@@ -72,9 +72,11 @@ pub(super) fn update_lights(
             _padding: [0; 3],
         };
 
-        state
-            .queue
-            .write_buffer(&state.light_buffer, 0, bytemuck::cast_slice(&[light_data]));
+        state.queue().write_buffer(
+            &state.base_pipeline().light_buffer(),
+            0,
+            bytemuck::cast_slice(&[light_data]),
+        );
 
         Ok(())
     })
@@ -310,7 +312,7 @@ pub(super) fn update_models(
                         SystemError::ComponentAccess(format!("Failed to write Buffer: {}", e))
                     })?;
 
-                    state.queue.write_buffer(
+                    state.queue().write_buffer(
                         &buffer_guard.0,
                         0,
                         bytemuck::cast_slice(&[instance_raw]),
@@ -459,7 +461,7 @@ pub(super) fn update_physics(
                         let buffer_guard = buffer.write().map_err(|e| {
                             SystemError::ComponentAccess(format!("Failed to write Buffer: {}", e))
                         })?;
-                        state.queue.write_buffer(
+                        state.queue().write_buffer(
                             &buffer_guard.0,
                             0,
                             bytemuck::cast_slice(&[instance_raw]),
