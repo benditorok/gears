@@ -310,32 +310,51 @@ mod tests {
 
     #[test]
     fn test_write_conflicts() {
-        let world = World::new();
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::thread;
+        use std::time::Duration;
+
+        let world = Arc::new(World::new());
         let entity1 = world.create_entity();
         world.add_component(entity1, TestComponent1(42));
 
-        // Create two conflicting write queries
-        let query1 = ComponentQuery::new().write::<TestComponent1>(vec![entity1]);
-        let query2 = ComponentQuery::new().write::<TestComponent1>(vec![entity1]);
-
         // First query should succeed
+        let query1 = ComponentQuery::new().write::<TestComponent1>(vec![entity1]);
         let resources1 = world.acquire_query(query1);
         assert!(resources1.is_some(), "First write query should succeed");
 
-        // Second conflicting query should fail while first is active
-        let resources2 = world.acquire_query(query2);
+        // Second conflicting query should block while first is active
+        let world_clone = Arc::clone(&world);
+        let second_acquired = Arc::new(AtomicBool::new(false));
+        let second_acquired_clone = Arc::clone(&second_acquired);
+
+        let thread_handle = thread::spawn(move || {
+            let query2 = ComponentQuery::new().write::<TestComponent1>(vec![entity1]);
+            let _resources2 = world_clone.acquire_query(query2);
+            second_acquired_clone.store(true, Ordering::SeqCst);
+        });
+
+        // Give the thread time to start and attempt to acquire
+        thread::sleep(Duration::from_millis(50));
+
+        // Second query should still be blocked
         assert!(
-            resources2.is_none(),
-            "Second write query should fail due to conflict"
+            !second_acquired.load(Ordering::SeqCst),
+            "Second write query should be blocked while first is active"
         );
 
         // After dropping first resources, second query should succeed
         drop(resources1);
-        let query3 = ComponentQuery::new().write::<TestComponent1>(vec![entity1]);
-        let resources3 = world.acquire_query(query3);
+
+        // Wait for the second thread to acquire the resource
+        thread_handle
+            .join()
+            .expect("Thread should complete successfully");
+
         assert!(
-            resources3.is_some(),
-            "Third write query should succeed after first is dropped"
+            second_acquired.load(Ordering::SeqCst),
+            "Second write query should succeed after first is dropped"
         );
     }
 
