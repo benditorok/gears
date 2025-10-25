@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// Errors that can occur in systems
+/// Errors that can occur in systems.
 #[derive(Debug, Error)]
 pub enum SystemError {
     #[error("Missing component: {0}")]
@@ -22,4 +22,5 @@ pub enum SystemError {
     Other(String),
 }
 
+/// Type alias for a result type that can contain an [`SystemError`].
 pub type SystemResult<T> = Result<T, SystemError>;
