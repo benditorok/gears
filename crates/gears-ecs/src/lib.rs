@@ -1,3 +1,5 @@
+//! Entity Component System implementation for the gears engine.
+
 #![forbid(unsafe_code)]
 
 pub mod components;

@@ -1,6 +1,7 @@
 use gears_renderer::errors::RendererError;
 use thiserror::Error;
 
+/// Errors that can occur during the execution of the gears engine.
 #[derive(Debug, Error)]
 pub enum EngineError {
     #[error("Missing component: {0}")]
@@ -40,6 +41,7 @@ pub enum EngineError {
     Other(String),
 }
 
+/// Type alias for a result type that can contain an [`EngineError`].
 pub type EngineResult<T> = Result<T, EngineError>;
 
 impl From<&str> for EngineError {

@@ -1,4 +1,4 @@
-//! Egui-wgpu integration setup for gears
+//! Egui-wgpu integration setup for the gears engine.
 
 #![forbid(unsafe_code)]
 
@@ -14,11 +14,14 @@ pub type EguiWindowCallback = Box<dyn for<'a> FnMut(&'a egui::Context) + Send + 
 
 /// A wrapper around the egui-wgpu renderer that handles the egui context and renderer state.
 ///
-/// This struct is responsible for handling events on the custom windows, and provides
+/// [`EguiRenderer`] responsible for handling events on the custom windows, and provides
 /// methods to interact with the egui context and renderer.
 pub struct EguiRenderer {
+    /// The state of the egui-winit context.
     state: Arc<Mutex<State>>,
+    /// The egui-wgpu renderer.
     renderer: Renderer,
+    /// Whether a frame has started.
     frame_started: bool,
 }
 
@@ -27,11 +30,11 @@ impl EguiRenderer {
     ///
     /// # Arguments
     ///
-    /// - `device` - The wgpu device.
-    /// - `output_color_format` - The texture format for the output color.
-    /// - `output_depth_format` - The texture format for the output depth.
-    /// - `msaa_samples` - The number of samples for multisampling.
-    /// - `window` - The window to render to.
+    /// * `device` - The wgpu device.
+    /// * `output_color_format` - The texture format for the output color.
+    /// * `output_depth_format` - The texture format for the output depth.
+    /// * `msaa_samples` - The number of samples for multisampling.
+    /// * `window` - The window to render to.
     ///
     /// # Returns
     ///
@@ -73,8 +76,8 @@ impl EguiRenderer {
     ///
     /// # Arguments
     ///
-    /// - `window` - The window that received the event.
-    /// - `event` - The event that was received.
+    /// * `window` - The window that received the event.
+    /// * `event` - The event that was received.
     ///
     /// # Returns
     ///
@@ -88,7 +91,7 @@ impl EguiRenderer {
     ///
     /// # Arguments
     ///
-    /// - `ppp` - The pixels per point value.
+    /// * `ppp` - The pixels per point value.
     pub fn ppp(state: &mut State, ppp: f32) {
         state.egui_ctx().set_pixels_per_point(ppp);
     }
@@ -97,7 +100,7 @@ impl EguiRenderer {
     ///
     /// # Arguments
     ///
-    /// - `window` - The window to render to.
+    /// * `window` - The window to render to.
     pub fn begin_frame(&mut self, window: &Window) {
         let mut state = self.state.lock().unwrap();
         let raw_input = state.take_egui_input(window);
@@ -110,12 +113,12 @@ impl EguiRenderer {
     ///
     /// # Arguments
     ///
-    /// - `device` - The wgpu device.
-    /// - `queue` - The wgpu queue.
-    /// - `encoder` - The wgpu command encoder.
-    /// - `window` - The window to render to.
-    /// - `window_surface_view` - The texture view for the window surface.
-    /// - `screen_descriptor` - The screen descriptor for the window.
+    /// * `device` - The wgpu device.
+    /// * `queue` - The wgpu queue.
+    /// * `encoder` - The wgpu command encoder.
+    /// * `window` - The window to render to.
+    /// * `window_surface_view` - The texture view for the window surface.
+    /// * `screen_descriptor` - The screen descriptor for the window.
     ///
     /// # Panics
     ///
@@ -178,13 +181,13 @@ impl EguiRenderer {
     ///
     /// # Arguments
     ///
-    /// - `device` - The wgpu device.
-    /// - `queue` - The wgpu queue.
-    /// - `encoder` - The wgpu command encoder.
-    /// - `window` - The window to render to.
-    /// - `window_surface_view` - The texture view for the window surface.
-    /// - `screen_descriptor` - The screen descriptor for the window.
-    /// - `run_ui` - Closures that will be called to run the UI.
+    /// * `device` - The wgpu device.
+    /// * `queue` - The wgpu queue.
+    /// * `encoder` - The wgpu command encoder.
+    /// * `window` - The window to render to.
+    /// * `window_surface_view` - The texture view for the window surface.
+    /// * `screen_descriptor` - The screen descriptor for the window.
+    /// * `run_ui` - Closures that will be called to run the UI.
     #[allow(clippy::too_many_arguments, clippy::complexity)]
     pub fn draw_ui_full(
         &mut self,

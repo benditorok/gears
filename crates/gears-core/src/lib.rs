@@ -1,10 +1,10 @@
-//! Core functionalities for gears
+//! Core functionalities for the gears engine.
 
 #![forbid(unsafe_code)]
 
 pub mod config;
 
-/// Duration type used to represent time intervals.
+/// Type alias for a duration which can be used to represent time intervals.
 pub type Dt = std::time::Duration;
 
 /// Safe fraction of pi over 2.
