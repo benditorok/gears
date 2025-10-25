@@ -159,7 +159,7 @@ impl AsyncSystem {
     /// # Arguments
     ///
     /// * `world` - The world to run the system in.
-    /// * `dt` - The delta time since the last frame.
+    /// * `dt` - The duration of the last frame.
     ///
     /// # Returns
     ///
@@ -208,7 +208,7 @@ impl InternalAsyncSystem {
     ///
     /// * `world` - The world to run the system in.
     /// * `state` - The state to run the system in.
-    /// * `dt` - The delta time since the last frame.
+    /// * `dt` - The duration of the last frame.
     ///
     /// # Returns
     ///
