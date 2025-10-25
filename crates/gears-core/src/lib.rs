@@ -1,12 +1,16 @@
+//! Core functionalities for gears
+
 #![forbid(unsafe_code)]
 
 pub mod config;
 
-use std::f32::consts::FRAC_PI_2;
-
+/// Duration type used to represent time intervals.
 pub type Dt = std::time::Duration;
-pub const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
+/// Safe fraction of pi over 2.
+pub const SAFE_FRAC_PI_2: f32 = std::f32::consts::FRAC_PI_2 - 0.0001;
+
+/// A matrix to scale and translate from OpenGL to WebGPU coordinates.
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,

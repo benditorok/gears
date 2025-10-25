@@ -23,7 +23,7 @@ pub struct EguiRenderer {
 }
 
 impl EguiRenderer {
-    /// Create a new [`EguiRenderer`].
+    /// Create a new egui renderer wrapper.
     ///
     /// # Arguments
     ///
@@ -32,6 +32,10 @@ impl EguiRenderer {
     /// - `output_depth_format` - The texture format for the output depth.
     /// - `msaa_samples` - The number of samples for multisampling.
     /// - `window` - The window to render to.
+    ///
+    /// # Returns
+    ///
+    /// A new [`EguiRenderer`] instance.
     pub fn new(
         device: &Device,
         output_color_format: TextureFormat,
