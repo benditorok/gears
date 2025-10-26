@@ -1,23 +1,48 @@
 use super::{Component, Entity, EntityBuilder, World};
 use log::warn;
 
+/// Builder for creating entities and adding components to them.
 pub struct EcsBuilder<'a> {
+    /// The ECS world to build entities in.
     ecs: &'a mut World,
 }
 
 impl<'a> EcsBuilder<'a> {
+    /// Creates a new builder instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `ecs` - The ECS world to build entities in.
+    ///
+    /// # Returns
+    ///
+    /// A new [`EcsBuilder`] instance.
     pub fn new(ecs: &'a mut World) -> Self {
         Self { ecs }
     }
 }
 
 impl EntityBuilder for EcsBuilder<'_> {
+    /// Creates a new entity.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`EcsBuilder`] instance.
     fn new_entity(&mut self) -> &mut Self {
         self.ecs.create_entity();
 
         self
     }
 
+    /// Adds a component to the last created entity.
+    ///
+    /// # Arguments
+    ///
+    /// * `component` - The component to add.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`EcsBuilder`] instance.
     fn add_component(&mut self, component: impl Component) -> &mut Self {
         if let Some(entity) = self.ecs.get_last() {
             self.ecs.add_component(entity, component);
@@ -31,6 +56,11 @@ impl EntityBuilder for EcsBuilder<'_> {
         self
     }
 
+    /// Builds the entity and returns it.
+    ///
+    /// # Returns
+    ///
+    /// The built [`Entity`].
     fn build(&mut self) -> Entity {
         if let Some(entity) = self.ecs.get_last() {
             entity

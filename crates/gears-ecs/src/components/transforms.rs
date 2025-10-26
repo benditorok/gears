@@ -3,6 +3,11 @@ use cgmath::One;
 use gears_macro::Component;
 
 pub trait Pos {
+    /// Gets the position of the object.
+    ///
+    /// # Returns
+    ///
+    /// The position of the object as a [`cgmath::Vector3<f32>`].
     fn get_pos(&self) -> cgmath::Vector3<f32>;
 }
 
@@ -14,6 +19,15 @@ pub struct Pos3 {
 }
 
 impl Pos3 {
+    /// Creates a new position component with default rotation.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos` - The position of the object.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Pos3`] instance.
     pub fn new(pos: cgmath::Vector3<f32>) -> Self {
         Self {
             pos,
@@ -21,18 +35,38 @@ impl Pos3 {
         }
     }
 
+    /// Creates a new position component with a specified rotation.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos` - The position of the object.
+    /// * `rot` - The rotation of the object.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Pos3`] instance.
     pub fn new_with_rot(pos: cgmath::Vector3<f32>, rot: cgmath::Quaternion<f32>) -> Self {
         Self { pos, rot }
     }
 }
 
 impl Pos for Pos3 {
+    /// Gets the position of the object.
+    ///
+    /// # Returns
+    ///
+    /// The position of the object as a [`cgmath::Vector3<f32>`].
     fn get_pos(&self) -> cgmath::Vector3<f32> {
         self.pos
     }
 }
 
 impl Default for Pos3 {
+    /// Creates a new position component with default values.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Pos3`] instance.
     fn default() -> Self {
         Self {
             pos: cgmath::Vector3::new(0.0, 0.0, 0.0),

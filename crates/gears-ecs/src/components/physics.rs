@@ -20,7 +20,26 @@ const FALL_MULTIPLIER: f32 = 1.75;
 const APEX_MULTIPLIER: f32 = 0.6;
 
 pub trait CollisionBox {
+    /// Check if two AABB collision boxes intersect.
+    ///
+    /// # Arguments
+    /// * `obj_a` - The first AABB collision box.
+    /// * `obj_a_pos3` - The position of the first AABB collision box.
+    /// * `obj_b` - The second AABB collision box.
+    /// * `obj_b_pos3` - The position of the second AABB collision box.
+    ///
+    /// # Returns
+    ///
+    /// * `true` if the two AABB collision boxes intersect.
     fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool;
+
+    /// Resolve collision between two AABB collision boxes.
+    ///
+    /// # Arguments
+    /// * `obj_a` - The first AABB collision box.
+    /// * `obj_a_pos3` - The position of the first AABB collision box.
+    /// * `obj_b` - The second AABB collision box.
+    /// * `obj_b_pos3` - The position of the second AABB collision box.
     fn resolve(
         obj_a: &mut RigidBody<Self>,
         obj_a_pos3: &mut Pos3,
@@ -30,13 +49,23 @@ pub trait CollisionBox {
         Self: Sized;
 }
 
+/// AABB collision box used for collision detection and resolution.
 #[derive(Component, Debug, Clone)]
 pub struct AABBCollisionBox {
+    /// Minimum point - front lower left corner of the AABB collision box
     pub min: cgmath::Vector3<f32>,
+    /// Maximum point - back upper right corner of the AABB collision box
     pub max: cgmath::Vector3<f32>,
 }
 
 impl CollisionBox for AABBCollisionBox {
+    /// Check if two AABB collision boxes intersect.
+    ///
+    /// # Arguments
+    /// * `obj_a` - The first AABB collision box.
+    /// * `obj_a_pos3` - The position of the first AABB collision box.
+    /// * `obj_b` - The second AABB collision box.
+    /// * `obj_b_pos3` - The position of the second AABB collision box.
     fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool {
         let a_min = obj_a_pos3.pos + obj_a.min;
         let a_max = obj_a_pos3.pos + obj_a.max;
@@ -51,6 +80,13 @@ impl CollisionBox for AABBCollisionBox {
             && a_max.z > b_min.z
     }
 
+    /// Resolve collision between two AABB collision boxes.
+    ///
+    /// # Arguments
+    /// * `obj_a` - The first rigid body.
+    /// * `obj_a_pos3` - The position of the first rigid body.
+    /// * `obj_b` - The second rigid body.
+    /// * `obj_b_pos3` - The position of the second rigid body.
     fn resolve(
         obj_a: &mut RigidBody<Self>,
         obj_a_pos3: &mut Pos3,
@@ -175,10 +211,15 @@ impl CollisionBox for AABBCollisionBox {
 
 #[derive(Clone, Copy, Debug)]
 pub struct RigidBody<T: CollisionBox> {
+    /// Mass of the rigid body.
     pub mass: f32,
+    /// Velocity of the rigid body.
     pub velocity: cgmath::Vector3<f32>,
+    // Acceleration of the rigid body.
     pub acceleration: cgmath::Vector3<f32>,
+    // Collision box used to detect the intersection of objects.
     pub collision_box: T,
+    /// If a rigid body is static, it cannot be moved or rotated based on external forces.
     pub is_static: bool,
     /// Restitution coefficient (bounciness) - 0.0 means no bounce, 1.0 means perfect bounce
     pub restitution: f32,
@@ -187,6 +228,11 @@ pub struct RigidBody<T: CollisionBox> {
 impl Component for RigidBody<AABBCollisionBox> {}
 
 impl Default for RigidBody<AABBCollisionBox> {
+    /// Creates a new rigid body with default properties.
+    ///
+    /// # Returns
+    ///
+    /// A new [`RigidBody`] instance.
     fn default() -> Self {
         Self {
             mass: 1.0,
@@ -203,6 +249,18 @@ impl Default for RigidBody<AABBCollisionBox> {
 }
 
 impl<T: CollisionBox> RigidBody<T> {
+    /// Creates a new rigid body with the given properties.
+    ///
+    /// # Arguments
+    ///
+    /// * `mass` - The mass of the rigid body.
+    /// * `velocity` - The initial velocity of the rigid body.
+    /// * `acceleration` - The initial acceleration of the rigid body.
+    /// * `collision_box` - The collision box of the rigid body.
+    ///
+    /// # Returns
+    ///
+    /// A new [`RigidBody`] instance.
     pub fn new(
         mass: f32,
         velocity: cgmath::Vector3<f32>,
@@ -219,6 +277,15 @@ impl<T: CollisionBox> RigidBody<T> {
         }
     }
 
+    /// Creates a new static rigid body with the given collision box.
+    ///
+    /// # Arguments
+    ///
+    /// * `collision_box` - The collision box of the static rigid body.
+    ///
+    /// # Returns
+    ///
+    /// A new static [`RigidBody`] instance.
     pub fn new_static(collision_box: T) -> Self {
         Self {
             mass: 0.0,
@@ -230,10 +297,21 @@ impl<T: CollisionBox> RigidBody<T> {
         }
     }
 
+    /// Checks if the object is static.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the object is static.
     pub fn is_static(&self) -> bool {
         self.is_static
     }
 
+    /// Updates the position of the object based on its velocity and acceleration.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos3` - A mutable reference to the position of the object.
+    /// * `dt` - The time step for the update.
     pub fn update_pos(&mut self, pos3: &mut Pos3, dt: f32) {
         if !self.is_static {
             let acceleration_threshold = 0.01;
@@ -293,6 +371,14 @@ impl<T: CollisionBox> RigidBody<T> {
         }
     }
 
+    /// Checks for collision between two objects and resolves it if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// * `obj_a` - A mutable reference to the first object.
+    /// * `obj_a_pos3` - A mutable reference to the position of the first object.
+    /// * `obj_b` - A mutable reference to the second object.
+    /// * `obj_b_pos3` - A mutable reference to the position of the second object.
     pub fn check_and_resolve_collision(
         obj_a: &mut Self,
         obj_a_pos3: &mut Pos3,
@@ -309,6 +395,11 @@ impl<T: CollisionBox> RigidBody<T> {
         }
     }
 
+    /// Caps the velocity of the object to prevent it from exceeding the maximum allowed velocity.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - A mutable reference to the object whose velocity is to be capped.
     pub fn cap_velocity(&mut self) {
         // Cap horizontal velocity (x and z)
         let horizontal_velocity = cgmath::Vector3::new(self.velocity.x, 0.0, self.velocity.z);
