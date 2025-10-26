@@ -1,148 +1,65 @@
-//! # Hierarchical Finite State Machine (FSM) Component
-//!
-//! This module provides a complete implementation of a hierarchical finite state machine
-//! that integrates seamlessly with the Entity Component System (ECS).
-//!
-//! ## Features
-//!
-//! - **Inherently Hierarchical**: Every state can have sub-states, creating natural hierarchies
-//! - **State Management**: Define states with enter, update, and exit callbacks
-//! - **Context Data**: Share data between states using a flexible context system
-//! - **Transition Logic**: Automatic state transitions based on conditions
-//! - **ECS Integration**: Works as a standard ECS component
-//!
-//! ## Example Usage
-//!
-//! ```rust
-//! use gears_ecs::components::fsm::*;
-//! use std::time::Duration;
-//!
-//! // Define your own state enum
-//! #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-//! enum MyStateId {
-//!     Idle,
-//!     Moving,
-//!     Combat,
-//!     CombatAttack,
-//!     CombatDefend,
-//! }
-//!
-//! impl std::fmt::Display for MyStateId {
-//!     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//!         write!(f, "{}", self.as_str())
-//!     }
-//! }
-//!
-//! impl StateIdentifier for MyStateId {
-//!     fn as_str(&self) -> &'static str {
-//!         match self {
-//!             MyStateId::Idle => "idle",
-//!             MyStateId::Moving => "moving",
-//!             MyStateId::Combat => "combat",
-//!             MyStateId::CombatAttack => "combat_attack",
-//!             MyStateId::CombatDefend => "combat_defend",
-//!         }
-//!     }
-//! }
-//!
-//! // Create a simple state (no sub-states)
-//! #[derive(Debug)]
-//! struct IdleState;
-//!
-//! impl State<MyStateId> for IdleState {
-//!     fn on_enter(&mut self, context: &mut StateContext) {
-//!         context.set_float("speed", 0.0);
-//!         println!("Entered idle state");
-//!     }
-//!
-//!     fn check_transitions(&self, context: &StateContext) -> Option<MyStateId> {
-//!         if context.get_bool("should_move").unwrap_or(false) {
-//!             Some(MyStateId::Moving)
-//!         } else {
-//!             None
-//!         }
-//!     }
-//! }
-//!
-//! // Additional states for the example
-//! #[derive(Debug)]
-//! struct CombatState;
-//!
-//! impl State<MyStateId> for CombatState {
-//!     fn on_enter(&mut self, context: &mut StateContext) {
-//!         println!("Entered combat state");
-//!     }
-//! }
-//!
-//! #[derive(Debug)]
-//! struct AttackState;
-//!
-//! impl State<MyStateId> for AttackState {
-//!     fn on_enter(&mut self, context: &mut StateContext) {
-//!         println!("Entered attack state");
-//!     }
-//! }
-//!
-//! #[derive(Debug)]
-//! struct DefendState;
-//!
-//! impl State<MyStateId> for DefendState {
-//!     fn on_enter(&mut self, context: &mut StateContext) {
-//!         println!("Entered defend state");
-//!     }
-//! }
-//!
-//! // Create a hierarchical state with sub-states
-//! let mut fsm = FiniteStateMachine::<MyStateId>::new();
-//! fsm.add_state(MyStateId::Idle, Box::new(IdleState));
-//!
-//! // Combat state with sub-states
-//! fsm.add_state(MyStateId::Combat, Box::new(CombatState));
-//! fsm.add_sub_state(MyStateId::Combat, MyStateId::CombatAttack, Box::new(AttackState));
-//! fsm.add_sub_state(MyStateId::Combat, MyStateId::CombatDefend, Box::new(DefendState));
-//! fsm.set_initial_sub_state(MyStateId::Combat, MyStateId::CombatAttack);
-//!
-//! fsm.set_initial_state(MyStateId::Idle);
-//! fsm.update(Duration::from_millis(16));
-//! ```
-
 use crate::Component;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-/// Trait that state identifiers must implement
+/// Trait that state identifiers must implement.
 ///
-/// This trait allows users to define their own state enums while ensuring
+/// This trait allows users to define their own state enums while ensuring.
 /// they work properly with the FSM system.
 pub trait StateIdentifier:
     std::fmt::Debug + std::fmt::Display + Clone + Copy + std::hash::Hash + Eq + Send + Sync + 'static
 {
-    /// Convert to string for logging and debugging purposes
+    /// Convert to string for logging and debugging purposes.
+    ///
+    /// # Returns
+    ///
+    /// A static string representation of the state identifier.
     fn as_str(&self) -> &'static str;
 }
 
-/// A trait that defines the behavior of a state in the finite state machine
+/// A trait that defines the behavior of a state in the finite state machine.
 ///
 /// States are the core building blocks of the FSM. Each state can have custom logic
 /// for entering, updating, and exiting, as well as conditions for transitioning
 /// to other states. States are inherently capable of having sub-states.
 pub trait State<S: StateIdentifier>: std::fmt::Debug + Send + Sync {
-    /// Called when entering this state
+    /// Called when entering this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `_context` - A mutable reference to the state context.
     fn on_enter(&mut self, _context: &mut StateContext) {}
 
-    /// Called every frame while in this state
+    /// Called every frame while in this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `_context` - A mutable reference to the state context.
+    /// * `_dt` - The duration since the last frame.
     fn on_update(&mut self, _context: &mut StateContext, _dt: Duration) {}
 
-    /// Called when exiting this state
+    /// Called when exiting this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `_context` - A mutable reference to the state context.
     fn on_exit(&mut self, _context: &mut StateContext) {}
 
-    /// Check for state transitions and return the next state ID if a transition should occur
+    /// Check for state transitions and return the next state Id if a transition should occur
+    ///
+    /// # Arguments
+    ///
+    /// * `_context` - A mutable reference to the state context.
+    ///
+    /// # Returns
+    ///
+    /// * The next state Id if a transition should occur.
     fn check_transitions(&self, _context: &StateContext) -> Option<S> {
         None
     }
 }
 
-/// Default state identifier enum
+/// Default state identifier enum.
 ///
 /// This provides a sensible default set of states for common game scenarios.
 /// Users can define their own state enums by implementing the StateIdentifier trait.
@@ -173,7 +90,11 @@ pub enum DefaultStateId {
 }
 
 impl StateIdentifier for DefaultStateId {
-    /// Convert to string for logging and debugging purposes
+    /// Convert to string for logging and debugging purposes.
+    ///
+    /// # Returns
+    ///
+    /// The string representation of the state identifier.
     fn as_str(&self) -> &'static str {
         match self {
             DefaultStateId::Idle => "idle",
@@ -194,7 +115,11 @@ impl StateIdentifier for DefaultStateId {
 }
 
 impl DefaultStateId {
-    /// Check if this state is a main state (not a sub-state)
+    /// Check if this state is a main state (not a sub-state).
+    ///
+    /// # Returns
+    ///
+    /// `true` if this state is a main state.
     pub fn is_main_state(&self) -> bool {
         matches!(
             self,
@@ -205,7 +130,11 @@ impl DefaultStateId {
         )
     }
 
-    /// Check if this state is a sub-state of the given parent
+    /// Check if this state is a sub-state of the given parent.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this state is a sub-state of the given parent.
     pub fn is_sub_state_of(&self, parent: DefaultStateId) -> bool {
         match parent {
             DefaultStateId::Idle => {
@@ -231,6 +160,11 @@ impl DefaultStateId {
 }
 
 impl std::fmt::Display for DefaultStateId {
+    /// Formats the state Id as a string.
+    ///
+    /// # Returns
+    ///
+    /// A string representation of the state Id.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
@@ -241,22 +175,20 @@ pub type StateId = DefaultStateId;
 
 /// Context passed to states for decision making and data access
 ///
-/// The StateContext provides a way for states to:
+/// The [`StateContext`] provides a way for states to:
 /// - Store and retrieve shared data
 /// - Access timing information
 /// - Track state history
 /// - Communicate between states
-///
-/// Data is stored using a flexible enum system that supports common game types.
 #[derive(Debug, Clone)]
 pub struct StateContext {
-    /// Shared data that states can read and modify
+    /// Shared data that states can read and modify,
     pub data: HashMap<String, StateData>,
-    /// Time since the current state was entered
+    /// Time since the current state was entered,
     pub time_in_state: Duration,
 }
 
-/// Generic data container for state context
+/// Generic data container for state context.
 ///
 /// StateData provides type-safe storage for common data types used in game logic.
 /// This allows states to share information without requiring complex type systems.
@@ -270,6 +202,11 @@ pub enum StateData {
 }
 
 impl StateContext {
+    /// Create a new state context with default values.
+    ///
+    /// # Returns
+    ///
+    /// A new [`StateContext`] instance.
     pub fn new() -> Self {
         Self {
             data: HashMap::new(),
@@ -277,10 +214,25 @@ impl StateContext {
         }
     }
 
+    /// Set a float value in the state context.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to associate with the value.
+    /// * `value` - The float value to set.
     pub fn set_float(&mut self, key: &str, value: f32) {
         self.data.insert(key.to_string(), StateData::Float(value));
     }
 
+    /// Get a float value from the state context.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to retrieve the value for.
+    ///
+    /// # Returns
+    ///
+    /// The `f32` value associated with the key.
     pub fn get_float(&self, key: &str) -> Option<f32> {
         match self.data.get(key) {
             Some(StateData::Float(value)) => Some(*value),
@@ -288,10 +240,25 @@ impl StateContext {
         }
     }
 
+    /// Set a boolean value in the state context.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to associate with the value.
+    /// * `value` - The boolean value to set.
     pub fn set_bool(&mut self, key: &str, value: bool) {
         self.data.insert(key.to_string(), StateData::Bool(value));
     }
 
+    /// Get a boolean value from the state context.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to retrieve the value for.
+    ///
+    /// # Returns
+    ///
+    /// The `bool` value associated with the key.
     pub fn get_bool(&self, key: &str) -> Option<bool> {
         match self.data.get(key) {
             Some(StateData::Bool(value)) => Some(*value),
@@ -299,10 +266,25 @@ impl StateContext {
         }
     }
 
+    /// Set a vector3 value in the state context.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to associate with the value.
+    /// * `value` - The vector3 value to set.
     pub fn set_vector3(&mut self, key: &str, value: cgmath::Vector3<f32>) {
         self.data.insert(key.to_string(), StateData::Vector3(value));
     }
 
+    /// Get a vector3 value from the state context.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to retrieve the value for.
+    ///
+    /// # Returns
+    ///
+    /// The `cgmath::Vector3<f32>` value associated with the key.
     pub fn get_vector3(&self, key: &str) -> Option<cgmath::Vector3<f32>> {
         match self.data.get(key) {
             Some(StateData::Vector3(value)) => Some(*value),
@@ -319,66 +301,37 @@ impl StateContext {
 /// ## Generic Parameter
 ///
 /// The FSM is generic over `S: StateIdentifier` allowing users to define their own
-/// state enums. Defaults to `DefaultStateId` for convenience.
-///
-/// ## Usage in ECS
-///
-/// ```rust
-/// use gears_ecs::components::fsm::*;
-///
-/// // Using default state types
-/// let mut fsm: FiniteStateMachine = FiniteStateMachine::new();
-///
-/// // Or with custom state enum (define MyStateId first)
-/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-/// enum MyStateId {
-///     Idle,
-///     Moving,
-/// }
-///
-/// impl std::fmt::Display for MyStateId {
-///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-///         write!(f, "{}", self.as_str())
-///     }
-/// }
-///
-/// impl StateIdentifier for MyStateId {
-///     fn as_str(&self) -> &'static str {
-///         match self {
-///             MyStateId::Idle => "idle",
-///             MyStateId::Moving => "moving",
-///         }
-///     }
-/// }
-///
-/// let mut custom_fsm = FiniteStateMachine::<MyStateId>::new();
-/// ```
+/// state enums. Defaults to [`DefaultStateId`] for convenience.
 #[derive(Debug)]
 pub struct FiniteStateMachine<S: StateIdentifier = DefaultStateId> {
-    /// Main states and their implementations
+    /// Main states and their implementations.
     states: HashMap<S, Box<dyn State<S>>>,
-    /// Sub-states organized by parent state
+    /// Sub-states organized by parent state.
     sub_states: HashMap<S, HashMap<S, Box<dyn State<S>>>>,
-    /// Initial sub-state for each parent state
+    /// Initial sub-state for each parent state.
     initial_sub_states: HashMap<S, S>,
-    /// Current active main state
+    /// Current active main state.
     current_state: Option<S>,
-    /// Current active sub-state for the current main state
+    /// Current active sub-state for the current main state.
     current_sub_state: Option<S>,
-    /// Shared context for state communication
+    /// Shared context for state communication.
     context: StateContext,
-    /// Timestamp when current state was entered
+    /// Timestamp when current state was entered.
     state_enter_time: Instant,
-    /// Whether the FSM is currently enabled
+    /// Whether the FSM is currently enabled.
     enabled: bool,
-    /// Complete state hierarchy stack (main state + sub-states)
+    /// Complete state hierarchy stack (main state + sub-states).
     state_stack: Vec<S>,
-    /// Previously active main state
+    /// Previously active main state.
     previous_state: Option<S>,
 }
 
 impl<S: StateIdentifier> FiniteStateMachine<S> {
-    /// Create a new hierarchical finite state machine
+    /// Create a new hierarchical finite state machine.
+    ///
+    /// # Returns
+    ///
+    /// A new [`FiniteStateMachine`] instance.
     pub fn new() -> Self {
         Self {
             states: HashMap::new(),
@@ -394,12 +347,23 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         }
     }
 
-    /// Add a main state to the FSM
+    /// Add a main state to the FSM.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The identifier of the state.
+    /// * `state` - The state to add.
     pub fn add_state(&mut self, id: S, state: Box<dyn State<S>>) {
         self.states.insert(id, state);
     }
 
-    /// Add a sub-state to a parent state
+    /// Add a sub-state to a parent state.
+    ///
+    /// # Arguments
+    ///
+    /// * `parent_id` - The identifier of the parent state.
+    /// * `sub_id` - The identifier of the sub-state.
+    /// * `state` - The state to add.
     pub fn add_sub_state(&mut self, parent_id: S, sub_id: S, state: Box<dyn State<S>>) {
         self.sub_states
             .entry(parent_id)
@@ -407,7 +371,12 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
             .insert(sub_id, state);
     }
 
-    /// Set the initial sub-state for a parent state
+    /// Set the initial sub-state for a parent state.
+    ///
+    /// # Arguments
+    ///
+    /// * `parent_id` - The identifier of the parent state.
+    /// * `sub_id` - The identifier of the sub-state.
     pub fn set_initial_sub_state(&mut self, parent_id: S, sub_id: S) {
         if self
             .sub_states
@@ -418,7 +387,11 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         }
     }
 
-    /// Set the initial state and enter it
+    /// Set the initial state and enter it.
+    ///
+    /// # Arguments
+    ///
+    /// * `state_id` - The identifier of the state.
     pub fn set_initial_state(&mut self, state_id: S) {
         if self.states.contains_key(&state_id) {
             self.current_state = Some(state_id);
@@ -446,12 +419,20 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         }
     }
 
-    /// Get the current state ID
+    /// Get the current state Id.
+    ///
+    /// # Returns
+    ///
+    /// The current state identifier if it exists.
     pub fn current_state(&self) -> Option<S> {
         self.current_state
     }
 
-    /// Get the current state stack (for hierarchical states)
+    /// Get the current state stack (for hierarchical states).
+    ///
+    /// # Returns
+    ///
+    /// The current state stack if it exists.
     pub fn state_stack(&self) -> &[S] {
         &self.state_stack
     }
@@ -461,7 +442,11 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         self.previous_state
     }
 
-    /// Force a transition to a specific main state
+    /// Force a transition to a specific main state.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_state_id` - The new main state identifier.
     pub fn transition_to(&mut self, new_state_id: S) {
         if !self.states.contains_key(&new_state_id) {
             return;
@@ -511,7 +496,11 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         }
     }
 
-    /// Transition to a different sub-state within the current main state
+    /// Transition to a different sub-state within the current main state.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_sub_state_id` - The new sub-state identifier.
     pub fn transition_to_sub_state(&mut self, new_sub_state_id: S) {
         let Some(current_main) = self.current_state else {
             return;
@@ -546,7 +535,11 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         }
     }
 
-    /// Update the FSM - handles both main states and sub-states naturally
+    /// Update the FSM - handles both main states and sub-states naturally.
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - The duration since the last update.
     pub fn update(&mut self, dt: Duration) {
         if !self.enabled {
             return;
@@ -585,37 +578,62 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         }
     }
 
-    /// Enable or disable the FSM
+    /// Enable or disable the FSM.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - Whether to enable or disable the FSM.
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
     }
 
-    /// Check if the FSM is enabled
+    /// Check if the FSM is enabled.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the FSM is enabled.
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }
 
-    /// Get mutable access to the context
+    /// Get mutable access to the context.
+    ///
+    /// # Returns
+    ///
+    /// Mutable reference to the context.
     pub fn context_mut(&mut self) -> &mut StateContext {
         &mut self.context
     }
 
-    /// Get read-only access to the context
+    /// Get read-only access to the context.
+    ///
+    /// # Returns
+    ///
+    /// Read-only reference to the context.
     pub fn context(&self) -> &StateContext {
         &self.context
     }
 
     /// Get the current active sub-state
+    ///
+    /// # Returns
+    ///
+    /// Option containing the current active sub-state.
     pub fn current_sub_state(&self) -> Option<S> {
         self.current_sub_state
     }
 }
 
 impl<S: StateIdentifier> Default for FiniteStateMachine<S> {
+    /// Create a new FSM with default settings.
+    ///
+    /// # Returns
+    ///
+    /// A new [`FiniteStateMachine`] instance.
     fn default() -> Self {
         Self::new()
     }
 }
 
-// Manual Component implementation for generic FSM
+// Manual Component implementation for generic FSM.
 impl<S: StateIdentifier> Component for FiniteStateMachine<S> {}
