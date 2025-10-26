@@ -1,4 +1,4 @@
-//! Custom macros for gears
+//! Custom macros for the gears engine.
 
 #![forbid(unsafe_code)]
 

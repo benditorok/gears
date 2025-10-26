@@ -17,6 +17,7 @@ const AIR_CONTROL_FACTOR: f32 = 0.4;
 const GROUNDED_TIME_THRESHOLD: Duration = Duration::from_millis(50);
 const JUMP_COOLDOWN: Duration = Duration::from_millis(100);
 
+/// Enum representing the state of the jump.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum JumpState {
     Grounded,
@@ -25,25 +26,43 @@ enum JumpState {
     JumpReleased,
 }
 
+/// Controller which handles the player's movement.
 #[derive(Component, Debug, Clone)]
 pub struct MovementController {
+    /// Speed of the player.
     pub(crate) speed: f32,
+    /// Keycodes used for movement.
     pub(crate) keycodes: MovementKeycodes,
+    /// Amount of horizontal movement left.
     amount_left: f32,
+    /// Amount of horizontal movement right.
     amount_right: f32,
+    /// Amount of forward movement.
     amount_forward: f32,
+    /// Amount of backward movement.
     amount_backward: f32,
+    /// Amount of upward movement.
     amount_up: f32,
+    /// Amount of downward movement.
     amount_down: f32,
+    /// Current jump state.
     jump_state: JumpState,
+    /// Previous jump button state.
     prev_jump_pressed: bool,
-    // Track time-based events for more reliable jump detection
-    grounded_time: Option<Instant>, // When player first contacted ground
-    last_jump_time: Option<Instant>, // When player last jumped
-    can_jump: bool,                 // Flag to determine if player can jump
+    /// When player first contacted ground.
+    grounded_time: Option<Instant>,
+    /// When player last jumped.
+    last_jump_time: Option<Instant>,
+    /// Flag to determine if player can jump.
+    can_jump: bool,
 }
 
 impl Default for MovementController {
+    /// Creates a new default movement controller.
+    ///
+    /// # Returns
+    ///
+    /// The default [`MovementController`] instance.
     fn default() -> Self {
         Self {
             speed: 20.0,
@@ -64,6 +83,16 @@ impl Default for MovementController {
 }
 
 impl MovementController {
+    /// Creates a new [`MovementController`] instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `speed` - The speed of the movement controller.
+    /// * `keycodes` - The keycodes for the movement controller.
+    ///
+    /// # Returns
+    ///
+    /// A new [`MovementController`] instance.
     pub fn new(speed: f32, keycodes: MovementKeycodes) -> Self {
         Self {
             speed,
@@ -82,6 +111,16 @@ impl MovementController {
         }
     }
 
+    /// Processes keyboard input for the movement controller.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key code of the keyboard input.
+    /// * `state` - The state of the keyboard input.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the input was consumed.
     pub fn process_keyboard(&mut self, key: KeyCode, state: ElementState) -> bool {
         info!("Processing keyboard input: {:?}, {:?}", key, state);
         let amount = if state == ElementState::Pressed {
@@ -122,6 +161,11 @@ impl MovementController {
         }
     }
 
+    /// Check if the player is in contact with the ground.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the player is on the ground.
     fn check_ground_contact(&mut self, rb: &RigidBody<impl CollisionBox>) -> bool {
         // Consider the player grounded if:
         // 1. They have a small negative (or zero) y velocity (falling very slowly or stationary)
@@ -148,7 +192,11 @@ impl MovementController {
         false
     }
 
-    // Helper function to safely normalize a vector or return zero if magnitude is too small
+    /// Helper function to safely normalize a vector or return zero if magnitude is too small.
+    ///
+    /// # Returns
+    ///
+    /// The normalized vector or zero vector if magnitude is too small.
     fn normalize_or_zero(vec: Vector3<f32>) -> Vector3<f32> {
         let mag = vec.magnitude();
         if mag > 0.0001 {
@@ -158,6 +206,14 @@ impl MovementController {
         }
     }
 
+    /// Helper function to update the position of the entity.
+    ///
+    /// # Arguments
+    ///
+    /// * `view_controller` - The view controller for the entity.
+    /// * `pos3` - The position component of the entity.
+    /// * `rigid_body` - The rigid body component of the entity.
+    /// * `dt` - The time step for the update.
     pub fn update_pos(
         &mut self,
         view_controller: &ViewController,
@@ -261,17 +317,29 @@ impl MovementController {
     }
 }
 
+/// Controller which handles the player's view.
 #[derive(Component, Debug, Clone)]
 pub struct ViewController {
+    /// Sensitivity of the player's view.
     pub sensitivity: f32,
+    /// Offset of the player's head.
     pub head_offset: f32,
+    /// Horizontal rotation of the player's view.
     pub rotate_horizontal: f32,
+    /// Vertical rotation of the player's view.
     pub rotate_vertical: f32,
+    /// Yaw of the player's view.
     pub yaw: cgmath::Rad<f32>,
+    /// Pitch of the player's view.
     pub pitch: cgmath::Rad<f32>,
 }
 
 impl Default for ViewController {
+    /// Creates a new view controller with default values.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ViewController`] with default values.
     fn default() -> Self {
         Self {
             sensitivity: 0.8,
@@ -285,6 +353,16 @@ impl Default for ViewController {
 }
 
 impl ViewController {
+    /// Creates a new view controller with default values.
+    ///
+    /// # Arguments
+    ///
+    /// * `sensitivity` - The sensitivity of the view controller.
+    /// * `head_offset` - The offset of the player's head.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ViewController`] with default values.
     pub fn new(sensitivity: f32, head_offset: f32) -> Self {
         Self {
             sensitivity,
@@ -296,6 +374,18 @@ impl ViewController {
         }
     }
 
+    /// Creates a new view controller with default values.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - The position of the player.
+    /// * `target` - The target position of the player.
+    /// * `sensitivity` - The sensitivity of the view controller.
+    /// * `head_offset` - The offset of the player's head.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ViewController`] with default values.
     pub fn new_look_at<V: Into<Point3<f32>>>(
         position: V,
         target: V,
@@ -318,12 +408,22 @@ impl ViewController {
         }
     }
 
+    /// Processes mouse motion to update the view later.
+    ///
+    /// # Arguments
+    /// * `dx` - The change in the x-coordinate of the mouse cursor.
+    /// * `dy` - The change in the y-coordinate of the mouse cursor.
     pub fn process_mouse(&mut self, dx: f64, dy: f64) {
         info!("Processing mouse motion: ({}, {})", dx, dy);
         self.rotate_horizontal = (dx as f32) * self.sensitivity;
         self.rotate_vertical = (dy as f32) * self.sensitivity;
     }
 
+    /// Updates the rotation of the camera based on the mouse motion.
+    ///
+    /// # Arguments
+    /// * `pos3` - The position and rotation of the camera.
+    /// * `dt` - The time elapsed since the last update.
     pub fn update_rot(&mut self, pos3: &mut Pos3, dt: f32) {
         // Rotate
         self.yaw += cgmath::Rad(self.rotate_horizontal) * dt;
@@ -348,17 +448,29 @@ impl ViewController {
     }
 }
 
+/// Updates the rotation of the camera based on the mouse motion.
 #[derive(Debug, Copy, Clone)]
 pub struct MovementKeycodes {
+    /// The key to move forward.
     pub forward: winit::keyboard::KeyCode,
+    /// The key to move backward.
     pub backward: winit::keyboard::KeyCode,
+    /// The key to move left.
     pub left: winit::keyboard::KeyCode,
+    /// The key to move right.
     pub right: winit::keyboard::KeyCode,
+    /// The key to move up.
     pub up: winit::keyboard::KeyCode,
+    /// The key to move down.
     pub down: winit::keyboard::KeyCode,
 }
 
 impl Default for MovementKeycodes {
+    /// The default keycodes for movement.
+    ///
+    /// # Returns
+    ///
+    /// A new [`MovementKeycodes`] instance with default keycodes.
     fn default() -> Self {
         Self {
             forward: winit::keyboard::KeyCode::KeyW,
