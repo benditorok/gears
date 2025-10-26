@@ -1,50 +1,66 @@
-//! Query System for Component Access
-
 use crate::{Component, Entity, World};
 use std::any::TypeId;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, RwLock};
 
-/// Unique identifier for a query request
+/// Unique identifier for a query request.
 pub type QueryId = u64;
 
-/// Represents the type of access needed for a component
+/// Represents the type of access needed for a component.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccessType {
     Read,
     Write,
 }
 
-/// Information about an active resource access
+/// Information about an active resource access.
 #[derive(Debug, Clone)]
 pub(crate) struct ResourceAccess {
+    /// Unique identifier for the query request.
     pub(crate) query_id: QueryId,
+    /// Type of access needed for the component.
     pub(crate) access_type: AccessType,
 }
 
-/// A request for accessing specific components on specific entities
+/// A request for accessing specific components on specific entities.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentAccessRequest {
+    /// Type identifier for the component.
     pub type_id: TypeId,
+    /// Entities on which the component access is requested.
     pub entities: Vec<Entity>,
+    /// Type of access needed for the component.
     pub access_type: AccessType,
 }
 
-/// A query builder for specifying component access requirements
+/// A query builder for specifying component access requirements.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentQuery {
+    /// Component access requests.
     requests: Vec<ComponentAccessRequest>,
 }
 
 impl ComponentQuery {
-    /// Create a new empty query
+    /// Create a new empty query.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ComponentQuery`] instance.
     pub fn new() -> Self {
         Self {
             requests: Vec::new(),
         }
     }
 
-    /// Add a read request for a component type on specific entities
+    /// Add a read request for a component type on specific entities.
+    ///
+    /// # Arguments
+    ///
+    /// * `entities` - The entities on which the component access is requested.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`ComponentQuery`] instance.
     pub fn read<T: Component>(mut self, entities: Vec<Entity>) -> Self {
         if !entities.is_empty() {
             self.requests.push(ComponentAccessRequest {
@@ -56,7 +72,15 @@ impl ComponentQuery {
         self
     }
 
-    /// Add a write request for a component type on specific entities
+    /// Add a write request for a component type on specific entities.
+    ///
+    /// # Arguments
+    ///
+    /// * `entities` - The entities on which the component access is requested.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`ComponentQuery`] instance.
     pub fn write<T: Component>(mut self, entities: Vec<Entity>) -> Self {
         if !entities.is_empty() {
             self.requests.push(ComponentAccessRequest {
@@ -68,7 +92,11 @@ impl ComponentQuery {
         self
     }
 
-    /// Get all (Entity, TypeId) pairs that this query would access
+    /// Get all entity-component pairs that this query would access.
+    ///
+    /// # Returns
+    ///
+    /// A vector of tuples containing the entity and component type ID.
     fn get_resource_keys(&self) -> Vec<(Entity, TypeId)> {
         self.requests
             .iter()
@@ -78,26 +106,43 @@ impl ComponentQuery {
 }
 
 impl Default for ComponentQuery {
+    /// Create a default component query.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ComponentQuery`] instance.
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Result of successfully acquiring all requested resources
+/// Result of successfully acquiring all requested resources.
 pub struct AcquiredResources<'a> {
+    /// The world from which the resources were acquired.
     world: &'a World,
+    /// The Id of the query that acquired these resources.
     query_id: QueryId,
+    /// The keys of the resources that were acquired.
     resource_keys: Vec<(Entity, TypeId)>,
 }
 
 impl<'a> AcquiredResources<'a> {
-    /// Get access to a component for a specific entity
+    /// Get access to a component for a specific entity.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity for which to get the component.
+    ///
+    /// # Returns
+    ///
+    /// An [`Arc<RwLock<T>>`] reference to the component if it exists.
     pub fn get<T: Component + 'static>(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
         self.world.get_component::<T>(entity)
     }
 }
 
 impl<'a> Drop for AcquiredResources<'a> {
+    /// Drop the acquired resources, releasing their access.
     fn drop(&mut self) {
         // Remove this query's access from all resource keys
         for &key in &self.resource_keys {
@@ -112,15 +157,32 @@ impl<'a> Drop for AcquiredResources<'a> {
     }
 }
 
-/// Extension trait for World to support query-based access
+/// Extension trait for World to support query-based access.
 pub trait WorldQueryExt {
-    /// Acquire all resources specified in the query, blocking until available
+    /// Acquire all resources specified in the query, blocking until available.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query to acquire resources for.
+    ///
+    /// # Returns
+    ///
+    /// An [`AcquiredResources`] containing the acquired resources if it could be acquired.
     fn acquire_query(&self, query: ComponentQuery) -> Option<AcquiredResources<'_>>;
 }
 
 impl WorldQueryExt for World {
+    /// Acquire all resources specified in the query, blocking until available.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query to acquire resources for.
+    ///
+    /// # Returns
+    ///
+    /// An [`AcquiredResources`] containing the acquired resources if it could be acquired.
     fn acquire_query(&self, query: ComponentQuery) -> Option<AcquiredResources<'_>> {
-        // Generate unique query ID
+        // Generate unique query Id
         let query_id = self.next_query_id.fetch_add(1, Ordering::Relaxed);
 
         // Get all resource keys this query needs
@@ -139,12 +201,13 @@ impl WorldQueryExt for World {
         sorted_keys.sort_by_key(|&(entity, type_id)| (*entity, type_id));
         sorted_keys.dedup();
 
-        // Validate that all requested components exist
-        for &(entity, type_id) in &sorted_keys {
-            if !self.has_component_of_type(entity, type_id) {
-                return None; // Entity doesn't have this component
-            }
-        }
+        // TODO fix this change!
+        // // Validate that all requested components exist
+        // for &(entity, type_id) in &sorted_keys {
+        //     if !self.has_component::<Type::of::<type_id>(entity, ) {
+        //         return None; // Entity doesn't have this component
+        //     }
+        // }
 
         // Block until we can acquire all resources
         loop {
@@ -206,7 +269,16 @@ impl WorldQueryExt for World {
 
 /// Helper methods for World to support query system
 impl World {
-    /// Check if a resource can be acquired with the given access type
+    /// Check if a resource can be acquired with the given access type.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The resource key to check.
+    /// * `access_type` - The access type to check.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the resource can be acquired.
     fn can_acquire_resource(&self, key: (Entity, TypeId), access_type: AccessType) -> bool {
         if let Some(accesses) = self.active_accesses.get(&key) {
             // Check for conflicts with active accesses
@@ -222,20 +294,27 @@ impl World {
         true
     }
 
-    /// Get the number of currently active resource accesses (for debugging/monitoring)
+    /// Get the number of currently active resource accesses (for debugging/monitoring).
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of currently active resource accesses.
     pub fn active_query_count(&self) -> usize {
         self.active_accesses.len()
     }
 
-    /// Clear all active queries (for emergency cleanup)
-    pub fn clear_active_queries(&self) {
+    /// Clear all active queries (for emergency cleanup).
+    ///
+    /// # Safety
+    ///
+    /// This function should only be called when it is safe to discard all active queries.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the active queries were successfully cleared.
+    pub fn clear_active_queries(&self) -> bool {
         self.active_accesses.clear();
-    }
-
-    /// Check if an entity has a component of a specific type (by TypeId)
-    fn has_component_of_type(&self, entity: Entity, _type_id: TypeId) -> bool {
-        // Simplified check - just verify entity ID is valid
-        *entity < self.next_entity.load(std::sync::atomic::Ordering::Relaxed)
+        true
     }
 }
 

@@ -16,8 +16,25 @@ use std::sync::{Arc, RwLock};
 
 /// The EntityBuilder trait is responsible for creating entities and adding components to them.
 pub trait EntityBuilder {
+    /// Creates a new entity.
+    ///
+    /// # Returns
+    ///
+    /// The instance of [`EntityBuilder`] so that chainable methods can be called.
     fn new_entity(&mut self) -> &mut Self;
+
+    /// Adds a component to the last created entity.
+    ///
+    /// # Returns
+    ///
+    /// The instance of [`EntityBuilder`] so that chainable methods can be called.
     fn add_component(&mut self, component: impl Component) -> &mut Self;
+
+    /// Close the chainable methods to the current entity.
+    ///
+    /// # Returns
+    ///
+    /// The last created [`Entity`].
     fn build(&mut self) -> Entity;
 }
 
@@ -35,11 +52,11 @@ impl Entity {
     ///
     /// # Arguments
     ///
-    /// * `id` - The id of the entity.
+    /// * `id` - The Id of the entity.
     ///
     /// # Returns
     ///
-    /// A new entity.
+    /// A new [`Entity`] instance.
     pub fn new(id: u32) -> Self {
         Self(id)
     }
@@ -48,44 +65,45 @@ impl Entity {
 impl Deref for Entity {
     type Target = u32;
 
-    /// Get the Id field of the entity.
+    /// Get the identifier of the entity.
     ///
     /// # Returns
     ///
-    /// The id of the entity.
+    /// The Id of the entity.
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl From<u32> for Entity {
-    /// Create a new entity from a number.
+    /// Create a new entity from a raw identifier.
     ///
     /// # Arguments
     ///
-    /// * `id` - The id of the entity.
+    /// * `id` - The Id of the entity.
     ///
     /// # Returns
     ///
-    /// A new entity.
+    /// A new [`Entity`] instance.
     fn from(id: u32) -> Self {
         Self(id)
     }
 }
 
-/// The ComponentStorage struct is responsible for storing components of a specific type.
-/// It uses a DashMap to store the components, which allows for concurrent reads and writes.
-/// The components are stored in an Arc<RwLock<T>> to allow for multiple reads or a single write.
+/// The component storage is responsible for storing components of a specific type.
+/// It uses a `DashMap` to store the components, which allows for concurrent reads and writes.
+/// The components are stored in an `Arc<RwLock<T>>` to allow for multiple reads or a single write.
 struct ComponentStorage<T> {
+    /// The storage for the components.
     storage: DashMap<Entity, Arc<RwLock<T>>>,
 }
 
 impl<T: Component> Default for ComponentStorage<T> {
-    /// Create a new ComponentStorage instance with a default capacity of 11.
+    /// Create a new component storage with a default capacity of 11.
     ///
     /// # Returns
     ///
-    /// A new ComponentStorage instance.
+    /// A new [`ComponentStorage`] instance.
     fn default() -> Self {
         Self {
             storage: DashMap::with_capacity(11),
@@ -94,23 +112,26 @@ impl<T: Component> Default for ComponentStorage<T> {
 }
 
 impl<T: Component> ComponentStorage<T> {
-    /// Create a new ComponentStorage instance.
+    /// Create a new component storage.
     ///
     /// # Returns
     ///
-    /// A new ComponentStorage instance.
+    /// A new [`ComponentStorage`] instance.
     fn new() -> Self {
         Self {
             storage: DashMap::new(),
         }
     }
 
-    /// Create a new ComponentStorage instance with a specified
-    /// initial capacity.
+    /// Create a new component storage with a specified initial capacity.
     ///
     /// # Arguments
     ///
     /// * `capacity` - The capacity of the storage.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ComponentStorage`] instance.
     #[allow(unused)]
     fn new_with_capacity(capacity: usize) -> Self {
         Self {
@@ -133,6 +154,10 @@ impl<T: Component> ComponentStorage<T> {
     /// # Arguments
     ///
     /// * `entity` - The entity to get the component for.
+    ///
+    /// # Returns
+    ///
+    /// An [`Arc<RwLock<T>>`] instance if the component exists, otherwise `None`.
     fn get(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
         self.storage
             .get(&entity)
@@ -149,24 +174,28 @@ impl<T: Component> ComponentStorage<T> {
     }
 }
 
-/// Unique identifier for a query request
+/// Unique identifier for a query request.
 pub type QueryId = u64;
 
 /// The World struct is the main entry point for the ECS system.
 /// It is responsible for creating entities and storing components.
 pub struct World {
+    /// The Id to be assigned for the next entity.
     next_entity: AtomicU32,
+    /// The storage for components and the entities.
     storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    /// Active accesses to resources.
     pub(crate) active_accesses: DashMap<(Entity, TypeId), Vec<query::ResourceAccess>>,
+    /// The next query identifier.
     pub(crate) next_query_id: AtomicU64,
 }
 
 impl Default for World {
-    /// Create a new World instance.
+    /// Create a new world with a default capacity.
     ///
     /// # Returns
     ///
-    /// A new World instance.
+    /// A new [`World`] instance.
     fn default() -> Self {
         Self {
             next_entity: AtomicU32::new(0),
@@ -178,11 +207,11 @@ impl Default for World {
 }
 
 impl World {
-    /// Create a new World instance.
+    /// Create a new world with zero capacity storages..
     ///
     /// # Returns
     ///
-    /// A new World instance.
+    /// A new [`World`] instance.
     pub fn new() -> Self {
         Self {
             next_entity: AtomicU32::new(0),
@@ -192,12 +221,11 @@ impl World {
         }
     }
 
-    /// Create a new World instance with a specified
-    /// initial capacity.
+    /// Create a new world with a specified initial capacity.
     ///
     /// # Returns
     ///
-    /// A new World instance.
+    /// A new [`World`] instance.
     pub fn with_capacity(capacity: u32) -> Self {
         Self {
             next_entity: AtomicU32::new(0),
@@ -220,7 +248,7 @@ impl World {
     ///
     /// # Returns
     ///
-    /// The Id of the last entity created.
+    /// An [`Entity`] instance if it exists.
     pub fn get_last(&self) -> Option<Entity> {
         self.next_entity
             .load(Ordering::SeqCst)
@@ -232,7 +260,7 @@ impl World {
     ///
     /// # Returns
     ///
-    /// The Id of the new entity.
+    /// A new [`Entity`] instance.
     pub fn create_entity(&self) -> Entity {
         self.next_entity.fetch_add(1, Ordering::SeqCst).into()
     }
@@ -254,8 +282,9 @@ impl World {
     }
 
     /// Add a component to an entity. If no storage exists for the component type,
-    /// a new storage will be created. If a component of the same type already exists,
-    /// it will be overwritten.
+    /// a new storage will be created.
+    ///
+    /// If a component of the same type already exists, it will be overwritten.
     ///
     /// # Arguments
     ///
@@ -292,7 +321,7 @@ impl World {
     ///
     /// # Returns
     ///
-    /// A mutable reference to the component if it exists.
+    /// An [`Arc<RwLock<T>>`] instance if it exists.
     pub fn get_component<T: Component>(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
         let entry = self.storage.get(&TypeId::of::<T>())?;
         if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
@@ -306,7 +335,7 @@ impl World {
     ///
     /// # Returns
     ///
-    /// A vector of mutable references to the components.
+    /// All [`Arc<RwLock<T>>`] instances which are associated with the specified entity.
     pub fn get_components<T: Component + 'static>(&self) -> Vec<Arc<RwLock<T>>> {
         if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
             if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
@@ -331,7 +360,7 @@ impl World {
     ///
     /// # Returns
     ///
-    /// A vector of entities which have the specified component.
+    /// All [`Entity`] instances that have the specified component.
     pub fn get_entities_with_component<T: Component>(&self) -> Vec<Entity> {
         if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
             if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
@@ -349,7 +378,7 @@ impl World {
     ///
     /// # Returns
     ///
-    /// A vector of tuples containing the entity and the component.
+    /// All [`Entity`] instances with their related components.
     pub fn get_entities_and_component<T: Component>(&self) -> Vec<(Entity, Arc<RwLock<T>>)> {
         if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
             if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
@@ -361,6 +390,24 @@ impl World {
             }
         }
         Vec::new()
+    }
+
+    /// Check if an entity has a component of a specific type.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the entity has the component.
+    pub fn has_component<T: Component>(&self, entity: Entity) -> bool {
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
+            if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
+                return typed_storage.storage.contains_key(&entity);
+            }
+        }
+        false
     }
 }
 

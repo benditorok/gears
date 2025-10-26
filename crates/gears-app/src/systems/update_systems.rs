@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 ///
 /// # Arguments
 ///
-///  * `world` - The ECS world instance.
+/// * `world` - The ECS world instance.
 /// * `state` - The renderer state instance.
 /// * `dt` - The duration of the last frame.
 ///
@@ -96,7 +96,7 @@ pub(super) fn update_lights(
 ///
 /// # Arguments
 ///
-///  * `world` - The ECS world instance.
+/// * `world` - The ECS world instance.
 /// * `state` - The renderer state instance.
 /// * `dt` - The duration of the last frame.
 ///
@@ -354,7 +354,7 @@ pub(super) fn update_models(
 ///
 /// # Arguments
 ///
-///  * `world` - The ECS world instance.
+/// * `world` - The ECS world instance.
 /// * `state` - The renderer state instance.
 /// * `dt` - The duration of the last frame.
 ///

@@ -536,7 +536,7 @@ impl EntityBuilder for GearsApp {
         self
     }
 
-    /// Close the chainable methods of the currenty entity.
+    /// Close the chainable methods to the current entity.
     ///
     /// # Returns
     ///
