@@ -7,34 +7,59 @@ use crate::{
 use gears_ecs::components;
 use wgpu::util::DeviceExt;
 
-/// The base pipeline for rendering
+/// The base pipeline for rendering.
 pub struct BasePipeline {
+    /// The render pipeline.
     pipeline: wgpu::RenderPipeline,
+    /// The bind group for the lights.
     light_bind_group: wgpu::BindGroup,
+    /// The bind group for the camera.
     camera_bind_group: wgpu::BindGroup,
+    /// The depth texture.
     texture: texture::Texture,
+    /// The width of the texture.
     width: u32,
+    /// The height of the texture.
     height: u32,
+    /// The texture format.
     format: wgpu::TextureFormat,
+    /// The bind group layout for the texture.
     texture_layout: wgpu::BindGroupLayout,
+    /// The bind group layout for the camera.
     camera_layout: wgpu::BindGroupLayout,
+    /// The bind group layout for the lights.
     #[allow(unused)]
     light_layout: wgpu::BindGroupLayout,
+    /// The pipeline layout.
     #[allow(unused)]
     pipeline_layout: wgpu::PipelineLayout,
-    /* Camera specific fields */
+    /// The camera projection.
     camera_projection: camera::Projection,
+    /// The camera uniform.
     camera_uniform: camera::CameraUniform,
+    /// The camera buffer.
     camera_buffer: wgpu::Buffer,
-    /* Light specific fields */
+    /// The light buffer.
     light_buffer: wgpu::Buffer,
 }
 
 impl BasePipeline {
+    /// Creates a new renderer pipeline instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The wgpu device to create the pipeline on.
+    /// * `config` - The surface configuration.
+    /// * `texture_format` - The texture format to use.
+    ///   Use the format that the HDR pipeline uses.
+    ///
+    /// # Returns
+    ///
+    /// A new [`BasePipeline`] instance.
     pub fn new(
         device: &wgpu::Device,
         config: &wgpu::SurfaceConfiguration,
-        hdr_pipeline: &HdrPipeline,
+        texture_format: wgpu::TextureFormat,
     ) -> Self {
         let width = config.width;
         let height = config.height;
@@ -164,7 +189,7 @@ impl BasePipeline {
         let pipeline = resources::create_render_pipeline(
             &device,
             &pipeline_layout,
-            hdr_pipeline.format(), // Use the format that the HDR pipeline uses
+            texture_format,
             Some(texture::Texture::DEPTH_FORMAT),
             &[model::ModelVertex::desc(), instance::InstanceRaw::desc()],
             wgpu::PrimitiveTopology::TriangleList,
@@ -191,7 +216,13 @@ impl BasePipeline {
         }
     }
 
-    /// Resize the depth texture
+    /// Resize the depth texture.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The wgpu device to create the texture on.
+    /// * `width` - The new width of the texture.
+    /// * `height` - The new height of the texture.
     pub(crate) fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.texture = texture::Texture::create_depth_texture(
             &device,
@@ -204,19 +235,36 @@ impl BasePipeline {
         self.height = height;
     }
 
-    /// Exposes the texture view
+    /// Exposes the texture view.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the texture view.
     #[allow(unused)]
     pub(crate) fn texture_view(&self) -> &wgpu::TextureView {
         &self.texture.view
     }
 
-    /// The format of the texture
+    /// The format of the texture.
+    ///
+    /// # Returns
+    ///
+    /// The texture format.
     #[allow(unused)]
     pub(crate) fn format(&self) -> wgpu::TextureFormat {
         self.format
     }
 
-    /// Begins a render pass for the internal texture
+    /// Begins a render pass for the internal texture.
+    ///
+    /// # Arguments
+    ///
+    /// * `encoder` - The command encoder to begin the render pass on.
+    /// * `output` - The output texture view to render to.
+    ///
+    /// # Returns
+    ///
+    /// The render pass which can be used to issue draw calls.
     pub(crate) fn begin<'a>(
         &self,
         encoder: &'a mut wgpu::CommandEncoder,
@@ -250,42 +298,93 @@ impl BasePipeline {
         })
     }
 
+    /// Exposes the render pipeline.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the render pipeline.
     pub(crate) fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
     }
 
+    /// Exposes the camera bind group.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the camera bind group.
     pub(crate) fn camera_bind_group(&self) -> &wgpu::BindGroup {
         &self.camera_bind_group
     }
 
+    /// Exposes the light bind group.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the light bind group.
     pub fn light_bind_group(&self) -> &wgpu::BindGroup {
         &self.light_bind_group
     }
 
+    /// Exposes the texture bind group layout.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the texture bind group layout.
     pub fn texture_layout(&self) -> &wgpu::BindGroupLayout {
         &self.texture_layout
     }
 
+    /// Exposes the camera bind group layout.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the camera bind group layout.
     pub fn camera_layout(&self) -> &wgpu::BindGroupLayout {
         &self.camera_layout
     }
 
+    /// Exposes the light bind group layout.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the light bind group layout.
     pub(crate) fn camera_projection_mut(&mut self) -> &mut camera::Projection {
         &mut self.camera_projection
     }
 
+    /// Exposes the camera uniform.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the camera uniform.
     pub(crate) fn camera_uniform(&self) -> &camera::CameraUniform {
         &self.camera_uniform
     }
 
+    /// Exposes the camera buffer.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the camera buffer.
     pub(crate) fn camera_buffer(&self) -> &wgpu::Buffer {
         &self.camera_buffer
     }
 
+    /// Exposes the light buffer.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the light buffer.
     pub fn light_buffer(&self) -> &wgpu::Buffer {
         &self.light_buffer
     }
 
+    /// Updates the camera view projection matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos3` - The position component of the camera.
+    /// * `controller` - The view controller component of the camera.
     pub(crate) fn update_camera_view_proj(
         &mut self,
         pos3: &components::transforms::Pos3,

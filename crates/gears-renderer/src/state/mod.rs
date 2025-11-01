@@ -131,7 +131,8 @@ impl State {
         let hdr_pipeline = pipeline::hdr::HdrPipeline::new(&device, &config);
 
         // ! Base pipeline
-        let base_pipeline = pipeline::base::BasePipeline::new(&device, &config, &hdr_pipeline);
+        let base_pipeline =
+            pipeline::base::BasePipeline::new(&device, &config, hdr_pipeline.format());
 
         // ! Wireframe pipeline
         let wireframe_pipeline = pipeline::wireframe::WireframePipeline::new(
