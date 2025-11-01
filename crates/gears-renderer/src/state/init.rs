@@ -14,7 +14,11 @@ use log::info;
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
-/// Initialie the player component.
+/// Initializes the player component and camera controllers.
+///
+/// # Arguments
+///
+/// * `state` - The mutable reference to the current state.
 ///
 /// # Returns
 ///
@@ -49,7 +53,11 @@ pub(super) fn player(state: &mut State) -> bool {
     false
 }
 
-/// Initialize the camera component.
+/// Initializes the static camera component if no player is found.
+///
+/// # Arguments
+///
+/// * `state` - The mutable reference to the current state.
 pub(super) fn camera(state: &mut State) {
     let mut static_camera_entity = state
         .world
@@ -78,11 +86,14 @@ pub(super) fn camera(state: &mut State) {
     panic!("No camera found in the ECS!");
 }
 
-/// Initialize the model components.
+/// Initializes static model components from the ECS world.
 ///
-/// # Returns
+/// # Arguments
 ///
-/// A future which can be awaited.
+/// * `device` - The wgpu device for GPU resource creation.
+/// * `queue` - The wgpu queue for buffer uploads.
+/// * `texture_bind_group_layout` - The bind group layout for textures.
+/// * `world` - The ECS world containing the entities and components.
 pub(super) async fn models(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -181,6 +192,14 @@ pub(super) async fn models(
     }
 }
 
+/// Initializes physics-enabled model components with collision boxes.
+///
+/// # Arguments
+///
+/// * `device` - The wgpu device for GPU resource creation.
+/// * `queue` - The wgpu queue for buffer uploads.
+/// * `texture_bind_group_layout` - The bind group layout for textures.
+/// * `world` - The ECS world containing the entities and components.
 pub(super) async fn physics_models(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -286,6 +305,11 @@ pub(super) async fn physics_models(
     }
 }
 
+/// Initializes target entities for gameplay systems.
+///
+/// # Arguments
+///
+/// * `state` - The mutable reference to the current state.
 pub(super) fn targets(state: &mut State) {
     let target_entities = state
         .world

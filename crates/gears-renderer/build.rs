@@ -5,10 +5,16 @@ use std::error::Error;
 use std::fmt;
 use std::path::PathBuf;
 
+/// Custom error type for build script.
 #[derive(Debug)]
 enum BuildError {
+    /// Environment variable error.
     EnvVar(env::VarError),
+
+    /// IO error.
     Io(std::io::Error),
+
+    /// File system operation error.
     FsExtra(fs_extra::error::Error),
 }
 

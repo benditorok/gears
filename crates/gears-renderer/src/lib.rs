@@ -1,3 +1,5 @@
+//! Rendering system built on top of wgpu for the gears engine.
+
 #![forbid(unsafe_code)]
 
 pub mod animation;
@@ -13,13 +15,18 @@ pub mod texture;
 use gears_ecs::Component;
 use std::ops::Deref;
 
-/// Wrapper for wgpu::Buffer to implement Component
+/// Wrapper for wgpu::Buffer to implement the Component trait.
 #[derive(Debug)]
 pub struct BufferComponent(pub wgpu::Buffer);
 
 impl Deref for BufferComponent {
     type Target = wgpu::Buffer;
 
+    /// Dereferences to the inner wgpu::Buffer.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the inner [`wgpu::Buffer`].
     fn deref(&self) -> &Self::Target {
         &self.0
     }

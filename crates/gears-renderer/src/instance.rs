@@ -2,13 +2,21 @@ use super::model;
 use gears_ecs::Component;
 use gears_macro::Component;
 
+/// Represents an instance of a model with position and rotation.
 #[derive(Component, Debug)]
 pub struct Instance {
+    /// The position in world space.
     pub position: cgmath::Vector3<f32>,
+    /// The rotation as a quaternion.
     pub rotation: cgmath::Quaternion<f32>,
 }
 
 impl Instance {
+    /// Converts the instance to raw GPU data format.
+    ///
+    /// # Returns
+    ///
+    /// An [`InstanceRaw`] representation of the instance.
     pub fn to_raw(&self) -> InstanceRaw {
         let model =
             cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation);
@@ -19,15 +27,23 @@ impl Instance {
     }
 }
 
+/// Raw instance data laid out for GPU upload.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 #[allow(dead_code)]
 pub struct InstanceRaw {
+    /// The model transformation matrix.
     pub model: [[f32; 4]; 4],
+    /// The normal transformation matrix.
     pub normal: [[f32; 3]; 3],
 }
 
 impl model::Vertex for InstanceRaw {
+    /// Returns the vertex buffer layout for instance data.
+    ///
+    /// # Returns
+    ///
+    /// A [`wgpu::VertexBufferLayout`] describing the instance data layout.
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
         wgpu::VertexBufferLayout {

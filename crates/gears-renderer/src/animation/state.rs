@@ -1,5 +1,3 @@
-//! Animation state management for creating animation state machines.
-
 use super::{AnimationEvent, LoopMode, PlaybackState};
 use std::collections::HashMap;
 use std::time::Duration;
