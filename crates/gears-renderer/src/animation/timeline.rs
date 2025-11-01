@@ -1,23 +1,25 @@
-//! Animation timeline for keyframe editing and precise timing control.
-
-use crate::animation::track::AnimationTrack;
-
 use super::{AnimationClip, AnimationEvent, AnimationTarget, AnimationValue, Keyframe};
+use crate::animation::track::AnimationTrack;
 use std::collections::HashMap;
 use std::time::Duration;
 
-/// Represents a marker on the timeline for navigation and editing
+/// Represents a marker on the timeline for navigation and editing.
 #[derive(Debug, Clone)]
 pub struct TimelineMarker {
-    /// Time position of the marker
+    /// Time position of the marker.
     pub time: f32,
-    /// Optional label for the marker
+    /// Optional label for the marker.
     pub label: Option<String>,
-    /// Color for visual representation (RGBA)
+    /// Color for visual representation (RGBA).
     pub color: [f32; 4],
 }
 
 impl TimelineMarker {
+    /// Creates a new timeline marker.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time position of the marker.
     pub fn new(time: f32) -> Self {
         Self {
             time,
@@ -26,85 +28,108 @@ impl TimelineMarker {
         }
     }
 
+    /// Sets the label for this marker.
+    ///
+    /// # Arguments
+    ///
+    /// * `label` - The label text.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`TimelineMarker`] instance.
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
     }
 
+    /// Sets the color for this marker.
+    ///
+    /// # Arguments
+    ///
+    /// * `color` - The RGBA color values.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`TimelineMarker`] instance.
     pub fn with_color(mut self, color: [f32; 4]) -> Self {
         self.color = color;
         self
     }
 }
 
-/// Timeline editing operations for keyframes
+/// Timeline editing operations for keyframes.
 #[derive(Debug, Clone)]
 pub enum TimelineOperation {
-    /// Add a new keyframe
+    /// Add a new keyframe.
     AddKeyframe {
         target: AnimationTarget,
         keyframe: Keyframe,
     },
-    /// Remove a keyframe at specific time
+    /// Remove a keyframe at specific time.
     RemoveKeyframe {
         target: AnimationTarget,
         time: f32,
         tolerance: f32,
     },
-    /// Move a keyframe to a new time
+    /// Move a keyframe to a new time.
     MoveKeyframe {
         target: AnimationTarget,
         old_time: f32,
         new_time: f32,
         tolerance: f32,
     },
-    /// Modify keyframe value
+    /// Modify keyframe value.
     ModifyKeyframe {
         target: AnimationTarget,
         time: f32,
         new_value: AnimationValue,
         tolerance: f32,
     },
-    /// Scale time range
+    /// Scale time range.
     ScaleTime {
         start_time: f32,
         end_time: f32,
         scale_factor: f32,
     },
-    /// Offset time range
+    /// Offset time range.
     OffsetTime {
         start_time: f32,
         end_time: f32,
         offset: f32,
     },
-    /// Add event
+    /// Add event.
     AddEvent { event: AnimationEvent },
-    /// Remove event
+    /// Remove event.
     RemoveEvent { time: f32, tolerance: f32 },
 }
 
-/// Timeline viewport settings for visualization
+/// Timeline viewport settings for visualization.
 #[derive(Debug, Clone)]
 pub struct TimelineViewport {
-    /// Start time visible in the viewport
+    /// Start time visible in the viewport.
     pub start_time: f32,
-    /// End time visible in the viewport
+    /// End time visible in the viewport.
     pub end_time: f32,
-    /// Zoom level (1.0 = normal, >1.0 = zoomed in, <1.0 = zoomed out)
+    /// Zoom level (1.0 = normal, >1.0 = zoomed in, <1.0 = zoomed out).
     pub zoom: f32,
-    /// Whether to show keyframes
+    /// Whether to show keyframes.
     pub show_keyframes: bool,
-    /// Whether to show events
+    /// Whether to show events.
     pub show_events: bool,
-    /// Whether to show markers
+    /// Whether to show markers.
     pub show_markers: bool,
-    /// Whether to snap to grid/keyframes
+    /// Whether to snap to grid/keyframes.
     pub snap_enabled: bool,
-    /// Grid snap interval
+    /// Grid snap interval.
     pub snap_interval: f32,
 }
 
 impl Default for TimelineViewport {
+    /// Creates a default timeline viewport.
+    ///
+    /// # Returns
+    ///
+    /// The default [`TimelineViewport`] instance.
     fn default() -> Self {
         Self {
             start_time: 0.0,
@@ -120,24 +145,46 @@ impl Default for TimelineViewport {
 }
 
 impl TimelineViewport {
-    /// Check if a time is visible in the current viewport
+    /// Checks if a time is visible in the current viewport.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the time is within the viewport range.
     pub fn is_time_visible(&self, time: f32) -> bool {
         time >= self.start_time && time <= self.end_time
     }
 
-    /// Get the duration of the current viewport
+    /// Gets the duration of the current viewport.
+    ///
+    /// # Returns
+    ///
+    /// The duration in seconds.
     pub fn duration(&self) -> f32 {
         self.end_time - self.start_time
     }
 
-    /// Zoom to fit a specific time range
+    /// Zooms to fit a specific time range.
+    ///
+    /// # Arguments
+    ///
+    /// * `start_time` - The start of the range.
+    /// * `end_time` - The end of the range.
     pub fn zoom_to_fit(&mut self, start_time: f32, end_time: f32) {
         self.start_time = start_time;
         self.end_time = end_time;
         self.zoom = 1.0;
     }
 
-    /// Zoom in/out by a factor at a specific time point
+    /// Zooms in/out by a factor at a specific time point.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time point to zoom around.
+    /// * `zoom_factor` - The zoom factor (>1.0 zooms in, <1.0 zooms out).
     pub fn zoom_at_time(&mut self, time: f32, zoom_factor: f32) {
         let new_zoom = (self.zoom * zoom_factor).clamp(0.1, 100.0);
         let zoom_ratio = new_zoom / self.zoom;
@@ -152,13 +199,25 @@ impl TimelineViewport {
         self.zoom = new_zoom;
     }
 
-    /// Pan the viewport by a time offset
+    /// Pan the viewport by a time offset.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset` - The time offset to pan by (positive = right, negative = left).
     pub fn pan(&mut self, offset: f32) {
         self.start_time += offset;
         self.end_time += offset;
     }
 
     /// Snap a time value to the grid if snapping is enabled
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time value to snap
+    ///
+    /// # Returns
+    ///
+    /// The snapped time value
     pub fn snap_time(&self, time: f32) -> f32 {
         if self.snap_enabled && self.snap_interval > 0.0 {
             (time / self.snap_interval).round() * self.snap_interval
@@ -168,18 +227,23 @@ impl TimelineViewport {
     }
 }
 
-/// Undo/Redo history for timeline operations
+/// Undo/Redo history for timeline operations.
 #[derive(Debug)]
 pub struct TimelineHistory {
-    /// History of operations (for undo)
+    /// History of operations (for undo).
     undo_stack: Vec<TimelineOperation>,
-    /// Redo stack
+    /// Redo stack.
     redo_stack: Vec<TimelineOperation>,
-    /// Maximum history size
+    /// Maximum history size.
     max_history_size: usize,
 }
 
 impl TimelineHistory {
+    /// Creates a new timeline history.
+    ///
+    /// # Returns
+    ///
+    /// A new [`TimelineHistory`] instance.
     pub fn new() -> Self {
         Self {
             undo_stack: Vec::new(),
@@ -188,12 +252,25 @@ impl TimelineHistory {
         }
     }
 
+    /// Creates a new timeline history with a maximum size.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_size` - The maximum number of operations to store.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`TimelineHistory`] instance.
     pub fn with_max_size(mut self, max_size: usize) -> Self {
         self.max_history_size = max_size;
         self
     }
 
-    /// Record an operation for undo/redo
+    /// Record an operation for undo/redo.
+    ///
+    /// # Arguments
+    ///
+    /// * `operation` - The operation to record.
     pub fn record_operation(&mut self, operation: TimelineOperation) {
         self.undo_stack.push(operation);
         self.redo_stack.clear(); // Clear redo stack when new operation is recorded
@@ -204,7 +281,11 @@ impl TimelineHistory {
         }
     }
 
-    /// Get the last operation for undo
+    /// Get the last operation for undo.
+    ///
+    /// # Returns
+    ///
+    /// The operation to undo, if available.
     pub fn undo(&mut self) -> Option<TimelineOperation> {
         if let Some(operation) = self.undo_stack.pop() {
             self.redo_stack.push(operation.clone());
@@ -214,7 +295,11 @@ impl TimelineHistory {
         }
     }
 
-    /// Get an operation for redo
+    /// Get an operation for redo.
+    ///
+    /// # Returns
+    ///
+    /// The operation to redo, if available.
     pub fn redo(&mut self) -> Option<TimelineOperation> {
         if let Some(operation) = self.redo_stack.pop() {
             self.undo_stack.push(operation.clone());
@@ -224,17 +309,25 @@ impl TimelineHistory {
         }
     }
 
-    /// Check if undo is available
+    /// Checks if undo is available.
+    ///
+    /// # Returns
+    ///
+    /// `true` if there are operations to undo.
     pub fn can_undo(&self) -> bool {
         !self.undo_stack.is_empty()
     }
 
-    /// Check if redo is available
+    /// Checks if redo is available.
+    ///
+    /// # Returns
+    ///
+    /// `true` if there are operations to redo.
     pub fn can_redo(&self) -> bool {
         !self.redo_stack.is_empty()
     }
 
-    /// Clear all history
+    /// Clears all history.
     pub fn clear(&mut self) {
         self.undo_stack.clear();
         self.redo_stack.clear();
@@ -242,40 +335,53 @@ impl TimelineHistory {
 }
 
 impl Default for TimelineHistory {
+    /// Creates a default timeline history.
+    ///
+    /// # Returns
+    ///
+    /// The default [`TimelineHistory`] instance.
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Main timeline structure for animation editing
+/// Main timeline structure for animation editing.
 #[derive(Debug)]
 pub struct AnimationTimeline {
-    /// The animation clip being edited
+    /// The animation clip being edited.
     clip: AnimationClip,
-    /// Current playback time (playhead position)
+    /// Current playback time (playhead position).
     current_time: f32,
-    /// Whether the timeline is playing
+    /// Whether the timeline is playing.
     playing: bool,
-    /// Playback speed multiplier
+    /// Playback speed multiplier.
     playback_speed: f32,
-    /// Whether to loop playback
+    /// Whether to loop playback.
     loop_playback: bool,
-    /// Timeline markers
+    /// Timeline markers.
     markers: Vec<TimelineMarker>,
-    /// Viewport settings
+    /// Viewport settings.
     viewport: TimelineViewport,
-    /// Operation history for undo/redo
+    /// Operation history for undo/redo.
     history: TimelineHistory,
-    /// Selected keyframes (target, time)
+    /// Selected keyframes (target, time).
     selected_keyframes: Vec<(AnimationTarget, f32)>,
-    /// Selected events (time)
+    /// Selected events (time).
     selected_events: Vec<f32>,
-    /// Whether the timeline is in edit mode
+    /// Whether the timeline is in edit mode.
     edit_mode: bool,
 }
 
 impl AnimationTimeline {
-    /// Create a new animation timeline
+    /// Creates a new animation timeline.
+    ///
+    /// # Arguments
+    ///
+    /// * `clip` - The animation clip to edit.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationTimeline`] instance.
     pub fn new(clip: AnimationClip) -> Self {
         Self {
             clip,
@@ -292,58 +398,86 @@ impl AnimationTimeline {
         }
     }
 
-    /// Get a reference to the animation clip
+    /// Get a reference to the animation clip.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`AnimationClip`].
     pub fn clip(&self) -> &AnimationClip {
         &self.clip
     }
 
-    /// Get a mutable reference to the animation clip
+    /// Get a mutable reference to the animation clip.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`AnimationClip`].
     pub fn clip_mut(&mut self) -> &mut AnimationClip {
         &mut self.clip
     }
 
-    /// Set the current playback time
+    /// Sets the current playback time.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time to set.
     pub fn set_current_time(&mut self, time: f32) {
         self.current_time = time.clamp(0.0, self.clip.duration);
     }
 
-    /// Get the current playback time
+    /// Gets the current playback time.
+    ///
+    /// # Returns
+    ///
+    /// The current time in seconds.
     pub fn current_time(&self) -> f32 {
         self.current_time
     }
 
-    /// Start playback
+    /// Starts playback.
     pub fn play(&mut self) {
         self.playing = true;
     }
 
-    /// Stop playback
+    /// Stop playback.
     pub fn stop(&mut self) {
         self.playing = false;
         self.current_time = 0.0;
     }
 
-    /// Pause playback
+    /// Pauses playback.
     pub fn pause(&mut self) {
         self.playing = false;
     }
 
-    /// Toggle playback
+    /// Toggles playback.
     pub fn toggle_playback(&mut self) {
         self.playing = !self.playing;
     }
 
-    /// Set playback speed
+    /// Sets playback speed.
+    ///
+    /// # Arguments
+    ///
+    /// * `speed` - The playback speed multiplier.
     pub fn set_playback_speed(&mut self, speed: f32) {
         self.playback_speed = speed.max(0.0);
     }
 
-    /// Enable or disable loop playback
+    /// Enable or disable loop playback.
+    ///
+    /// # Arguments
+    ///
+    /// * `enable` - Whether to enable loop playback.
     pub fn set_loop_playback(&mut self, enable: bool) {
         self.loop_playback = enable;
     }
 
-    /// Update the timeline (advance playback time)
+    /// Update the timeline (advance playback time).
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - The delta time since the last update.
     pub fn update(&mut self, dt: Duration) {
         if self.playing {
             self.current_time += dt.as_secs_f32() * self.playback_speed;
@@ -359,7 +493,15 @@ impl AnimationTimeline {
         }
     }
 
-    /// Apply a timeline operation
+    /// Apply a timeline operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `operation` - The timeline operation to apply.
+    ///
+    /// # Returns
+    ///
+    /// Void if successful, or an error message.
     pub fn apply_operation(&mut self, operation: TimelineOperation) -> Result<(), String> {
         // Record operation for undo/redo (except for some operations)
         let should_record = matches!(
@@ -493,7 +635,11 @@ impl AnimationTimeline {
         Ok(())
     }
 
-    /// Undo the last operation
+    /// Undoes the last operation.
+    ///
+    /// # Returns
+    ///
+    /// An error message if unsuccessful.
     pub fn undo(&mut self) -> Result<(), String> {
         if let Some(_operation) = self.history.undo() {
             unimplemented!("Undo not implemented")
@@ -502,7 +648,11 @@ impl AnimationTimeline {
         }
     }
 
-    /// Redo the last undone operation
+    /// Redoes the last undone operation.
+    ///
+    /// # Returns
+    ///
+    /// An error message if unsuccessful.
     pub fn redo(&mut self) -> Result<(), String> {
         if let Some(operation) = self.history.redo() {
             self.apply_operation(operation)
@@ -511,7 +661,11 @@ impl AnimationTimeline {
         }
     }
 
-    /// Add a timeline marker
+    /// Add a timeline marker.
+    ///
+    /// # Arguments
+    ///
+    /// * `marker` - The timeline marker to add.
     pub fn add_marker(&mut self, marker: TimelineMarker) {
         // Insert in sorted order by time
         let insert_pos = self
@@ -522,7 +676,16 @@ impl AnimationTimeline {
         self.markers.insert(insert_pos, marker);
     }
 
-    /// Remove a timeline marker
+    /// Remove a timeline marker.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time of the marker to remove.
+    /// * `tolerance` - The time tolerance for finding the marker.
+    ///
+    /// # Returns
+    ///
+    /// `true` if a marker was removed.
     pub fn remove_marker(&mut self, time: f32, tolerance: f32) -> bool {
         if let Some(index) = self
             .markers
@@ -536,7 +699,16 @@ impl AnimationTimeline {
         }
     }
 
-    /// Get all markers in a time range
+    /// Gets markers in a time range.
+    ///
+    /// # Arguments
+    ///
+    /// * `start_time` - The start of the range.
+    /// * `end_time` - The end of the range.
+    ///
+    /// # Returns
+    ///
+    /// A vector of markers in the range.
     pub fn get_markers_in_range(&self, start_time: f32, end_time: f32) -> Vec<&TimelineMarker> {
         self.markers
             .iter()
@@ -544,7 +716,13 @@ impl AnimationTimeline {
             .collect()
     }
 
-    /// Select keyframes in a time range
+    /// Select keyframes in a time range.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The animation target.
+    /// * `start_time` - The start of the range.
+    /// * `end_time` - The end of the range.
     pub fn select_keyframes_in_range(
         &mut self,
         target: &AnimationTarget,
@@ -563,43 +741,71 @@ impl AnimationTimeline {
         }
     }
 
-    /// Clear all selections
+    /// Clears all selections.
     pub fn clear_selection(&mut self) {
         self.selected_keyframes.clear();
         self.selected_events.clear();
     }
 
-    /// Get the viewport settings
+    /// Get the viewport settings.
     pub fn viewport(&self) -> &TimelineViewport {
         &self.viewport
     }
 
-    /// Get mutable viewport settings
+    /// Get mutable viewport settings.
     pub fn viewport_mut(&mut self) -> &mut TimelineViewport {
         &mut self.viewport
     }
 
-    /// Set edit mode
-    pub fn set_edit_mode(&mut self, edit_mode: bool) {
-        self.edit_mode = edit_mode;
+    /// Sets edit mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - Whether edit mode should be enabled.
+    pub fn set_edit_mode(&mut self, enabled: bool) {
+        self.edit_mode = enabled;
     }
 
-    /// Check if in edit mode
+    /// Check if in edit mode.
+    ///
+    /// # Returns
+    ///
+    /// `true` if edit mode is enabled.
     pub fn is_edit_mode(&self) -> bool {
         self.edit_mode
     }
 
-    /// Sample the animation at the current time
+    /// Samples the animation at the current time.
+    ///
+    /// # Returns
+    ///
+    /// The sampled animation values.
     pub fn sample_current(&self) -> HashMap<AnimationTarget, AnimationValue> {
         self.clip.sample(self.current_time)
     }
 
-    /// Sample the animation at a specific time
+    /// Samples the animation at a specific time.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time to sample at.
+    ///
+    /// # Returns
+    ///
+    /// The sampled animation values.
     pub fn sample_at_time(&self, time: f32) -> HashMap<AnimationTarget, AnimationValue> {
         self.clip.sample(time)
     }
 
-    /// Get all keyframe times for a specific target
+    /// Gets all keyframe times for a target.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The animation target.
+    ///
+    /// # Returns
+    ///
+    /// A vector of keyframe times.
     pub fn get_keyframe_times(&self, target: &AnimationTarget) -> Vec<f32> {
         if let Some(track) = self.clip.tracks.get(target) {
             track.keyframes.iter().map(|k| k.time).collect()
@@ -608,12 +814,25 @@ impl AnimationTimeline {
         }
     }
 
-    /// Get all event times
+    /// Gets all event times.
+    ///
+    /// # Returns
+    ///
+    /// A vector of event times.
     pub fn get_event_times(&self) -> Vec<f32> {
         self.clip.events.iter().map(|e| e.time).collect()
     }
 
-    /// Find the nearest keyframe time to a given time
+    /// Find the nearest keyframe time to a given time.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The animation target.
+    /// * `time` - The target time.
+    ///
+    /// # Returns
+    ///
+    /// The nearest keyframe time, if any.
     pub fn find_nearest_keyframe_time(&self, target: &AnimationTarget, time: f32) -> Option<f32> {
         if let Some(track) = self.clip.tracks.get(target) {
             track
@@ -631,7 +850,11 @@ impl AnimationTimeline {
         }
     }
 
-    /// Jump to the next keyframe
+    /// Jumps to the next keyframe.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The animation target.
     pub fn jump_to_next_keyframe(&mut self, target: &AnimationTarget) {
         if let Some(track) = self.clip.tracks.get(target) {
             if let Some(next_keyframe) = track.keyframes.iter().find(|k| k.time > self.current_time)
@@ -641,7 +864,11 @@ impl AnimationTimeline {
         }
     }
 
-    /// Jump to the previous keyframe
+    /// Jumps to the previous keyframe.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The animation target.
     pub fn jump_to_previous_keyframe(&mut self, target: &AnimationTarget) {
         if let Some(track) = self.clip.tracks.get(target) {
             if let Some(prev_keyframe) = track
@@ -655,7 +882,11 @@ impl AnimationTimeline {
         }
     }
 
-    /// Get the total number of keyframes across all tracks
+    /// Gets the total number of keyframes across all tracks.
+    ///
+    /// # Returns
+    ///
+    /// The total number of keyframes.
     pub fn total_keyframe_count(&self) -> usize {
         self.clip
             .tracks

@@ -1,4 +1,6 @@
 use super::{animation, model, texture};
+use crate::animation::clip::AnimationClip;
+use crate::animation::track::AnimationTrack;
 use crate::errors::RendererError;
 use cgmath::InnerSpace;
 use gltf::Gltf;
@@ -469,12 +471,12 @@ pub(crate) async fn load_model_gltf(
     }
 
     // Load animations using the new animation system
-    let mut animation_clips: Vec<crate::animation::clip::AnimationClip> = Vec::new();
+    let mut animation_clips: Vec<AnimationClip> = Vec::new();
     for gltf_animation in gltf.animations() {
         let animation_name = gltf_animation.name().unwrap_or("Default").to_string();
         log::info!("Loading GLTF animation: {}", animation_name);
 
-        let mut clip = crate::animation::clip::AnimationClip::new(&animation_name);
+        let mut clip = AnimationClip::new(&animation_name);
         let mut max_duration = 0.0f32;
 
         for channel in gltf_animation.channels() {
@@ -509,9 +511,9 @@ pub(crate) async fn load_model_gltf(
 
             // Create animation track
             let mut track = if target == animation::AnimationTarget::Rotation {
-                animation::AnimationTrack::new_rotation_track()
+                AnimationTrack::new_rotation_track()
             } else {
-                animation::AnimationTrack::new()
+                AnimationTrack::new()
             };
 
             // Read keyframe data

@@ -2,61 +2,70 @@ use super::{AnimationEvent, LoopMode, PlaybackState};
 use std::collections::HashMap;
 use std::time::Duration;
 
-/// Represents a condition that can trigger a state transition
+/// Represents a condition that can trigger a state transition.
 #[derive(Debug, Clone)]
 pub enum TransitionCondition {
-    /// Transition when animation finishes
+    /// Transition when animation finishes.
     OnAnimationEnd,
-    /// Transition after a specific time
+    /// Transition after a specific time.
     OnTime(f32),
-    /// Transition when a parameter meets a condition
+    /// Transition when a parameter meets a condition.
     OnParameter(String, ParameterCondition),
-    /// Transition when an event is triggered
+    /// Transition when an event is triggered.
     OnEvent(String),
-    /// Custom transition condition
+    /// Custom transition condition.
     Custom(String),
-    /// Immediate transition (useful for testing)
+    /// Immediate transition (useful for testing).
     Immediate,
 }
 
-/// Parameter-based transition conditions
+/// Parameter-based transition conditions.
 #[derive(Debug, Clone)]
 pub enum ParameterCondition {
-    /// Float parameter equals value (with tolerance)
+    /// Float parameter equals value (with tolerance).
     FloatEquals(f32, f32),
-    /// Float parameter is greater than value
+    /// Float parameter is greater than value.
     FloatGreater(f32),
-    /// Float parameter is less than value
+    /// Float parameter is less than value.
     FloatLess(f32),
-    /// Boolean parameter equals value
+    /// Boolean parameter equals value.
     BoolEquals(bool),
-    /// Integer parameter equals value
+    /// Integer parameter equals value.
     IntEquals(i32),
-    /// Integer parameter is greater than value
+    /// Integer parameter is greater than value.
     IntGreater(i32),
-    /// Integer parameter is less than value
+    /// Integer parameter is less than value.
     IntLess(i32),
 }
 
-/// A transition between animation states
+/// A transition between animation states.
 #[derive(Debug, Clone)]
 pub struct StateTransition {
-    /// Target state to transition to
+    /// Target state to transition to.
     pub target_state: String,
-    /// Condition that triggers this transition
+    /// Condition that triggers this transition.
     pub condition: TransitionCondition,
-    /// Duration of the transition (for blending)
+    /// Duration of the transition (for blending).
     pub transition_duration: f32,
-    /// Priority of this transition (higher values take precedence)
+    /// Priority of this transition (higher values take precedence).
     pub priority: i32,
-    /// Whether this transition can interrupt other transitions
+    /// Whether this transition can interrupt other transitions.
     pub can_interrupt: bool,
-    /// Whether this transition should reset the target animation
+    /// Whether this transition should reset the target animation.
     pub reset_target: bool,
 }
 
 impl StateTransition {
-    /// Create a new state transition
+    /// Creates a new state transition.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_state` - The name of the state to transition to.
+    /// * `condition` - The condition that triggers this transition.
+    ///
+    /// # Returns
+    ///
+    /// A new [`StateTransition`] instance.
     pub fn new(target_state: String, condition: TransitionCondition) -> Self {
         Self {
             target_state,
@@ -68,31 +77,74 @@ impl StateTransition {
         }
     }
 
-    /// Set the transition duration
+    /// Sets the transition duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - The duration in seconds.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`StateTransition`] instance.
     pub fn with_duration(mut self, duration: f32) -> Self {
         self.transition_duration = duration.max(0.0);
         self
     }
 
-    /// Set the transition priority
+    /// Sets the transition priority.
+    ///
+    /// # Arguments
+    ///
+    /// * `priority` - The priority value (higher takes precedence).
+    ///
+    /// # Returns
+    ///
+    /// The updated [`StateTransition`] instance.
     pub fn with_priority(mut self, priority: i32) -> Self {
         self.priority = priority;
         self
     }
 
-    /// Set whether this transition can interrupt others
+    /// Sets whether this transition can interrupt others.
+    ///
+    /// # Arguments
+    ///
+    /// * `can_interrupt` - Whether interruption is allowed.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`StateTransition`] instance.
     pub fn with_interrupt(mut self, can_interrupt: bool) -> Self {
         self.can_interrupt = can_interrupt;
         self
     }
 
-    /// Set whether to reset the target animation
+    /// Sets whether to reset the target animation.
+    ///
+    /// # Arguments
+    ///
+    /// * `reset_target` - Whether to reset the animation.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`StateTransition`] instance.
     pub fn with_reset_target(mut self, reset_target: bool) -> Self {
         self.reset_target = reset_target;
         self
     }
 
-    /// Check if this transition should trigger given the current state
+    /// Checks if this transition should trigger given the current state.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_time` - The current animation time.
+    /// * `animation_state` - The current playback state.
+    /// * `parameters` - The state machine parameters.
+    /// * `triggered_events` - List of triggered event names.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the transition should trigger.
     pub fn should_trigger(
         &self,
         current_time: f32,
@@ -113,31 +165,40 @@ impl StateTransition {
     }
 }
 
-/// A state in the animation state machine
+/// A state in the animation state machine.
 #[derive(Debug, Clone)]
 pub struct AnimationState {
-    /// Unique name of this state
+    /// Unique name of this state.
     pub name: String,
-    /// Animation clip to play in this state
+    /// Animation clip to play in this state.
     pub animation_clip: String,
-    /// Loop mode for this state
+    /// Loop mode for this state.
     pub loop_mode: LoopMode,
-    /// Playback speed multiplier
+    /// Playback speed multiplier.
     pub speed: f32,
-    /// Transitions from this state to other states
+    /// Transitions from this state to other states.
     pub transitions: Vec<StateTransition>,
-    /// Events that this state can trigger
+    /// Events that this state can trigger.
     pub events: Vec<AnimationEvent>,
-    /// Whether this state is a default/entry state
+    /// Whether this state is a default/entry state.
     pub is_entry_state: bool,
-    /// Layer this state operates on
+    /// Layer this state operates on.
     pub layer: i32,
-    /// Weight of this state (for blending)
+    /// Weight of this state (for blending).
     pub weight: f32,
 }
 
 impl AnimationState {
-    /// Create a new animation state
+    /// Creates a new animation state.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The unique name for this state.
+    /// * `animation_clip` - The name of the animation clip to play.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationState`] instance.
     pub fn new(name: String, animation_clip: String) -> Self {
         Self {
             name,
@@ -152,19 +213,43 @@ impl AnimationState {
         }
     }
 
-    /// Set the loop mode for this state
+    /// Sets the loop mode for this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `loop_mode` - The loop mode to use.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationState`] instance.
     pub fn with_loop_mode(mut self, loop_mode: LoopMode) -> Self {
         self.loop_mode = loop_mode;
         self
     }
 
-    /// Set the playback speed for this state
+    /// Sets the playback speed for this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `speed` - The playback speed multiplier.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationState`] instance.
     pub fn with_speed(mut self, speed: f32) -> Self {
         self.speed = speed.max(0.0);
         self
     }
 
-    /// Add a transition from this state
+    /// Adds a transition to this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `transition` - The state transition to add.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationState`] instance.
     pub fn add_transition(mut self, transition: StateTransition) -> Self {
         // Insert transition in priority order (higher priority first)
         let insert_pos = self
@@ -177,31 +262,70 @@ impl AnimationState {
         self
     }
 
-    /// Mark this state as an entry state
+    /// Marks this state as the entry state.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationState`] instance.
     pub fn as_entry_state(mut self) -> Self {
         self.is_entry_state = true;
         self
     }
 
-    /// Set the layer for this state
+    /// Sets the layer for this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `layer` - The layer index.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationState`] instance.
     pub fn with_layer(mut self, layer: i32) -> Self {
         self.layer = layer;
         self
     }
 
-    /// Set the weight for this state
+    /// Sets the weight for this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `weight` - The blend weight (clamped to 0.0-1.0).
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationState`] instance.
     pub fn with_weight(mut self, weight: f32) -> Self {
         self.weight = weight.clamp(0.0, 1.0);
         self
     }
 
-    /// Add an animation event to this state
+    /// Adds an animation event to this state.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - The animation event to add.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationState`] instance.
     pub fn add_event(mut self, event: AnimationEvent) -> Self {
         self.events.push(event);
         self
     }
 
-    /// Find the highest priority transition that should trigger
+    /// Find the highest priority transition that should trigger.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_time` - The current animation time.
+    /// * `animation_state` - The current playback state.
+    /// * `parameters` - The state machine parameters.
+    /// * `triggered_events` - List of triggered event names.
+    ///
+    /// # Returns
+    ///
+    /// An optional reference to the triggering [`StateTransition`].
     pub fn find_transition(
         &self,
         current_time: f32,
@@ -215,21 +339,25 @@ impl AnimationState {
     }
 }
 
-/// Parameter values for controlling state transitions
+/// Parameter values for controlling state transitions.
 #[derive(Debug, Clone)]
 pub struct StateParameters {
-    /// Float parameters
+    /// Float parameters.
     pub floats: HashMap<String, f32>,
-    /// Boolean parameters
+    /// Boolean parameters.
     pub bools: HashMap<String, bool>,
-    /// Integer parameters
+    /// Integer parameters.
     pub ints: HashMap<String, i32>,
-    /// String parameters
+    /// String parameters.
     pub strings: HashMap<String, String>,
 }
 
 impl StateParameters {
-    /// Create new empty state parameters
+    /// Creates new empty parameters.
+    ///
+    /// # Returns
+    ///
+    /// A new [`StateParameters`] instance.
     pub fn new() -> Self {
         Self {
             floats: HashMap::new(),
@@ -239,47 +367,108 @@ impl StateParameters {
         }
     }
 
-    /// Set a float parameter
+    /// Sets a float parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    /// * `value` - The float value.
     pub fn set_float(&mut self, name: String, value: f32) {
         self.floats.insert(name, value);
     }
 
-    /// Get a float parameter
+    /// Gets a float parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    ///
+    /// # Returns
+    ///
+    /// The float value if it exists.
     pub fn get_float(&self, name: &str) -> Option<f32> {
         self.floats.get(name).copied()
     }
 
-    /// Set a boolean parameter
+    /// Sets a boolean parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    /// * `value` - The boolean value.
     pub fn set_bool(&mut self, name: String, value: bool) {
         self.bools.insert(name, value);
     }
 
-    /// Get a boolean parameter
+    /// Gets a boolean parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    ///
+    /// # Returns
+    ///
+    /// The boolean value if it exists.
     pub fn get_bool(&self, name: &str) -> Option<bool> {
         self.bools.get(name).copied()
     }
 
-    /// Set an integer parameter
+    /// Sets an integer parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    /// * `value` - The integer value.
     pub fn set_int(&mut self, name: String, value: i32) {
         self.ints.insert(name, value);
     }
 
-    /// Get an integer parameter
+    /// Gets an integer parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    ///
+    /// # Returns
+    ///
+    /// The integer value if it exists.
     pub fn get_int(&self, name: &str) -> Option<i32> {
         self.ints.get(name).copied()
     }
 
-    /// Set a string parameter
+    /// Sets a string parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    /// * `value` - The string value.
     pub fn set_string(&mut self, name: String, value: String) {
         self.strings.insert(name, value);
     }
 
-    /// Get a string parameter
+    /// Gets a string parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the string value if it exists.
     pub fn get_string(&self, name: &str) -> Option<&String> {
         self.strings.get(name)
     }
 
-    /// Check if a parameter condition is met
+    /// Check if a parameter condition is met.
+    ///
+    /// # Arguments
+    ///
+    /// * `param_name` - The name of the parameter to check.
+    /// * `condition` - The condition to evaluate.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the condition is met.
     pub fn check_condition(&self, param_name: &str, condition: &ParameterCondition) -> bool {
         match condition {
             ParameterCondition::FloatEquals(value, tolerance) => {
@@ -336,40 +525,49 @@ impl StateParameters {
 }
 
 impl Default for StateParameters {
+    /// Creates default state parameters.
+    ///
+    /// # Returns
+    ///
+    /// The default [`StateParameters`] instance.
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// An animation state machine that manages states and transitions
+/// An animation state machine that manages states and transitions.
 #[derive(Debug)]
 pub struct AnimationStateMachine {
-    /// All available states in the state machine
+    /// All available states in the state machine.
     states: HashMap<String, AnimationState>,
-    /// Current active state
+    /// Current active state.
     current_state: Option<String>,
-    /// Parameters for controlling transitions
+    /// Parameters for controlling transitions.
     parameters: StateParameters,
-    /// Current animation time in the active state
+    /// Current animation time in the active state.
     current_time: f32,
-    /// Current animation playback state
+    /// Current animation playback state.
     current_playback_state: PlaybackState,
-    /// Events triggered in the current frame
+    /// Events triggered in the current frame.
     triggered_events: Vec<String>,
-    /// Whether the state machine is enabled
+    /// Whether the state machine is enabled.
     enabled: bool,
-    /// Transition progress (0.0 to 1.0) when transitioning between states
+    /// Transition progress (0.0 to 1.0) when transitioning between states.
     transition_progress: f32,
-    /// Duration of current transition
+    /// Duration of current transition.
     transition_duration: f32,
-    /// Source state for current transition
+    /// Source state for current transition.
     transition_from: Option<String>,
-    /// Target state for current transition
+    /// Target state for current transition.
     transition_to: Option<String>,
 }
 
 impl AnimationStateMachine {
-    /// Create a new animation state machine
+    /// Creates a new animation state machine.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationStateMachine`] instance.
     pub fn new() -> Self {
         Self {
             states: HashMap::new(),
@@ -386,7 +584,11 @@ impl AnimationStateMachine {
         }
     }
 
-    /// Add a state to the state machine
+    /// Adds a state to the machine.
+    ///
+    /// # Arguments
+    ///
+    /// * `state` - The animation state to add.
     pub fn add_state(&mut self, state: AnimationState) {
         let is_entry = state.is_entry_state;
         let state_name = state.name.clone();
@@ -400,7 +602,15 @@ impl AnimationStateMachine {
         }
     }
 
-    /// Remove a state from the state machine
+    /// Removes a state from the machine.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the state to remove.
+    ///
+    /// # Returns
+    ///
+    /// The removed state if it existed.
     pub fn remove_state(&mut self, name: &str) -> Option<AnimationState> {
         // Don't remove if it's the current state
         if self.current_state.as_ref() == Some(&name.to_string()) {
@@ -410,17 +620,42 @@ impl AnimationStateMachine {
         self.states.remove(name)
     }
 
-    /// Get a reference to a state
+    /// Gets a reference to a state.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the state.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the state if it exists.
     pub fn get_state(&self, name: &str) -> Option<&AnimationState> {
         self.states.get(name)
     }
 
-    /// Get a mutable reference to a state
+    /// Gets a mutable reference to a state.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the state.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the state if it exists.
     pub fn get_state_mut(&mut self, name: &str) -> Option<&mut AnimationState> {
         self.states.get_mut(name)
     }
 
-    /// Manually trigger a state transition
+    /// Manually trigger a state transition.
+    ///
+    /// # Arguments
+    ///
+    /// * `state_name` - The name of the state to transition to.
+    /// * `transition_duration` - Optional duration for the transition (in seconds).
+    ///
+    /// # Returns
+    ///
+    /// An error message if the state was not found.
     pub fn transition_to(
         &mut self,
         state_name: &str,
@@ -451,12 +686,24 @@ impl AnimationStateMachine {
         Ok(())
     }
 
-    /// Trigger an event that can cause state transitions
+    /// Trigger an event that can cause state transitions.
+    ///
+    /// # Arguments
+    ///
+    /// * `event_name` - The name of the event to trigger.
     pub fn trigger_event(&mut self, event_name: String) {
         self.triggered_events.push(event_name);
     }
 
-    /// Update the state machine
+    /// Update the state machine.
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - The delta time since the last update.
+    ///
+    /// # Returns
+    ///
+    /// A vector of triggered animation events.
     pub fn update(&mut self, dt: Duration) -> Vec<AnimationEvent> {
         if !self.enabled {
             return Vec::new();
@@ -516,12 +763,20 @@ impl AnimationStateMachine {
         events
     }
 
-    /// Get the current state name
+    /// Get the current state name.
+    ///
+    /// # Returns
+    ///
+    /// The name of the current state if any.
     pub fn current_state(&self) -> Option<&String> {
         self.current_state.as_ref()
     }
 
-    /// Get the current animation clip name
+    /// Get the current animation clip name.
+    ///
+    /// # Returns
+    ///
+    /// The name of the current animation clip if any.
     pub fn current_animation_clip(&self) -> Option<String> {
         if let Some(state_name) = &self.current_state {
             self.states
@@ -532,57 +787,100 @@ impl AnimationStateMachine {
         }
     }
 
-    /// Get the current playback state
+    /// Gets the current playback state.
+    ///
+    /// # Returns
+    ///
+    /// The current playback state.
     pub fn playback_state(&self) -> PlaybackState {
         self.current_playback_state
     }
 
-    /// Set a parameter value
+    /// Set a float parameter value.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    /// * `value` - The float value.
     pub fn set_float_parameter(&mut self, name: String, value: f32) {
         self.parameters.set_float(name, value);
     }
 
-    /// Set a boolean parameter
+    /// Sets a bool parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    /// * `value` - The bool value.
     pub fn set_bool_parameter(&mut self, name: String, value: bool) {
         self.parameters.set_bool(name, value);
     }
 
-    /// Set an integer parameter
+    /// Sets an integer parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The parameter name.
+    /// * `value` - The integer value.
     pub fn set_int_parameter(&mut self, name: String, value: i32) {
         self.parameters.set_int(name, value);
     }
 
-    /// Get the parameters
+    /// Gets the parameters.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the state parameters.
     pub fn parameters(&self) -> &StateParameters {
         &self.parameters
     }
 
-    /// Get mutable parameters
+    /// Gets mutable parameters.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the state parameters.
     pub fn parameters_mut(&mut self) -> &mut StateParameters {
         &mut self.parameters
     }
 
-    /// Enable or disable the state machine
+    /// Enables or disables the state machine.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - Whether the state machine should be enabled.
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
     }
 
-    /// Check if the state machine is transitioning
+    /// Check if the state machine is transitioning.
+    ///
+    /// # Returns
+    ///
+    /// `true` if a transition is in progress.
     pub fn is_transitioning(&self) -> bool {
         self.transition_progress < 1.0
     }
 
-    /// Get transition progress (0.0 to 1.0)
+    /// Get transition progress (0.0 to 1.0).
+    ///
+    /// # Returns
+    ///
+    /// The current transition progress.
     pub fn transition_progress(&self) -> f32 {
         self.transition_progress
     }
 
-    /// Get all state names
+    /// Gets all state names.
+    ///
+    /// # Returns
+    ///
+    /// A vector of all state names in the machine.
     pub fn get_state_names(&self) -> Vec<String> {
         self.states.keys().cloned().collect()
     }
 
-    /// Reset the state machine to entry state
+    /// Resets the state machine to its initial state.
     pub fn reset(&mut self) {
         // Find entry state
         let entry_state = self
@@ -604,6 +902,11 @@ impl AnimationStateMachine {
 }
 
 impl Default for AnimationStateMachine {
+    /// Creates a default animation state machine.
+    ///
+    /// # Returns
+    ///
+    /// The default [`AnimationStateMachine`] instance.
     fn default() -> Self {
         Self::new()
     }

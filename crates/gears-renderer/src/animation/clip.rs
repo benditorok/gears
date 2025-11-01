@@ -1,6 +1,5 @@
-use crate::animation::track::AnimationTrack;
-
 use super::{AnimationEvent, AnimationTarget, LoopMode};
+use crate::animation::track::AnimationTrack;
 use std::collections::HashMap;
 
 /// An animation clip contains multiple tracks and events that define a complete animation.
@@ -105,35 +104,72 @@ impl AnimationClip {
         self
     }
 
-    /// Set the loop mode for this clip
+    /// Set the loop mode for this clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `loop_mode` - The loop mode to set.
     pub fn with_loop_mode(mut self, loop_mode: LoopMode) -> Self {
         self.loop_mode = loop_mode;
         self
     }
 
-    /// Set the priority for this clip
+    /// Set the priority for this clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `priority` - The priority to set.
     pub fn with_priority(mut self, priority: i32) -> Self {
         self.priority = priority;
         self
     }
 
-    /// Set whether this clip can be blended
+    /// Set whether this clip can be blended.
+    ///
+    /// # Arguments
+    ///
+    /// * `blendable` - Whether the clip is blendable.
     pub fn with_blendable(mut self, blendable: bool) -> Self {
         self.blendable = blendable;
         self
     }
 
-    /// Get a track for a specific target
+    /// Get a track for a specific target.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The target to get the track for.
+    ///
+    /// # Returns
+    ///
+    /// An optional reference to the [`AnimationTrack`].
     pub fn get_track(&self, target: &AnimationTarget) -> Option<&AnimationTrack> {
         self.tracks.get(target)
     }
 
-    /// Get a mutable track for a specific target
+    /// Get a mutable track for a specific target.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The target to get the track for.
+    ///
+    /// # Returns
+    ///
+    /// An optional mutable reference to the [`AnimationTrack`].
     pub fn get_track_mut(&mut self, target: &AnimationTarget) -> Option<&mut AnimationTrack> {
         self.tracks.get_mut(target)
     }
 
-    /// Get all events that should trigger between two time points
+    /// Get all events that should trigger between two time points.
+    ///
+    /// # Arguments
+    ///
+    /// * `start_time` - The start time of the range.
+    /// * `end_time` - The end time of the range.
+    ///
+    /// # Returns
+    ///
+    /// A vector of references to the [`AnimationEvent`]s in the specified range.
     pub fn get_events_in_range(&self, start_time: f32, end_time: f32) -> Vec<&AnimationEvent> {
         self.events
             .iter()
@@ -141,7 +177,15 @@ impl AnimationClip {
             .collect()
     }
 
-    /// Sample all tracks at a given time and return the results
+    /// Sample all tracks at a given time and return the results.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time at which to sample the animation.
+    ///
+    /// # Returns
+    ///
+    /// A HashMap of AnimationTarget to sampled AnimationValue.
     pub fn sample(&self, time: f32) -> HashMap<AnimationTarget, super::AnimationValue> {
         let mut results = HashMap::new();
 
@@ -154,7 +198,15 @@ impl AnimationClip {
         results
     }
 
-    /// Calculate the actual time considering loop mode
+    /// Calculate the actual time considering loop mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The input time to calculate.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the calculated time and a boolean indicating if the animation has finished.
     pub fn calculate_loop_time(&self, time: f32) -> (f32, bool) {
         if self.duration <= 0.0 {
             return (0.0, false);
@@ -195,29 +247,53 @@ impl AnimationClip {
         }
     }
 
-    /// Check if this clip has any tracks
+    /// Check if this clip has any tracks.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the clip has no tracks.
     pub fn is_empty(&self) -> bool {
         self.tracks.is_empty()
     }
 
-    /// Get the number of tracks in this clip
+    /// Get the number of tracks in this clip.
+    ///
+    /// # Returns
+    ///
+    /// The number of tracks.
     pub fn track_count(&self) -> usize {
         self.tracks.len()
     }
 
-    /// Get all animation targets that this clip affects
+    /// Get all animation targets that this clip affects.
+    ///
+    /// # Returns
+    ///
+    /// A vector of references to the [`AnimationTarget`]s.
     pub fn get_targets(&self) -> Vec<&AnimationTarget> {
         self.tracks.keys().collect()
     }
 
-    /// Clone this clip with a new name
+    /// Clone this clip with a new name.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_name` - The new name for the cloned clip.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationClip`] instance with the specified name.
     pub fn clone_with_name(&self, new_name: impl Into<String>) -> Self {
         let mut clone = self.clone();
         clone.name = new_name.into();
         clone
     }
 
-    /// Scale the duration and timing of this clip
+    /// Scale the duration and timing of this clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `scale_factor` - The factor by which to scale the time.
     pub fn scale_time(&mut self, scale_factor: f32) {
         if scale_factor <= 0.0 {
             return;
@@ -236,7 +312,17 @@ impl AnimationClip {
         }
     }
 
-    /// Create a sub-clip from a time range
+    /// Create a sub-clip from a time range.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the sub-clip.
+    /// * `start_time` - The start time of the sub-clip.
+    /// * `end_time` - The end time of the sub-clip.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationClip`] instance representing the sub-clip.
     pub fn create_sub_clip(&self, name: impl Into<String>, start_time: f32, end_time: f32) -> Self {
         if start_time >= end_time || start_time < 0.0 || end_time > self.duration {
             return Self::new(name);
@@ -272,53 +358,128 @@ impl AnimationClip {
 }
 
 impl Default for AnimationClip {
+    /// Creates a default animation clip with the name "Default".
+    ///
+    /// # Returns
+    ///
+    /// The default [`AnimationClip`] instance.
     fn default() -> Self {
         Self::new("Default")
     }
 }
 
-/// Builder for creating animation clips more fluently
+/// Builder for creating animation clips.
 pub struct AnimationClipBuilder {
+    /// The animation clip being built0
     clip: AnimationClip,
 }
 
 impl AnimationClipBuilder {
+    /// Creates a new builder instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation clip.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationClipBuilder`] instance.
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             clip: AnimationClip::new(name),
         }
     }
 
+    /// Sets the duration of the animation clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - The duration in seconds.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationClipBuilder`] instance.
     pub fn with_duration(mut self, duration: f32) -> Self {
         self.clip.duration = duration;
         self
     }
 
+    /// Sets the loop mode of the animation clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `loop_mode` - The loop mode to set.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationClipBuilder`] instance.
     pub fn with_loop_mode(mut self, loop_mode: LoopMode) -> Self {
         self.clip.loop_mode = loop_mode;
         self
     }
 
+    /// Sets the priority of the animation clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `priority` - The priority to set.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationClipBuilder`] instance.
     pub fn with_priority(mut self, priority: i32) -> Self {
         self.clip.priority = priority;
         self
     }
 
+    /// Sets whether the animation clip is blendable.
+    ///
+    /// # Arguments
+    ///
+    /// * `blendable` - Whether the clip is blendable.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationClipBuilder`] instance.
     pub fn with_blendable(mut self, blendable: bool) -> Self {
         self.clip.blendable = blendable;
         self
     }
 
+    /// Adds an animation track to the clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The target that this track affects.
+    /// * `track` - The animation track to add.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationClipBuilder`] instance.
     pub fn add_track(mut self, target: AnimationTarget, track: AnimationTrack) -> Self {
         self.clip.add_track(target, track);
         self
     }
 
+    /// Adds an animation event to the clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - The animation event to add.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`AnimationClipBuilder`] instance.
     pub fn add_event(mut self, event: AnimationEvent) -> Self {
         self.clip.add_event(event);
         self
     }
 
+    /// Builds and returns the animation clip.
+    ///
+    /// # Returns
+    ///
+    /// The built [`AnimationClip`] instance.
     pub fn build(self) -> AnimationClip {
         self.clip
     }
