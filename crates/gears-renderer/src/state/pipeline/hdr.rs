@@ -1,18 +1,35 @@
 use crate::{state::resources, texture};
 use wgpu::Operations;
 
-/// Owns the render texture and controls tonemapping
+/// Owns the render texture and controls tonemapping.
 pub struct HdrPipeline {
+    /// The render pipeline for HDR processing.
     pipeline: wgpu::RenderPipeline,
+    /// The bind group for HDR texture access.
     bind_group: wgpu::BindGroup,
+    /// The HDR render target texture.
     texture: texture::Texture,
+    /// The width of the HDR texture.
     width: u32,
+    /// The height of the HDR texture.
     height: u32,
+    /// The texture format used for HDR.
     format: wgpu::TextureFormat,
+    /// The bind group layout for HDR textures.
     layout: wgpu::BindGroupLayout,
 }
 
 impl HdrPipeline {
+    /// Creates a new HDR pipeline.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for resource creation.
+    /// * `config` - The surface configuration for sizing.
+    ///
+    /// # Returns
+    ///
+    /// A new [`HdrPipeline`] instance.
     pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
         let width = config.width;
         let height = config.height;
@@ -96,7 +113,13 @@ impl HdrPipeline {
         }
     }
 
-    /// Resize the HDR texture
+    /// Resizes the HDR texture to new dimensions.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for texture creation.
+    /// * `width` - The new width in pixels.
+    /// * `height` - The new height in pixels.
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.texture = texture::Texture::create_2d_texture(
             device,
@@ -125,17 +148,30 @@ impl HdrPipeline {
         self.height = height;
     }
 
-    /// Exposes the HDR texture
+    /// Exposes the HDR texture view.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the HDR texture view.
     pub fn view(&self) -> &wgpu::TextureView {
         &self.texture.view
     }
 
-    /// The format of the HDR texture
+    /// The format of the HDR texture.
+    ///
+    /// # Returns
+    ///
+    /// The texture format used for HDR rendering.
     pub fn format(&self) -> wgpu::TextureFormat {
         self.format
     }
 
-    /// Renders the internal HDR texture to the [`output`]
+    /// Renders the internal HDR texture to the output with tonemapping.
+    ///
+    /// # Arguments
+    ///
+    /// * `encoder` - The command encoder for rendering.
+    /// * `output` - The output texture view to render to.
     pub fn process(&self, encoder: &mut wgpu::CommandEncoder, output: &wgpu::TextureView) {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Hdr::process"),
