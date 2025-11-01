@@ -22,11 +22,6 @@ pub struct BufferComponent(pub wgpu::Buffer);
 impl Deref for BufferComponent {
     type Target = wgpu::Buffer;
 
-    /// Dereferences to the inner wgpu::Buffer.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the inner [`wgpu::Buffer`].
     fn deref(&self) -> &Self::Target {
         &self.0
     }

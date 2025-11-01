@@ -1,29 +1,37 @@
-//! Animation clip implementation containing tracks and events.
+use crate::animation::track::AnimationTrack;
 
-use super::{AnimationEvent, AnimationTarget, AnimationTrack, LoopMode};
+use super::{AnimationEvent, AnimationTarget, LoopMode};
 use std::collections::HashMap;
 
-/// An animation clip contains multiple tracks and events that define a complete animation
+/// An animation clip contains multiple tracks and events that define a complete animation.
 #[derive(Debug, Clone)]
 pub struct AnimationClip {
-    /// Unique name for this animation clip
+    /// Unique name for this animation clip.
     pub name: String,
-    /// Duration of the animation in seconds
+    /// Duration of the animation in seconds.
     pub duration: f32,
-    /// Animation tracks organized by target
+    /// Animation tracks organized by target.
     pub tracks: HashMap<AnimationTarget, AnimationTrack>,
-    /// Events that trigger at specific times during the animation
+    /// Events that trigger at specific times during the animation.
     pub events: Vec<AnimationEvent>,
-    /// How the animation should loop
+    /// How the animation should loop.
     pub loop_mode: LoopMode,
-    /// Priority for blending (higher values take precedence)
+    /// Priority for blending (higher values take precedence).
     pub priority: i32,
-    /// Whether this clip can be blended with others
+    /// Whether this clip can be blended with others.
     pub blendable: bool,
 }
 
 impl AnimationClip {
-    /// Create a new animation clip with the given name
+    /// Create a new animation clip with the given name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation clip.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationClip`] instance.
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -36,7 +44,16 @@ impl AnimationClip {
         }
     }
 
-    /// Create a new animation clip with specified duration
+    /// Create a new animation clip with specified duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation clip.
+    /// * `duration` - The duration of the animation clip in seconds.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationClip`] instance.
     pub fn with_duration(name: impl Into<String>, duration: f32) -> Self {
         Self {
             name: name.into(),
@@ -49,7 +66,16 @@ impl AnimationClip {
         }
     }
 
-    /// Add an animation track to this clip
+    /// Add an animation track to this clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The target that this track affects.
+    /// * `track` - The animation track to add.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`AnimationClip`] instance.
     pub fn add_track(&mut self, target: AnimationTarget, track: AnimationTrack) -> &mut Self {
         // Update duration based on track duration
         if track.duration() > self.duration {
@@ -59,7 +85,15 @@ impl AnimationClip {
         self
     }
 
-    /// Add an event to this clip
+    /// Add an event to this clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - The animation event to add.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`AnimationClip`] instance.
     pub fn add_event(&mut self, event: AnimationEvent) -> &mut Self {
         // Keep events sorted by time for efficient processing
         let insert_pos = self

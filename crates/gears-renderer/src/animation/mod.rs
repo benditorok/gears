@@ -7,61 +7,52 @@ pub mod state;
 pub mod timeline;
 pub mod track;
 
-pub use clip::*;
-pub use controller::{AnimationController, TransitionSettings};
-pub use mixer::*;
-pub use state::{
-    AnimationStateMachine, ParameterCondition, StateParameters, StateTransition,
-    TransitionCondition,
-};
-pub use timeline::*;
-pub use track::*;
-
+use crate::animation::{clip::AnimationClip, controller::AnimationController};
 use cgmath::{Quaternion, Vector3};
 use gears_ecs::Component;
 use gears_macro::Component;
 use std::time::{Duration, Instant};
 
-/// The target of an animation track (what property is being animated)
+/// The target of an animation track (what property is being animated).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AnimationTarget {
-    /// Position/translation of the object
+    /// Position/translation of the object.
     Translation,
-    /// Rotation of the object
+    /// Rotation of the object.
     Rotation,
-    /// Scale of the object
+    /// Scale of the object.
     Scale,
-    /// Custom property with string identifier
+    /// Custom property with string identifier.
     Custom(String),
 }
 
-/// Different interpolation modes for animation keyframes
+/// Different interpolation modes for animation keyframes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InterpolationMode {
-    /// Linear interpolation between keyframes
+    /// Linear interpolation between keyframes.
     Linear,
-    /// Step interpolation (no smoothing)
+    /// Step interpolation (no smoothing).
     Step,
-    /// Cubic spline interpolation
+    /// Cubic spline interpolation.
     CubicSpline,
-    /// Custom interpolation function
+    /// Custom interpolation function.
     Custom,
 }
 
-/// Animation loop modes
+/// Animation loop modes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LoopMode {
-    /// Play once and stop
+    /// Play once and stop.
     Once,
-    /// Loop infinitely
+    /// Loop infinitely.
     Repeat,
-    /// Loop a specific number of times
+    /// Loop a specific number of times.
     RepeatCount(u32),
-    /// Ping-pong (forward then backward)
+    /// Ping-pong (forward then backward).
     PingPong,
 }
 
-/// Animation playback state
+/// Animation playback state.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PlaybackState {
     Playing,
@@ -70,7 +61,7 @@ pub enum PlaybackState {
     Finished,
 }
 
-/// Animation data types that can be interpolated
+/// Animation data types that can be interpolated.
 #[derive(Debug, Clone)]
 pub enum AnimationValue {
     Float(f32),
@@ -80,7 +71,7 @@ pub enum AnimationValue {
 }
 
 impl AnimationValue {
-    /// Linear interpolation between two animation values
+    /// Linear interpolation between two animation values.
     pub fn lerp(&self, other: &Self, t: f32) -> Option<Self> {
         match (self, other) {
             (AnimationValue::Float(a), AnimationValue::Float(b)) => {
@@ -108,7 +99,7 @@ impl AnimationValue {
         }
     }
 
-    /// Get the value as a Vector3 if possible
+    /// Get the value as a Vector3 if possible.
     pub fn as_vector3(&self) -> Option<Vector3<f32>> {
         match self {
             AnimationValue::Vector3(v) => Some(*v),
@@ -119,7 +110,7 @@ impl AnimationValue {
         }
     }
 
-    /// Get the value as a Quaternion if possible
+    /// Get the value as a Quaternion if possible.
     pub fn as_quaternion(&self) -> Option<Quaternion<f32>> {
         match self {
             AnimationValue::Quaternion(q) => Some(*q),
@@ -130,7 +121,7 @@ impl AnimationValue {
         }
     }
 
-    /// Get the value as a float if possible
+    /// Get the value as a float if possible.
     pub fn as_float(&self) -> Option<f32> {
         match self {
             AnimationValue::Float(f) => Some(*f),
@@ -139,7 +130,7 @@ impl AnimationValue {
     }
 }
 
-/// A keyframe in an animation with timestamp and value
+/// A keyframe in an animation with timestamp and value.
 #[derive(Debug, Clone)]
 pub struct Keyframe {
     /// Time of this keyframe in seconds

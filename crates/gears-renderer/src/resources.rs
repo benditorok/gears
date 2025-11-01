@@ -469,12 +469,12 @@ pub(crate) async fn load_model_gltf(
     }
 
     // Load animations using the new animation system
-    let mut animation_clips: Vec<animation::AnimationClip> = Vec::new();
+    let mut animation_clips: Vec<crate::animation::clip::AnimationClip> = Vec::new();
     for gltf_animation in gltf.animations() {
         let animation_name = gltf_animation.name().unwrap_or("Default").to_string();
         log::info!("Loading GLTF animation: {}", animation_name);
 
-        let mut clip = animation::AnimationClip::new(&animation_name);
+        let mut clip = crate::animation::clip::AnimationClip::new(&animation_name);
         let mut max_duration = 0.0f32;
 
         for channel in gltf_animation.channels() {

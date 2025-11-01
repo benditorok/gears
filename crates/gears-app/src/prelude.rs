@@ -32,3 +32,13 @@ pub use gears_ecs::{
     query::{ComponentQuery, WorldQueryExt},
 };
 pub use gears_macro::Component;
+pub use gears_renderer::animation::{
+    clip::*,
+    controller::{AnimationController, TransitionSettings},
+    state::{
+        AnimationStateMachine, ParameterCondition, StateParameters, StateTransition,
+        TransitionCondition,
+    },
+    timeline::*,
+    track::*,
+};

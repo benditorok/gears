@@ -1,5 +1,3 @@
-//! Animation controller for managing animation states, transitions, and playback.
-
 use super::{AnimationClip, AnimationEvent, AnimationMetrics, LoopMode, PlaybackState};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -479,9 +477,7 @@ impl Default for AnimationController {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::animation::{
-        AnimationClip, AnimationTarget, AnimationTrack, AnimationValue, Keyframe,
-    };
+    use crate::animation::AnimationClip;
 
     #[test]
     fn test_controller_creation() {

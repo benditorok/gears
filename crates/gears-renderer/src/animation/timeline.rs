@@ -1,8 +1,8 @@
 //! Animation timeline for keyframe editing and precise timing control.
 
-use super::{
-    AnimationClip, AnimationEvent, AnimationTarget, AnimationTrack, AnimationValue, Keyframe,
-};
+use crate::animation::track::AnimationTrack;
+
+use super::{AnimationClip, AnimationEvent, AnimationTarget, AnimationValue, Keyframe};
 use std::collections::HashMap;
 use std::time::Duration;
 

@@ -1,6 +1,8 @@
 //! Animation mixer for advanced blending operations and layered animation management.
 
-use super::{AnimationClip, AnimationTarget, AnimationValue};
+use crate::animation::clip::AnimationClip;
+
+use super::{AnimationTarget, AnimationValue};
 use std::collections::HashMap;
 use std::time::Duration;
 

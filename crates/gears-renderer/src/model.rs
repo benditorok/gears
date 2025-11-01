@@ -1,4 +1,5 @@
 use super::texture;
+use crate::animation::clip::AnimationClip;
 use gears_ecs::{
     Component,
     components::{self, physics::AABBCollisionBox},
@@ -361,7 +362,7 @@ pub struct Model {
     /// All materials used by the model.
     pub(crate) materials: Vec<Material>,
     /// Animation clips associated with the model.
-    pub(crate) animations: Vec<super::animation::AnimationClip>,
+    pub(crate) animations: Vec<AnimationClip>,
 }
 
 impl Debug for Model {
@@ -393,7 +394,7 @@ impl Model {
     /// # Returns
     ///
     /// A result containing a reference to the animation clip or an error message.
-    pub fn get_animation(&self, name: &str) -> Result<&super::animation::AnimationClip, String> {
+    pub fn get_animation(&self, name: &str) -> Result<&AnimationClip, String> {
         self.animations
             .iter()
             .find(|clip| clip.name == name)
