@@ -45,6 +45,8 @@ pub struct State {
     hdr_pipeline: pipeline::hdr::HdrPipeline,
     /// The wireframe rendering pipeline for debug visualization.
     wireframe_pipeline: pipeline::wireframe::WireframePipeline,
+    /// The crosshair overlay pipeline.
+    crosshair_pipeline: pipeline::crosshair::CrosshairPipeline,
     /// Optional movement controller for the active camera.
     movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
     /// View controller for the active camera.
@@ -163,6 +165,9 @@ impl State {
             &hdr_pipeline,
         );
 
+        // ! Crosshair pipeline
+        let crosshair_pipeline = pipeline::crosshair::CrosshairPipeline::new(&device, &config);
+
         Self {
             surface,
             device,
@@ -172,6 +177,7 @@ impl State {
             base_pipeline,
             hdr_pipeline,
             wireframe_pipeline,
+            crosshair_pipeline,
             movement_controller: None,
             view_controller: None,
             camera_owner_entity: None,
@@ -262,6 +268,40 @@ impl State {
     /// Toggle the debug mode.
     pub fn toggle_debug(&mut self) {
         self.draw_colliders = !self.draw_colliders;
+    }
+
+    /// Toggles the crosshair visibility.
+    pub fn toggle_crosshair(&mut self) {
+        self.crosshair_pipeline.toggle_visible();
+    }
+
+    /// Sets the crosshair visibility.
+    ///
+    /// # Arguments
+    ///
+    /// * `visible` - Whether the crosshair should be visible.
+    pub fn set_crosshair_visible(&mut self, visible: bool) {
+        self.crosshair_pipeline.set_visible(visible);
+    }
+
+    /// Configures the crosshair appearance.
+    ///
+    /// # Arguments
+    ///
+    /// * `gap` - Distance from center to crosshair lines.
+    /// * `length` - Length of each crosshair line.
+    /// * `thickness` - Thickness of the crosshair lines.
+    /// * `color` - RGBA color of the crosshair.
+    pub fn configure_crosshair(&self, gap: f32, length: f32, thickness: f32, color: [f32; 4]) {
+        self.crosshair_pipeline.update_uniforms(
+            &self.queue,
+            self.config.width,
+            self.config.height,
+            gap,
+            length,
+            thickness,
+            color,
+        );
     }
 
     /// Check if the state is paused.
@@ -372,6 +412,8 @@ impl State {
                 .resize(&self.device, new_size.width, new_size.height);
             self.hdr_pipeline
                 .resize(&self.device, new_size.width, new_size.height);
+            self.crosshair_pipeline
+                .resize(&self.queue, new_size.width, new_size.height);
         }
     }
 
@@ -626,6 +668,9 @@ impl State {
 
         // ! Apply tonemapping
         self.hdr_pipeline.process(&mut encoder, &view);
+
+        // ! Render crosshair overlay
+        self.crosshair_pipeline.render(&mut encoder, &view);
 
         // ! Egui render pass for the custom UI windows
         let mut egui_windows = self.egui_windows.lock();
