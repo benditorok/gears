@@ -31,8 +31,8 @@ async fn main() -> EngineResult<()> {
         app,
         LightMarker,
         Name("Ambient Light"),
-        Light::Ambient { intensity: 0.05 },
-        Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0))
+        Light::Ambient { intensity: 0.1 },
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0))
     );
 
     // Add directional light
@@ -42,9 +42,9 @@ async fn main() -> EngineResult<()> {
         Name("Directional Light"),
         Light::Directional {
             direction: [-0.5, -0.5, 0.0],
-            intensity: 0.3,
+            intensity: 0.6,
         },
-        Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0))
+        Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
     );
 
     // Add a green light
@@ -66,22 +66,24 @@ async fn main() -> EngineResult<()> {
         StaticModelMarker,
         Name("Sphere1"),
         ModelSource::Obj("models/sphere/sphere.obj"),
-        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        Pos3::default(),
     );
 
-    // Use the update loop to spin all spheres using the new simplified async_system! macro
+    // Create a system to rotate the sphere
     async_system!(app, "update_rot", move |world, dt| {
-        const SPIN_SPEED: f32 = 0.5f32;
+        const SPIN_SPEED: f32 = 1_f32;
         if let Some(pos3) = world.get_component::<Pos3>(sphere_entity) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             let rotation = wlock_pos3.rot;
-            wlock_pos3.rot =
-                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * SPIN_SPEED)) * rotation;
+            wlock_pos3.rot = Quaternion::from_angle_y(cgmath::Rad(
+                SPIN_SPEED * dt.as_secs_f32(), // Scale by delta time
+            )) * rotation;
         }
 
         Ok(())
     });
 
+    // Run the application
     app.run()
 }
