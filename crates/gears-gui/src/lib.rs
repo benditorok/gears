@@ -1,3 +1,5 @@
+//! Egui-wgpu integration setup for the gears engine.
+
 #![forbid(unsafe_code)]
 
 use egui::Context;
@@ -10,18 +12,21 @@ use winit::window::Window;
 
 pub type EguiWindowCallback = Box<dyn for<'a> FnMut(&'a egui::Context) + Send + 'static>;
 
-/// A wrapper around the egui-wgpu renderer that handles the egui context and renderer.
+/// A wrapper around the egui-wgpu renderer that handles the egui context and renderer state.
 ///
-/// This struct is responsible for handling events on the custom windows, and provides
+/// [`EguiRenderer`] responsible for handling events on the custom windows, and provides
 /// methods to interact with the egui context and renderer.
 pub struct EguiRenderer {
+    /// The state of the egui-winit context.
     state: Arc<Mutex<State>>,
+    /// The egui-wgpu renderer.
     renderer: Renderer,
+    /// Whether a frame has started.
     frame_started: bool,
 }
 
 impl EguiRenderer {
-    /// Create a new EguiRenderer.
+    /// Create a new egui renderer wrapper.
     ///
     /// # Arguments
     ///
@@ -30,6 +35,10 @@ impl EguiRenderer {
     /// * `output_depth_format` - The texture format for the output depth.
     /// * `msaa_samples` - The number of samples for multisampling.
     /// * `window` - The window to render to.
+    ///
+    /// # Returns
+    ///
+    /// A new [`EguiRenderer`] instance.
     pub fn new(
         device: &Device,
         output_color_format: TextureFormat,
@@ -63,8 +72,7 @@ impl EguiRenderer {
     }
 
     /// Handle input events on the window.
-    /// This method should be called when a window event is received.
-    /// This method will return true if the event was consumed by the egui context.
+    /// Should be called when a window event is received.
     ///
     /// # Arguments
     ///
@@ -73,7 +81,7 @@ impl EguiRenderer {
     ///
     /// # Returns
     ///
-    /// True if the event was consumed by the egui context.
+    /// [`True`] if the event was consumed by the egui context.
     pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) -> bool {
         let response = self.state.lock().unwrap().on_window_event(window, event);
         response.consumed
@@ -83,9 +91,9 @@ impl EguiRenderer {
     ///
     /// # Arguments
     ///
-    /// * `v` - The pixels per point value.
-    pub fn ppp(state: &mut State, v: f32) {
-        state.egui_ctx().set_pixels_per_point(v);
+    /// * `ppp` - The pixels per point value.
+    pub fn ppp(state: &mut State, ppp: f32) {
+        state.egui_ctx().set_pixels_per_point(ppp);
     }
 
     /// Begin a new frame.
@@ -101,7 +109,7 @@ impl EguiRenderer {
     }
 
     /// End the current frame and draw the egui context to the window.
-    /// This method must be called after begin_frame.
+    /// Must be called after begin_frame.
     ///
     /// # Arguments
     ///
@@ -114,7 +122,7 @@ impl EguiRenderer {
     ///
     /// # Panics
     ///
-    /// This method will panic if begin_frame has not been called before end_frame_and_draw.
+    /// This method will panic if [`begin_frame`] has not been called before [`end_frame_and_draw`].
     pub fn end_frame_and_draw(
         &mut self,
         device: &Device,
@@ -169,8 +177,7 @@ impl EguiRenderer {
         self.frame_started = false;
     }
 
-    /// Draw a custom UI to the window context.
-    /// This method will handle the entire UI rendering process.
+    /// Draw a custom UI to the window context and handle the entire UI rendering process.
     ///
     /// # Arguments
     ///

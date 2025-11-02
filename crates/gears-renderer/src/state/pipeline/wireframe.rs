@@ -5,14 +5,28 @@ use crate::{
     texture,
 };
 
-/// The pipeline used to render wireframes
+/// The pipeline used to render wireframes for collision boxes.
 pub struct WireframePipeline {
+    /// The render pipeline for wireframe rendering.
     pipeline: wgpu::RenderPipeline,
+    /// The pipeline layout for bind groups.
     #[allow(unused)]
     pipeline_layout: wgpu::PipelineLayout,
 }
 
 impl WireframePipeline {
+    /// Creates a new wireframe rendering pipeline.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for pipeline creation.
+    /// * `_config` - The surface configuration (unused).
+    /// * `camera_layout` - The bind group layout for camera data.
+    /// * `hdr_pipeline` - The HDR pipeline to match texture format.
+    ///
+    /// # Returns
+    ///
+    /// A new [`WireframePipeline`] instance.
     pub fn new(
         device: &wgpu::Device,
         _config: &wgpu::SurfaceConfiguration,
@@ -48,6 +62,11 @@ impl WireframePipeline {
         }
     }
 
+    /// Exposes the wireframe render pipeline.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the render pipeline.
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
     }

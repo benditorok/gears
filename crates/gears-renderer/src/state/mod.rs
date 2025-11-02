@@ -1,3 +1,5 @@
+//! Renderer state management and rendering loop.
+
 mod init;
 mod pipeline;
 mod resources;
@@ -24,36 +26,55 @@ use winit::{
     window::Window,
 };
 
-/// Global state of the application. This is where all rendering related data is stored.
-///
-/// The State is responsible for handling the rendering pipeline, the camera, the lights,
-/// the models, the window, etc.
+/// Global state of the application containing all rendering data.
+/// Responsible for managing pipelines, camera, lights, models, and the window.
 pub struct State {
+    /// The GPU surface for rendering output.
     surface: wgpu::Surface<'static>,
+    /// The GPU device for resource creation.
     device: wgpu::Device,
+    /// The GPU command queue.
     queue: wgpu::Queue,
+    /// The surface configuration settings.
     config: wgpu::SurfaceConfiguration,
+    /// The window size in pixels.
     size: winit::dpi::PhysicalSize<u32>,
+    /// The base rendering pipeline for models.
     base_pipeline: pipeline::base::BasePipeline,
+    /// The HDR post-processing pipeline.
     hdr_pipeline: pipeline::hdr::HdrPipeline,
+    /// The wireframe rendering pipeline for debug visualization.
     wireframe_pipeline: pipeline::wireframe::WireframePipeline,
+    /// Optional movement controller for the active camera.
     movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
+    /// View controller for the active camera.
     view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
+    /// Optional player entity reference.
     player_entity: Option<Entity>,
+    /// Entity that owns the active camera.
     camera_owner_entity: Option<Entity>,
+    /// The window being rendered to.
     window: Arc<Window>,
+    /// The ECS world containing all entities and components.
     world: Arc<World>,
+    /// Whether the mouse button is currently pressed.
     mouse_pressed: bool,
+    /// Whether to draw collision box wireframes.
     pub draw_colliders: bool,
+    /// The egui renderer for UI elements.
     egui_renderer: EguiRenderer,
+    /// Registered egui window callbacks.
     egui_windows: Arc<Mutex<Vec<EguiWindowCallback>>>,
+    /// Whether the state is paused.
     is_state_paused: AtomicBool,
+    /// Whether the cursor is grabbed.
     is_cursor_grabbed: AtomicBool,
+    /// Optional list of target entities for gameplay.
     target_entities: Option<Vec<Entity>>,
 }
 
 impl State {
-    /// Create a new instance of the State.
+    /// Creates a new renderer state instance.
     ///
     /// # Arguments
     ///
@@ -62,7 +83,7 @@ impl State {
     ///
     /// # Returns
     ///
-    /// A new instance of the State.
+    /// A new [`State`] instance.
     pub async fn new(window: Arc<Window>, world: Arc<World>) -> State {
         // * Initializing the backend
         // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
@@ -131,7 +152,8 @@ impl State {
         let hdr_pipeline = pipeline::hdr::HdrPipeline::new(&device, &config);
 
         // ! Base pipeline
-        let base_pipeline = pipeline::base::BasePipeline::new(&device, &config, &hdr_pipeline);
+        let base_pipeline =
+            pipeline::base::BasePipeline::new(&device, &config, hdr_pipeline.format());
 
         // ! Wireframe pipeline
         let wireframe_pipeline = pipeline::wireframe::WireframePipeline::new(
@@ -166,18 +188,38 @@ impl State {
         }
     }
 
+    /// Exposes the base pipeline.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the base pipeline.
     pub fn base_pipeline(&self) -> &pipeline::base::BasePipeline {
         &self.base_pipeline
     }
 
+    /// Exposes the GPU device.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the GPU device.
     pub fn queue(&self) -> &wgpu::Queue {
         &self.queue
     }
 
+    /// Exposes the view controller.
+    ///
+    /// # Returns
+    ///
+    /// An optional reference to the view controller.
     pub fn view_controller(&self) -> Option<&Arc<RwLock<components::controllers::ViewController>>> {
         self.view_controller.as_ref()
     }
 
+    /// Sets the view controller.
+    ///
+    /// # Arguments
+    ///
+    /// * `view_controller` - The new view controller to set.
     pub fn set_view_controller(
         &mut self,
         view_controller: Option<Arc<RwLock<components::controllers::ViewController>>>,
@@ -185,12 +227,22 @@ impl State {
         self.view_controller = view_controller;
     }
 
+    /// Exposes the movement controller.
+    ///
+    /// # Returns
+    ///
+    /// An optional reference to the movement controller.
     pub fn movement_controller(
         &self,
     ) -> Option<&Arc<RwLock<components::controllers::MovementController>>> {
         self.movement_controller.as_ref()
     }
 
+    /// Sets the movement controller.
+    ///
+    /// # Arguments
+    ///
+    /// * `movement_controller` - The new movement controller to set.
     pub fn set_movement_controller(
         &mut self,
         movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
@@ -198,6 +250,11 @@ impl State {
         self.movement_controller = movement_controller;
     }
 
+    /// Exposes the current window size.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the physical size of the window.
     pub fn size(&self) -> &PhysicalSize<u32> {
         &self.size
     }
@@ -207,14 +264,25 @@ impl State {
         self.draw_colliders = !self.draw_colliders;
     }
 
+    /// Check if the state is paused.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the state is paused.
     pub fn is_paused(&self) -> bool {
         self.is_state_paused.load(Ordering::Relaxed)
     }
 
+    /// Add custom egui windows to be rendered.
+    ///
+    /// # Arguments
+    ///
+    /// * `egui_windows` - A vector of egui window callbacks to add.
     pub fn add_windows(&mut self, egui_windows: Vec<EguiWindowCallback>) {
         self.egui_windows.lock().extend(egui_windows);
     }
 
+    /// Grab the cursor for first-person camera control.
     pub fn grab_cursor(&self) {
         self.window
             .set_cursor_grab(CursorGrabMode::Confined)
@@ -223,11 +291,13 @@ impl State {
         self.window.set_cursor_visible(false);
     }
 
+    /// Release the cursor to allow normal interaction.
     pub fn release_cursor(&self) {
         self.window.set_cursor_grab(CursorGrabMode::None).ok();
         self.window.set_cursor_visible(true);
     }
 
+    /// Toggle the cursor between grabbed and released states.
     pub fn toggle_cursor(&self) {
         if self.is_cursor_grabbed.load(Ordering::Relaxed) {
             self.release_cursor();
@@ -239,6 +309,10 @@ impl State {
     }
 
     /// Initialize the components which can be rendered.
+    ///
+    /// # Returns
+    ///
+    /// A result indicating if the initialization was successful or not.
     pub async fn init_components(&mut self) -> Result<(), RendererError> {
         if !init::player(self) {
             init::camera(self);
@@ -393,7 +467,7 @@ impl State {
     ///
     /// # Returns
     ///
-    /// A future which can be awaited.
+    /// A result indicating if the update was successful or not.
     pub async fn update(&mut self, dt: time::Duration) -> Result<(), RendererError> {
         // ! Update the camera (view controller). If the camera is a player, then update the movement controller as well.
         if let Some(view_controller) = &self.view_controller {

@@ -16,9 +16,9 @@ async fn main() -> EngineResult<()> {
         app,
         CameraMarker,
         Name("FPS Camera"),
-        Pos3::new(cgmath::Vector3::new(30.0, 20.0, 30.0,)),
+        Pos3::new(cgmath::Vector3::new(10.0, 10.0, 30.0,)),
         ViewController::new_look_at(
-            cgmath::Point3::new(30.0, 20.0, 30.0),
+            cgmath::Point3::new(10.0, 20.0, 30.0),
             cgmath::Point3::new(0.0, 0.0, 0.0),
             0.8,
             0.0,
@@ -32,7 +32,7 @@ async fn main() -> EngineResult<()> {
         LightMarker,
         Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
         Name("Ambient Light"),
-        Light::Ambient { intensity: 0.05 },
+        Light::Ambient { intensity: 0.1 },
     );
 
     // Add directional light
@@ -43,7 +43,7 @@ async fn main() -> EngineResult<()> {
         Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,)),
         Light::Directional {
             direction: [-0.5, -0.5, 0.0],
-            intensity: 0.3,
+            intensity: 0.5,
         },
     );
 

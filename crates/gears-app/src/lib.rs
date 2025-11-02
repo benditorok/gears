@@ -1,3 +1,5 @@
+//! Run and manage the gears engine.
+
 #![forbid(unsafe_code)]
 
 pub mod errors;
@@ -9,7 +11,6 @@ use crate::errors::EngineError;
 use gears_core::config::{self, Config};
 use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_gui::EguiWindowCallback;
-
 use gears_renderer::state::State;
 use log::{debug, info};
 use std::sync::atomic::AtomicBool;
@@ -21,23 +22,38 @@ use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowAttributes, WindowId};
 
-// This struct is used to manage the entire application.
-/// The application can also be used to create entities, add components, windows etc. to itself.
+/// [`GearsApp`] runs and manages the application through its lifecycle.
 pub struct GearsApp {
+    /// Configuration of the application.
     config: Config,
+    /// ECS instance used to manage entities and components.
     world: Arc<World>,
+    /// Window handle used to display the application.
     window: Option<Arc<Window>>,
+    /// Renderer state of the application.
     state: Option<Arc<RwLock<State>>>,
+    /// Custom windows which can be displayed in the same window context of the application.
     egui_windows: Option<Vec<EguiWindowCallback>>,
+    /// Atomic boolean indicating whether the application is running.
     is_running: Arc<AtomicBool>,
+    /// Predefined Internal systems used to manipulate to manipulate the entities, components and application state.
     internal_async_systems: systems::InternalSystemCollection,
+    /// User-defined systems used to manipulate the entities and components.
     external_async_systems: systems::ExternalSystemCollection,
+    /// Timestamp of the last frame rendered.
     last_render_time: time::Instant,
+    /// The duration of the last frame rendered.
     dt: time::Duration,
+    /// Indicates whether the application was paused.
     was_paused: bool,
 }
 
 impl Default for GearsApp {
+    /// Creates the application with it's default configuration.
+    ///
+    /// # Returns
+    ///
+    /// The default [`GearsApp`] instance.
     fn default() -> Self {
         Self {
             config: Config::default(),
@@ -56,8 +72,15 @@ impl Default for GearsApp {
 }
 
 impl GearsApp {
-    /// Initialize the application.
-    /// This will create a new instance of the application with the given configuration.
+    /// Creates the application with a custom configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration for the application.
+    ///
+    /// # Returns
+    ///
+    /// The created [`GearsApp`] instance.
     pub fn new(config: config::Config) -> Self {
         Self {
             config,
@@ -75,6 +98,10 @@ impl GearsApp {
     }
 
     /// Run the application and start the event loop.
+    ///
+    /// # Returns
+    ///
+    /// [`EngineError`] if the event loop fails to start.
     pub fn run(&mut self) -> Result<(), EngineError> {
         info!("Starting gears engine");
 
@@ -86,10 +113,21 @@ impl GearsApp {
             .map_err(|e| EngineError::ComponentInitialization(e.to_string()))
     }
 
+    /// Add an asynchronous system to the engine.
+    ///
+    /// # Arguments
+    ///
+    /// * `system` - The asynchronous system to add.
     pub fn add_async_system(&mut self, system: systems::AsyncSystem) {
         self.external_async_systems.add_system(system);
     }
 
+    /// Run all external asynchronous systems.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world to run the systems on.
+    /// * `dt` - The time elapsed since the last frame.
     async fn run_external_systems(&self, world: Arc<World>, dt: time::Duration) {
         debug!("Starting external system execution cycle");
 
@@ -151,6 +189,13 @@ impl GearsApp {
         debug!("All {} external systems completed", total_systems);
     }
 
+    /// Run all internal asynchronous systems.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world to run the systems on.
+    /// * `state` - The state to run the systems on.
+    /// * `dt` - The time elapsed since the last frame.
     async fn run_internal_systems(
         &self,
         world: Arc<World>,
@@ -233,6 +278,11 @@ impl GearsApp {
 }
 
 impl ApplicationHandler for GearsApp {
+    /// Handler used to resume the state of the application.
+    ///
+    /// # Arguments
+    ///
+    /// * `event_loop` - The event loop used to create the window.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Create window if it doesn't exist
         if self.window.is_none() {
@@ -278,6 +328,11 @@ impl ApplicationHandler for GearsApp {
         }
     }
 
+    /// Handler used to start rendering of a new frame.
+    ///
+    /// # Arguments
+    ///
+    /// * `_event_loop` - The active event loop.
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
         if let (Some(state), Some(window)) = (&self.state, &self.window) {
             let is_paused = state.read().unwrap().is_paused();
@@ -320,6 +375,13 @@ impl ApplicationHandler for GearsApp {
         }
     }
 
+    /// Handler used to handle device events.
+    ///
+    /// # Arguments
+    ///
+    /// * `_event_loop` - The active event loop.
+    /// * `_device_id` - The ID of the device that generated the event.
+    /// * `event` - The device event.
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
@@ -348,6 +410,13 @@ impl ApplicationHandler for GearsApp {
         }
     }
 
+    /// Handler used to handle window events.
+    ///
+    /// # Arguments
+    ///
+    /// * `_event_loop` - The active event loop.
+    /// * `_window_id` - The ID of the window that generated the event.
+    /// * `event` - The window event.
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -426,6 +495,10 @@ impl ApplicationHandler for GearsApp {
 }
 
 impl Drop for GearsApp {
+    /// Drop the GearsApp instance.
+    ///
+    /// This method is called when the GearsApp instance is dropped.
+    /// It sets the `is_running` flag to false and performs any necessary cleanup.
     fn drop(&mut self) {
         self.is_running
             .store(false, std::sync::atomic::Ordering::Relaxed);
@@ -433,12 +506,22 @@ impl Drop for GearsApp {
 }
 
 impl EntityBuilder for GearsApp {
+    /// Creates and stores a new entity.
+    ///
+    /// # Returns
+    ///
+    /// The [`GearsApp`] instance so that chainable methods can be called.
     fn new_entity(&mut self) -> &mut Self {
         self.world.create_entity();
 
         self
     }
 
+    /// Adds a component to the last created entity.
+    ///
+    /// # Returns
+    ///
+    /// The [`GearsApp`] instance so that chainable methods can be called.
     fn add_component(&mut self, component: impl Component) -> &mut Self {
         {
             let entity = if let Some(e) = self.world.get_last() {
@@ -453,6 +536,11 @@ impl EntityBuilder for GearsApp {
         self
     }
 
+    /// Close the chainable methods to the current entity.
+    ///
+    /// # Returns
+    ///
+    /// The last created [`Entity`].
     fn build(&mut self) -> Entity {
         if let Some(e) = self.world.get_last() {
             e

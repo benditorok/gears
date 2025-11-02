@@ -1,13 +1,10 @@
 use crate::Component;
-use core::time;
 use gears_macro::Component;
 use std::{ops::Deref, time::Instant};
 
-pub trait Tick {
-    fn on_tick(&mut self, delta_time: time::Duration);
-}
-
+/// Marker trait for entities that can be targeted by weapons.
 pub trait Marker {
+    /// Returns a description of the required components for this marker.
     fn describe() -> &'static str;
 }
 

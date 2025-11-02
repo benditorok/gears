@@ -13,7 +13,17 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, RwLock};
 
-/// Update the lights in the scene.
+/// Updates all of the lights stored in the ECS instance.
+///
+/// # Arguments
+///
+/// * `world` - The ECS world instance.
+/// * `state` - The renderer state instance.
+/// * `dt` - The duration of the last frame.
+///
+/// # Returns
+///
+/// A future that resolves to a [`SystemResult`] indicating the success or failure of the system.
 pub(super) fn update_lights(
     world: Arc<World>,
     state: Arc<RwLock<State>>,
@@ -82,7 +92,17 @@ pub(super) fn update_lights(
     })
 }
 
-/// Update the models in the scene.
+/// Updates all of the models stored in the ECS instance.
+///
+/// # Arguments
+///
+/// * `world` - The ECS world instance.
+/// * `state` - The renderer state instance.
+/// * `dt` - The duration of the last frame.
+///
+/// # Returns
+///
+/// A future that resolves to a [`SystemResult`] indicating the success or failure of the system.
 pub(super) fn update_models(
     world: Arc<World>,
     state: Arc<RwLock<State>>,
@@ -330,7 +350,17 @@ pub(super) fn update_models(
     })
 }
 
-/// Update the physics system
+/// Updates the physics objects stored in the ECS instance.
+///
+/// # Arguments
+///
+/// * `world` - The ECS world instance.
+/// * `state` - The renderer state instance.
+/// * `dt` - The duration of the last frame.
+///
+/// # Returns
+///
+/// A future that resolves to a [`SystemResult`] indicating the success or failure of the system.
 pub(super) fn update_physics(
     world: Arc<World>,
     state: Arc<RwLock<State>>,

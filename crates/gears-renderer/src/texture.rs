@@ -1,20 +1,37 @@
+use crate::errors::RendererError;
 use image::GenericImageView;
 
-use crate::errors::RendererError;
-
+/// A texture with its view and sampler for GPU rendering.
 #[derive(Debug)]
 pub(crate) struct Texture {
+    /// The underlying GPU texture resource.
     #[allow(unused)]
     pub texture: wgpu::Texture,
+    /// The texture view for shader access.
     pub view: wgpu::TextureView,
+    /// The sampler for texture filtering.
     pub sampler: wgpu::Sampler,
+    /// The dimensions of the texture.
     #[allow(unused)]
     pub size: wgpu::Extent3d,
 }
 
 impl Texture {
+    /// The standard depth texture format used by the renderer.
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
+    /// Creates a depth texture for depth testing and rendering.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for texture creation.
+    /// * `width` - The width of the depth texture in pixels.
+    /// * `height` - The height of the depth texture in pixels.
+    /// * `label` - An optional debug label for the texture.
+    ///
+    /// # Returns
+    ///
+    /// A new depth [`Texture`] instance.
     pub fn create_depth_texture(
         device: &wgpu::Device,
         width: u32,
@@ -59,6 +76,19 @@ impl Texture {
         }
     }
 
+    /// Creates a texture from raw image bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for texture creation.
+    /// * `queue` - The GPU queue for data upload.
+    /// * `bytes` - The raw image data bytes.
+    /// * `label` - A debug label for the texture.
+    /// * `is_normal_map` - Whether this is a normal map (affects format).
+    ///
+    /// # Returns
+    ///
+    /// A new [`Texture`] instance if the loading is successful.
     pub fn from_bytes(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -70,6 +100,19 @@ impl Texture {
         Self::from_image(device, queue, &img, Some(label), is_normal_map)
     }
 
+    /// Creates a texture from a dynamic image.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for texture creation.
+    /// * `queue` - The GPU queue for data upload.
+    /// * `img` - The source image data.
+    /// * `label` - Optional debug label for the texture.
+    /// * `is_normal_map` - Whether this is a normal map (affects format).
+    ///
+    /// # Returns
+    ///
+    /// A new [`Texture`] instance if the loading is successful.
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -136,7 +179,16 @@ impl Texture {
         })
     }
 
-    /// Creates a default white texture for materials that do not have a texture
+    /// Creates a default white texture for materials without textures.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for texture creation.
+    /// * `queue` - The GPU queue for data upload.
+    ///
+    /// # Returns
+    ///
+    /// A new white [`Texture`] instance.
     pub fn default_white(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         // Pure white: (1.0, 1.0, 1.0, 1.0)
         let rgba: [u8; 4] = [255, 255, 255, 255];
@@ -193,7 +245,16 @@ impl Texture {
         }
     }
 
-    /// Creates a default normal texture for materials that do not have a normal map.
+    /// Creates a default normal texture for materials without normal maps.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for texture creation.
+    /// * `queue` - The GPU queue for data upload.
+    ///
+    /// # Returns
+    ///
+    /// A new normal [`Texture`] instance.
     pub fn default_normal(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         // Flat tangent-space normal: (0.5, 0.5, 1.0)
         let rgba: [u8; 4] = [128, 128, 255, 255];
@@ -250,6 +311,21 @@ impl Texture {
         }
     }
 
+    /// Creates a 2D texture with the specified parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for texture creation.
+    /// * `width` - The width of the texture in pixels.
+    /// * `height` - The height of the texture in pixels.
+    /// * `format` - The texture format.
+    /// * `usage` - The intended usage of the texture.
+    /// * `mag_filter` - The magnification filter mode.
+    /// * `label` - An optional debug label for the texture.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Texture`] instance.
     pub(crate) fn create_2d_texture(
         device: &wgpu::Device,
         width: u32,
@@ -275,6 +351,21 @@ impl Texture {
         )
     }
 
+    /// Creates a texture with full control over all parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for texture creation.
+    /// * `label` - An optional debug label for the texture.
+    /// * `size` - The dimensions of the texture.
+    /// * `format` - The texture format.
+    /// * `usage` - The intended usage of the texture.
+    /// * `dimension` - The texture dimension (1D, 2D, or 3D).
+    /// * `mag_filter` - The magnification filter mode.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Texture`] instance.
     pub fn create_texture(
         device: &wgpu::Device,
         label: Option<&str>,

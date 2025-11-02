@@ -1,50 +1,58 @@
-//! Animation controller for managing animation states, transitions, and playback.
-
 use super::{AnimationClip, AnimationEvent, AnimationMetrics, LoopMode, PlaybackState};
 use std::collections::HashMap;
 use std::time::Duration;
 
-/// The animation controller manages multiple animation clips and their playback
+/// The animation controller manages multiple animation clips and their playback.
 #[derive(Debug)]
 pub struct AnimationController {
-    /// All available animation clips indexed by name
+    /// All available animation clips indexed by name.
     clips: HashMap<String, AnimationClip>,
-    /// Currently active animation states
+    /// Currently active animation states.
     active_states: Vec<AnimationState>,
-    /// Global playback speed multiplier
+    /// Global playback speed multiplier.
     global_speed: f32,
-    /// Whether the controller is paused
+    /// Whether the controller is paused.
     paused: bool,
-    /// Transition settings
+    /// Transition settings.
     transition_settings: TransitionSettings,
 }
 
-/// Represents an active animation state
+/// Represents an active animation state.
 #[derive(Debug, Clone)]
 pub struct AnimationState {
-    /// Name of the animation clip being played
+    /// Name of the animation clip being played.
     pub clip_name: String,
-    /// Playback metrics for this animation
+    /// Playback metrics for this animation.
     pub metrics: AnimationMetrics,
-    /// Current playback state
+    /// Current playback state.
     pub state: PlaybackState,
-    /// Weight for blending (0.0 to 1.0)
+    /// Weight for blending (0.0 to 1.0).
     pub weight: f32,
-    /// Layer this animation plays on (higher numbers override lower)
+    /// Layer this animation plays on (higher numbers override lower).
     pub layer: i32,
-    /// Whether this animation should loop
+    /// Whether this animation should loop.
     pub loop_mode: LoopMode,
-    /// Fade in/out progress for smooth transitions
+    /// Fade in/out progress for smooth transitions.
     pub fade_progress: f32,
-    /// Target weight for transitions
+    /// Target weight for transitions.
     pub target_weight: f32,
-    /// Transition duration
+    /// Transition duration.
     pub transition_duration: f32,
-    /// Time since transition started
+    /// Time since transition started.
     pub transition_time: f32,
 }
 
 impl AnimationState {
+    /// Creates a new animation state for the given clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `clip_name` - The name of the animation clip.
+    /// * `clip` - The animation clip reference.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationState`] instance.
     pub fn new(clip_name: String, clip: &AnimationClip) -> Self {
         Self {
             clip_name,
@@ -60,7 +68,15 @@ impl AnimationState {
         }
     }
 
-    /// Update this animation state
+    /// Updates this animation state.
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - The time delta since the last update.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the animation is still active.
     pub fn update(&mut self, dt: Duration) -> bool {
         if self.state != PlaybackState::Playing {
             return false;
@@ -125,31 +141,45 @@ impl AnimationState {
         true
     }
 
-    /// Start a transition to a new weight
+    /// Starts a transition to a new weight.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_weight` - The target weight value (clamped to 0.0-1.0).
+    /// * `duration` - The duration of the transition in seconds.
     pub fn transition_to_weight(&mut self, target_weight: f32, duration: f32) {
         self.target_weight = target_weight.clamp(0.0, 1.0);
         self.transition_duration = duration.max(0.0);
         self.transition_time = 0.0;
     }
 
-    /// Check if this state is active (weight > 0 and not finished)
+    /// Checks if this state is active (weight > 0 and not finished).
+    ///
+    /// # Returns
+    ///
+    /// `true` if the animation state is active.
     pub fn is_active(&self) -> bool {
         self.weight > 0.0 && self.state != PlaybackState::Finished
     }
 }
 
-/// Settings for animation transitions
+/// Settings for animation transitions.
 #[derive(Debug, Clone)]
 pub struct TransitionSettings {
-    /// Default transition duration when switching animations
+    /// Default transition duration when switching animations.
     pub default_transition_duration: f32,
-    /// Whether to use crossfading for transitions
+    /// Whether to use crossfading for transitions.
     pub use_crossfade: bool,
-    /// Maximum number of simultaneously playing animations
+    /// Maximum number of simultaneously playing animations.
     pub max_active_animations: usize,
 }
 
 impl Default for TransitionSettings {
+    /// Creates default transition settings.
+    ///
+    /// # Returns
+    ///
+    /// The default [`TransitionSettings`] instance.
     fn default() -> Self {
         Self {
             default_transition_duration: 0.2, // 200ms default transition
@@ -160,7 +190,11 @@ impl Default for TransitionSettings {
 }
 
 impl AnimationController {
-    /// Create a new animation controller
+    /// Creates a new animation controller.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationController`] instance.
     pub fn new() -> Self {
         Self {
             clips: HashMap::new(),
@@ -171,29 +205,65 @@ impl AnimationController {
         }
     }
 
-    /// Add an animation clip to the controller
+    /// Adds an animation clip to the controller.
+    ///
+    /// # Arguments
+    ///
+    /// * `clip` - The animation clip to add.
     pub fn add_clip(&mut self, clip: AnimationClip) {
         self.clips.insert(clip.name.clone(), clip);
     }
 
-    /// Remove an animation clip from the controller
+    /// Removes an animation clip from the controller.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the clip to remove.
+    ///
+    /// # Returns
+    ///
+    /// The removed animation clip if it existed.
     pub fn remove_clip(&mut self, name: &str) -> Option<AnimationClip> {
         // Stop any active animations using this clip
         self.active_states.retain(|state| state.clip_name != name);
         self.clips.remove(name)
     }
 
-    /// Get a reference to an animation clip
+    /// Gets a reference to an animation clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the clip.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the animation clip if it exists.
     pub fn get_clip(&self, name: &str) -> Option<&AnimationClip> {
         self.clips.get(name)
     }
 
-    /// Get a mutable reference to an animation clip
+    /// Gets a mutable reference to an animation clip.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the clip.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the animation clip if it exists.
     pub fn get_clip_mut(&mut self, name: &str) -> Option<&mut AnimationClip> {
         self.clips.get_mut(name)
     }
 
-    /// Play an animation by name
+    /// Plays an animation by name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation to play.
+    ///
+    /// # Returns
+    ///
+    /// An error message if the animation clip is not found.
     pub fn play(&mut self, name: &str) -> Result<(), String> {
         let clip = self
             .clips
@@ -244,7 +314,18 @@ impl AnimationController {
         Ok(())
     }
 
-    /// Play an animation with custom settings
+    /// Plays an animation with custom settings.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation to play.
+    /// * `loop_mode` - The loop mode for this animation.
+    /// * `layer` - The layer to play the animation on.
+    /// * `transition_duration` - The duration of the transition in seconds.
+    ///
+    /// # Returns
+    ///
+    /// An error message if the animation clip is not found.
     pub fn play_with_settings(
         &mut self,
         name: &str,
@@ -280,17 +361,21 @@ impl AnimationController {
         Ok(())
     }
 
-    /// Stop all animations
+    /// Stop all animations.
     pub fn stop(&mut self) {
         self.active_states.clear();
     }
 
-    /// Stop a specific animation
+    /// Stop a specific animation.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation to stop.
     pub fn stop_animation(&mut self, name: &str) {
         self.active_states.retain(|state| state.clip_name != name);
     }
 
-    /// Pause all animations
+    /// Pauses all animations.
     pub fn pause(&mut self) {
         self.paused = true;
         for state in &mut self.active_states {
@@ -300,7 +385,7 @@ impl AnimationController {
         }
     }
 
-    /// Resume all paused animations
+    /// Resumes paused animations.
     pub fn resume(&mut self) {
         self.paused = false;
         for state in &mut self.active_states {
@@ -310,12 +395,20 @@ impl AnimationController {
         }
     }
 
-    /// Set global playback speed
+    /// Sets the global playback speed.
+    ///
+    /// # Arguments
+    ///
+    /// * `speed` - The playback speed multiplier.
     pub fn set_global_speed(&mut self, speed: f32) {
         self.global_speed = speed.max(0.0);
     }
 
-    /// Get current playback state (returns the primary animation's state)
+    /// Get current playback state (returns the primary animation's state).
+    ///
+    /// # Returns
+    ///
+    /// The current [`PlaybackState`].
     pub fn current_state(&self) -> PlaybackState {
         self.active_states
             .iter()
@@ -328,7 +421,15 @@ impl AnimationController {
             .unwrap_or(PlaybackState::Stopped)
     }
 
-    /// Update the animation controller
+    /// Update the animation controller.
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - The time delta since the last update.
+    ///
+    /// # Returns
+    ///
+    /// A vector of animation events that occurred during the update.
     pub fn update(&mut self, dt: Duration) -> Vec<AnimationEvent> {
         if self.paused {
             return Vec::new();
@@ -363,7 +464,15 @@ impl AnimationController {
         events
     }
 
-    /// Get the current animation sample for all active animations
+    /// Get the current animation sample for all active animations.
+    ///
+    /// # Arguments
+    ///
+    /// * `time_override` - Optional time override for sampling.
+    ///
+    /// # Returns
+    ///
+    /// A map of animation targets to their blended values.
     pub fn sample(
         &self,
         time_override: Option<f32>,
@@ -411,7 +520,11 @@ impl AnimationController {
         result
     }
 
-    /// Get all active animation names
+    /// Gets a list of active animation names.
+    ///
+    /// # Returns
+    ///
+    /// A vector of active animation clip names.
     pub fn get_active_animations(&self) -> Vec<String> {
         self.active_states
             .iter()
@@ -420,14 +533,22 @@ impl AnimationController {
             .collect()
     }
 
-    /// Check if a specific animation is playing
+    /// Check if a specific animation is playing.
     pub fn is_playing(&self, name: &str) -> bool {
         self.active_states
             .iter()
             .any(|state| state.clip_name == name && state.state == PlaybackState::Playing)
     }
 
-    /// Get the weight of a specific animation
+    /// Gets the weight of a specific animation.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation.
+    ///
+    /// # Returns
+    ///
+    /// The weight of the animation if it's active.
     pub fn get_animation_weight(&self, name: &str) -> Option<f32> {
         self.active_states
             .iter()
@@ -435,7 +556,12 @@ impl AnimationController {
             .map(|state| state.weight)
     }
 
-    /// Set the weight of a specific animation
+    /// Sets the weight of a specific animation.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation.
+    /// * `weight` - The new weight value (clamped to 0.0-1.0).
     pub fn set_animation_weight(&mut self, name: &str, weight: f32) -> Result<(), String> {
         if let Some(state) = self
             .active_states
@@ -449,28 +575,49 @@ impl AnimationController {
         }
     }
 
-    /// Configure transition settings
+    /// Configure transition settings.
+    ///
+    /// # Arguments
+    ///
+    /// * `settings` - The new transition settings to apply.
     pub fn set_transition_settings(&mut self, settings: TransitionSettings) {
         self.transition_settings = settings;
     }
 
-    /// Get the number of loaded clips
+    /// Get the number of loaded clips.
+    ///
+    /// # Returns
+    ///
+    /// The number of loaded animation clips.
     pub fn clip_count(&self) -> usize {
         self.clips.len()
     }
 
-    /// Get the number of active animations
+    /// Gets the number of active animations.
+    ///
+    /// # Returns
+    ///
+    /// The number of currently active animations.
     pub fn active_animation_count(&self) -> usize {
         self.active_states.len()
     }
 
-    /// Get all available animation names
+    /// Get all available animation names.
+    ///
+    /// # Returns
+    ///
+    /// A vector of all animation clip names.
     pub fn get_animation_names(&self) -> Vec<String> {
         self.clips.keys().cloned().collect()
     }
 }
 
 impl Default for AnimationController {
+    /// Creates a default animation controller.
+    ///
+    /// # Returns
+    ///
+    /// The default [`AnimationController`] instance.
     fn default() -> Self {
         Self::new()
     }
@@ -479,9 +626,7 @@ impl Default for AnimationController {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::animation::{
-        AnimationClip, AnimationTarget, AnimationTrack, AnimationValue, Keyframe,
-    };
+    use crate::animation::AnimationClip;
 
     #[test]
     fn test_controller_creation() {

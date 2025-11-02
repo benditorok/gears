@@ -1,28 +1,45 @@
-use std::fmt::Debug;
-
 use super::texture;
+use crate::animation::clip::AnimationClip;
 use gears_ecs::{
     Component,
     components::{self, physics::AABBCollisionBox},
 };
 use gears_macro::Component;
+use std::fmt::Debug;
 use wgpu::util::DeviceExt;
 
+/// Trait for vertex types that can provide GPU buffer layout information.
 pub(crate) trait Vertex {
+    /// Returns the vertex buffer layout descriptor for the GPU.
+    ///
+    /// # Returns
+    ///
+    /// A [`wgpu::VertexBufferLayout`] describing the vertex format.
     fn desc() -> wgpu::VertexBufferLayout<'static>;
 }
 
+/// Vertex data for model rendering with position, UV, and tangent space basis.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ModelVertex {
+    /// Vertex position in model space.
     pub position: [f32; 3],
+    /// Texture coordinates.
     pub tex_coords: [f32; 2],
-    pub normal: [f32; 3],    // Direction of the surface normal
-    pub tangent: [f32; 3], // Direction of the tangent vector (any vector parallel to the surface normal)
-    pub bitangent: [f32; 3], // Direction of the bitangent vector (any vector perpendicular to the tangent)
+    /// Surface normal direction.
+    pub normal: [f32; 3],
+    /// Tangent vector parallel to the surface.
+    pub tangent: [f32; 3],
+    /// Bitangent vector perpendicular to the tangent.
+    pub bitangent: [f32; 3],
 }
 
 impl Vertex for ModelVertex {
+    /// Returns the vertex buffer layout for model vertices.
+    ///
+    /// # Returns
+    ///
+    /// A [`wgpu::VertexBufferLayout`] describing the model vertex format.
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
         wgpu::VertexBufferLayout {
@@ -60,13 +77,20 @@ impl Vertex for ModelVertex {
     }
 }
 
+/// Simplified vertex data for wireframe collision box rendering.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ColliderVertex {
+    /// Vertex position in model space.
     pub position: [f32; 3],
 }
 
 impl Vertex for ColliderVertex {
+    /// Returns the vertex buffer layout for collider vertices.
+    ///
+    /// # Returns
+    ///
+    /// A [`wgpu::VertexBufferLayout`] describing the collider vertex format.
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<ColliderVertex>() as wgpu::BufferAddress,
@@ -80,17 +104,35 @@ impl Vertex for ColliderVertex {
     }
 }
 
+/// Material data containing textures and GPU bind group.
 #[derive(Debug)]
 pub(crate) struct Material {
+    /// Material name for identification.
     #[allow(unused)]
     pub name: String,
+    /// Diffuse/albedo texture.
     #[allow(unused)]
     pub diffuse_texture: texture::Texture,
+    /// Normal map texture.
     #[allow(unused)]
     pub normal_texture: texture::Texture,
+    /// GPU bind group for shader access.
     pub bind_group: wgpu::BindGroup,
 }
 impl Material {
+    /// Creates a new material with the given textures.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for bind group creation.
+    /// * `name` - The name of the material.
+    /// * `diffuse_texture` - The diffuse texture for the material.
+    /// * `normal_texture` - The normal map texture for the material.
+    /// * `layout` - The bind group layout to use.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Material`] instance.
     pub fn new(
         device: &wgpu::Device,
         name: &str,
@@ -130,24 +172,44 @@ impl Material {
     }
 }
 
+/// A mesh containing geometry and material index.
 #[derive(Debug)]
 pub(crate) struct Mesh {
+    /// Mesh name for identification.
     #[allow(unused)]
     pub name: String,
+    /// GPU buffer containing vertex data.
     pub vertex_buffer: wgpu::Buffer,
+    /// GPU buffer containing index data.
     pub index_buffer: wgpu::Buffer,
+    /// Number of indices to draw.
     pub num_elements: u32,
+    /// Index into the model's material array.
     pub material: usize,
 }
 
+/// Wireframe mesh for rendering collision boxes.
 #[derive(Component, Debug)]
 pub(crate) struct WireframeMesh {
+    /// GPU buffer containing wireframe vertex data.
     pub vertex_buffer: wgpu::Buffer,
+    /// GPU buffer containing wireframe index data.
     pub index_buffer: wgpu::Buffer,
+    /// Number of indices in the wireframe.
     pub num_indices: u32,
 }
 
 impl WireframeMesh {
+    /// Creates a new wireframe mesh from a rigid body's collision box.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The GPU device for buffer creation.
+    /// * `rigid_body` - The rigid body containing the AABB collision box.
+    ///
+    /// # Returns
+    ///
+    /// A new [`WireframeMesh`] instance.
     pub fn new(
         device: &wgpu::Device,
         rigid_body: &components::physics::RigidBody<AABBCollisionBox>,
@@ -239,17 +301,36 @@ impl WireframeMesh {
     }
 }
 
+/// Trait for drawing wireframe meshes with a render pass.
 pub(crate) trait DrawWireframeMesh {
+    /// Sets up the wireframe rendering pipeline and camera.
+    ///
+    /// # Arguments
+    ///
+    /// * `pipeline` - The wireframe render pipeline.
+    /// * `camera_bind_group` - The bind group containing camera data.
     fn set_wireframe_pipeline(
         &mut self,
         pipeline: &wgpu::RenderPipeline,
         camera_bind_group: &wgpu::BindGroup,
     );
 
+    /// Draws a wireframe mesh with the given instance buffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `mesh` - The wireframe mesh to draw.
+    /// * `instance_buffer` - The instance buffer for instanced rendering.
     fn draw_wireframe_mesh(&mut self, mesh: &WireframeMesh, instance_buffer: &wgpu::Buffer);
 }
 
 impl DrawWireframeMesh for wgpu::RenderPass<'_> {
+    /// Sets up the wireframe rendering pipeline and camera.
+    ///
+    /// # Arguments
+    ///
+    /// * `pipeline` - The wireframe render pipeline.
+    /// * `camera_bind_group` - The bind group containing camera data.
     fn set_wireframe_pipeline(
         &mut self,
         pipeline: &wgpu::RenderPipeline,
@@ -259,6 +340,12 @@ impl DrawWireframeMesh for wgpu::RenderPass<'_> {
         self.set_bind_group(0, camera_bind_group, &[]);
     }
 
+    /// Draws a wireframe mesh with the given instance buffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `mesh` - The wireframe mesh to draw.
+    /// * `instance_buffer` - The instance buffer for instanced rendering.
     fn draw_wireframe_mesh(&mut self, mesh: &WireframeMesh, instance_buffer: &wgpu::Buffer) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -267,14 +354,27 @@ impl DrawWireframeMesh for wgpu::RenderPass<'_> {
     }
 }
 
+/// A 3D model containing meshes, materials, and animations.
 #[derive(Component)]
 pub struct Model {
+    /// All meshes in the model.
     pub(crate) meshes: Vec<Mesh>,
+    /// All materials used by the model.
     pub(crate) materials: Vec<Material>,
-    pub(crate) animations: Vec<super::animation::AnimationClip>,
+    /// Animation clips associated with the model.
+    pub(crate) animations: Vec<AnimationClip>,
 }
 
 impl Debug for Model {
+    /// Formats the model for debugging purposes.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    ///
+    /// # Returns
+    ///
+    /// A result indicating success or failure.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Model")
             .field("meshes", &self.meshes)
@@ -285,7 +385,16 @@ impl Debug for Model {
 }
 
 impl Model {
-    pub fn get_animation(&self, name: &str) -> Result<&super::animation::AnimationClip, String> {
+    /// Retrieves an animation clip by name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation clip to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// A result containing a reference to the animation clip or an error message.
+    pub fn get_animation(&self, name: &str) -> Result<&AnimationClip, String> {
         self.animations
             .iter()
             .find(|clip| clip.name == name)
@@ -293,7 +402,15 @@ impl Model {
     }
 }
 
+/// Trait for drawing models with a render pass.
 pub(crate) trait DrawModelMesh {
+    /// Sets up the model rendering pipeline with camera and lights.
+    ///
+    /// # Arguments
+    ///
+    /// * `pipeline` - The model render pipeline.
+    /// * `camera_bind_group` - The bind group containing camera data.
+    /// * `light_bind_group` - The bind group containing light data.
     fn set_model_pipeline(
         &mut self,
         pipeline: &wgpu::RenderPipeline,
@@ -301,11 +418,23 @@ pub(crate) trait DrawModelMesh {
         light_bind_group: &wgpu::BindGroup,
     );
 
+    /// Draws a model with the given instance buffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - The model to draw.
+    /// * `instance_buffer` - The instance buffer for instanced rendering.
     fn draw_model(&mut self, model: &Model, instance_buffer: &wgpu::Buffer);
 }
 
-// TODO lifetime??
 impl DrawModelMesh for wgpu::RenderPass<'_> {
+    /// Sets up the model rendering pipeline with camera and lights.
+    ///
+    /// # Arguments
+    ///
+    /// * `pipeline` - The model render pipeline.
+    /// * `camera_bind_group` - The bind group containing camera data.
+    /// * `light_bind_group` - The bind group containing light data.
     fn set_model_pipeline(
         &mut self,
         pipeline: &wgpu::RenderPipeline,
@@ -317,6 +446,12 @@ impl DrawModelMesh for wgpu::RenderPass<'_> {
         self.set_bind_group(2, light_bind_group, &[]);
     }
 
+    /// Draws a model with the given instance buffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - The model to draw.
+    /// * `instance_buffer` - The instance buffer for instanced rendering.
     fn draw_model(&mut self, model: &Model, instance_buffer: &wgpu::Buffer) {
         self.set_vertex_buffer(1, instance_buffer.slice(..));
 

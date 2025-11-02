@@ -1,77 +1,80 @@
-//! Animation mixer for advanced blending operations and layered animation management.
-
-use super::{AnimationClip, AnimationTarget, AnimationValue};
+use super::{AnimationTarget, AnimationValue};
+use crate::animation::clip::AnimationClip;
 use std::collections::HashMap;
 use std::time::Duration;
 
-/// Blend modes for combining animations
+/// Blend modes for combining animations.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BlendMode {
-    /// Replace lower layer animations completely
+    /// Replace lower layer animations completely.
     Override,
-    /// Add to lower layer animations
+    /// Add to lower layer animations.
     Additive,
-    /// Multiply with lower layer animations
+    /// Multiply with lower layer animations.
     Multiply,
-    /// Subtract from lower layer animations
+    /// Subtract from lower layer animations.
     Subtract,
-    /// Use the maximum value
+    /// Use the maximum value.
     Maximum,
-    /// Use the minimum value
+    /// Use the minimum value.
     Minimum,
-    /// Screen blend mode
+    /// Screen blend mode.
     Screen,
-    /// Overlay blend mode
+    /// Overlay blend mode.
     Overlay,
 }
 
-/// A blend layer containing multiple animations
+/// A blend layer containing multiple animations.
 #[derive(Debug, Clone)]
 pub struct BlendLayer {
-    /// Layer index (higher numbers are processed later)
+    /// Layer index (higher numbers are processed later).
     pub index: i32,
-    /// Blend mode for this layer
+    /// Blend mode for this layer.
     pub blend_mode: BlendMode,
-    /// Overall weight of this layer
+    /// Overall weight of this layer.
     pub weight: f32,
-    /// Whether this layer is enabled
+    /// Whether this layer is enabled.
     pub enabled: bool,
-    /// Mask defining which targets this layer affects
+    /// Mask defining which targets this layer affects.
     pub mask: Option<AnimationMask>,
-    /// Animations in this layer with their weights
+    /// Animations in this layer with their weights.
     pub animations: HashMap<String, LayerAnimation>,
 }
 
-/// Animation data within a blend layer
+/// Animation data within a blend layer.
 #[derive(Debug, Clone)]
 pub struct LayerAnimation {
-    /// Reference to the animation clip
+    /// Reference to the animation clip.
     pub clip_name: String,
-    /// Weight of this animation within the layer
+    /// Weight of this animation within the layer.
     pub weight: f32,
-    /// Current playback time
+    /// Current playback time.
     pub time: f32,
-    /// Playback speed multiplier
+    /// Playback speed multiplier.
     pub speed: f32,
-    /// Whether this animation is playing
+    /// Whether this animation is playing.
     pub playing: bool,
-    /// Time offset for this animation
+    /// Time offset for this animation.
     pub time_offset: f32,
 }
 
-/// Mask defining which animation targets are affected
+/// Mask defining which animation targets are affected.
 #[derive(Debug, Clone)]
 pub struct AnimationMask {
-    /// Set of targets that are included (if empty, all targets are included)
+    /// Set of targets that are included (if empty, all targets are included).
     pub included_targets: Vec<AnimationTarget>,
-    /// Set of targets that are excluded
+    /// Set of targets that are excluded.
     pub excluded_targets: Vec<AnimationTarget>,
-    /// Weight multiplier per target
+    /// Weight multiplier per target.
     pub target_weights: HashMap<AnimationTarget, f32>,
 }
 
 impl AnimationMask {
-    /// Create a new empty mask (affects all targets)
+    /// Creates a new empty mask that affects all targets.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationMask`] instance.
     pub fn new() -> Self {
         Self {
             included_targets: Vec::new(),
@@ -80,7 +83,15 @@ impl AnimationMask {
         }
     }
 
-    /// Create a mask that only affects specific targets
+    /// Creates a mask that only affects specific targets.
+    ///
+    /// # Arguments
+    ///
+    /// * `targets` - The list of targets to include.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationMask`] instance.
     pub fn include_only(targets: Vec<AnimationTarget>) -> Self {
         Self {
             included_targets: targets,
@@ -89,7 +100,15 @@ impl AnimationMask {
         }
     }
 
-    /// Create a mask that excludes specific targets
+    /// Creates a mask that excludes specific targets.
+    ///
+    /// # Arguments
+    ///
+    /// * `targets` - The list of targets to exclude.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationMask`] instance.
     pub fn exclude(targets: Vec<AnimationTarget>) -> Self {
         Self {
             included_targets: Vec::new(),
@@ -98,7 +117,15 @@ impl AnimationMask {
         }
     }
 
-    /// Check if a target is affected by this mask
+    /// Checks if a target is affected by this mask.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The animation target to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the target is affected by this mask.
     pub fn affects_target(&self, target: &AnimationTarget) -> bool {
         // If excluded, return false
         if self.excluded_targets.contains(target) {
@@ -114,7 +141,15 @@ impl AnimationMask {
         self.included_targets.contains(target)
     }
 
-    /// Get the weight multiplier for a target
+    /// Gets the weight multiplier for a target.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The animation target to query.
+    ///
+    /// # Returns
+    ///
+    /// The weight multiplier for the target.
     pub fn get_target_weight(&self, target: &AnimationTarget) -> f32 {
         if !self.affects_target(target) {
             return 0.0;
@@ -123,20 +158,38 @@ impl AnimationMask {
         self.target_weights.get(target).copied().unwrap_or(1.0)
     }
 
-    /// Set weight for a specific target
+    /// Sets the weight for a specific target.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The animation target to modify.
+    /// * `weight` - The weight value (clamped to 0.0-1.0).
     pub fn set_target_weight(&mut self, target: AnimationTarget, weight: f32) {
         self.target_weights.insert(target, weight.clamp(0.0, 1.0));
     }
 }
 
 impl Default for AnimationMask {
+    /// Creates a default animation mask that affects all targets.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationMask`] instance.
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl BlendLayer {
-    /// Create a new blend layer
+    /// Creates a new blend layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The layer index (higher numbers are processed later).
+    ///
+    /// # Returns
+    ///
+    /// A new [`BlendLayer`] instance.
     pub fn new(index: i32) -> Self {
         Self {
             index,
@@ -148,7 +201,16 @@ impl BlendLayer {
         }
     }
 
-    /// Create a new blend layer with specific blend mode
+    /// Creates a new blend layer with a specific blend mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The layer index.
+    /// * `blend_mode` - The blend mode to use for this layer.
+    ///
+    /// # Returns
+    ///
+    /// A new [`BlendLayer`] instance.
     pub fn with_blend_mode(index: i32, blend_mode: BlendMode) -> Self {
         Self {
             index,
@@ -160,7 +222,12 @@ impl BlendLayer {
         }
     }
 
-    /// Add an animation to this layer
+    /// Adds an animation to this layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation clip.
+    /// * `weight` - The weight of the animation (clamped to 0.0-1.0).
     pub fn add_animation(&mut self, name: String, weight: f32) {
         let animation = LayerAnimation {
             clip_name: name.clone(),
@@ -173,12 +240,28 @@ impl BlendLayer {
         self.animations.insert(name, animation);
     }
 
-    /// Remove an animation from this layer
+    /// Removes an animation from this layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation to remove.
+    ///
+    /// # Returns
+    ///
+    /// The removed layer animation if it existed.
     pub fn remove_animation(&mut self, name: &str) -> Option<LayerAnimation> {
         self.animations.remove(name)
     }
 
-    /// Play an animation in this layer
+    /// Plays an animation in this layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation to play.
+    ///
+    /// # Returns
+    ///
+    /// An error message if the animation was not found.
     pub fn play_animation(&mut self, name: &str) -> Result<(), String> {
         if let Some(animation) = self.animations.get_mut(name) {
             animation.playing = true;
@@ -192,7 +275,11 @@ impl BlendLayer {
         }
     }
 
-    /// Stop an animation in this layer
+    /// Stops an animation in this layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation to stop.
     pub fn stop_animation(&mut self, name: &str) {
         if let Some(animation) = self.animations.get_mut(name) {
             animation.playing = false;
@@ -200,7 +287,16 @@ impl BlendLayer {
         }
     }
 
-    /// Set the weight of an animation in this layer
+    /// Sets the weight of an animation in this layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation.
+    /// * `weight` - The new weight value (clamped to 0.0-1.0).
+    ///
+    /// # Returns
+    ///
+    /// An error message if the animation was not found.
     pub fn set_animation_weight(&mut self, name: &str, weight: f32) -> Result<(), String> {
         if let Some(animation) = self.animations.get_mut(name) {
             animation.weight = weight.clamp(0.0, 1.0);
@@ -213,7 +309,11 @@ impl BlendLayer {
         }
     }
 
-    /// Update all animations in this layer
+    /// Updates all animations in this layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - The time delta since the last update.
     pub fn update(&mut self, dt: Duration) {
         for animation in self.animations.values_mut() {
             if animation.playing {
@@ -222,7 +322,15 @@ impl BlendLayer {
         }
     }
 
-    /// Sample all animations in this layer and blend them
+    /// Samples all animations in this layer and blends them.
+    ///
+    /// # Arguments
+    ///
+    /// * `clips` - The available animation clips to sample from.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation values for all targets.
     pub fn sample(
         &self,
         clips: &HashMap<String, AnimationClip>,
@@ -278,32 +386,44 @@ impl BlendLayer {
         result
     }
 
-    /// Set the mask for this layer
+    /// Sets the mask for this layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional mask to apply to this layer.
     pub fn set_mask(&mut self, mask: Option<AnimationMask>) {
         self.mask = mask;
     }
 
-    /// Check if this layer has any playing animations
+    /// Checks if any layer has playing animations.
+    ///
+    /// # Returns
+    ///
+    /// `true` if any layer has playing animations.
     pub fn has_playing_animations(&self) -> bool {
         self.animations.values().any(|anim| anim.playing)
     }
 }
 
-/// The animation mixer manages multiple blend layers
+/// The animation mixer manages multiple blend layers.
 #[derive(Debug)]
 pub struct AnimationMixer {
-    /// Blend layers sorted by index
+    /// Blend layers sorted by index.
     layers: Vec<BlendLayer>,
-    /// Available animation clips
+    /// Available animation clips.
     clips: HashMap<String, AnimationClip>,
     /// Global mixer weight
     global_weight: f32,
-    /// Whether the mixer is enabled
+    /// Whether the mixer is enabled.
     enabled: bool,
 }
 
 impl AnimationMixer {
-    /// Create a new animation mixer
+    /// Creates a new animation mixer.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationMixer`] instance.
     pub fn new() -> Self {
         Self {
             layers: Vec::new(),
@@ -313,12 +433,24 @@ impl AnimationMixer {
         }
     }
 
-    /// Add an animation clip to the mixer
+    /// Adds an animation clip to the mixer.
+    ///
+    /// # Arguments
+    ///
+    /// * `clip` - The animation clip to add.
     pub fn add_clip(&mut self, clip: AnimationClip) {
         self.clips.insert(clip.name.clone(), clip);
     }
 
-    /// Remove an animation clip from the mixer
+    /// Remove an animation clip from the mixer.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the animation clip to remove.
+    ///
+    /// # Returns
+    ///
+    /// The removed animation clip if it existed.
     pub fn remove_clip(&mut self, name: &str) -> Option<AnimationClip> {
         // Remove from all layers
         for layer in &mut self.layers {
@@ -327,7 +459,11 @@ impl AnimationMixer {
         self.clips.remove(name)
     }
 
-    /// Add a blend layer
+    /// Add a blend layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `layer` - The blend layer to add.
     pub fn add_layer(&mut self, layer: BlendLayer) {
         // Insert in sorted order by index
         let insert_pos = self
@@ -338,7 +474,15 @@ impl AnimationMixer {
         self.layers.insert(insert_pos, layer);
     }
 
-    /// Remove a blend layer
+    /// Remove a blend layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the layer to remove.
+    ///
+    /// # Returns
+    ///
+    /// The removed blend layer if it existed.
     pub fn remove_layer(&mut self, index: i32) -> Option<BlendLayer> {
         if let Some(pos) = self.layers.iter().position(|l| l.index == index) {
             Some(self.layers.remove(pos))
@@ -347,17 +491,43 @@ impl AnimationMixer {
         }
     }
 
-    /// Get a mutable reference to a layer
+    /// Gets a mutable reference to a layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the layer.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the layer if it exists.
     pub fn get_layer_mut(&mut self, index: i32) -> Option<&mut BlendLayer> {
         self.layers.iter_mut().find(|l| l.index == index)
     }
 
-    /// Get a reference to a layer
+    /// Gets a reference to a layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the layer.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the layer if it exists.
     pub fn get_layer(&self, index: i32) -> Option<&BlendLayer> {
         self.layers.iter().find(|l| l.index == index)
     }
 
-    /// Play an animation on a specific layer
+    /// Plays an animation on a specific layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `layer_index` - The index of the layer.
+    /// * `animation_name` - The name of the animation to play.
+    /// * `weight` - The weight of the animation (clamped to 0.0-1.0).
+    ///
+    /// # Returns
+    ///
+    /// An error message if the animation clip was not found.
     pub fn play_on_layer(
         &mut self,
         layer_index: i32,
@@ -385,14 +555,27 @@ impl AnimationMixer {
         layer.play_animation(animation_name)
     }
 
-    /// Stop an animation on a specific layer
+    /// Stops an animation on a specific layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `layer_index` - The index of the layer.
+    /// * `animation_name` - The name of the animation to stop.
+    ///
+    /// # Returns
+    ///
+    /// An error message if the layer or animation was not found.
     pub fn stop_on_layer(&mut self, layer_index: i32, animation_name: &str) {
         if let Some(layer) = self.get_layer_mut(layer_index) {
             layer.stop_animation(animation_name);
         }
     }
 
-    /// Update all layers
+    /// Update all layers.
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - The time delta since the last update.
     pub fn update(&mut self, dt: Duration) {
         if !self.enabled {
             return;
@@ -405,7 +588,11 @@ impl AnimationMixer {
         }
     }
 
-    /// Sample and blend all layers
+    /// Sample and blend all layers.
+    ///
+    /// # Returns
+    ///
+    /// The final blended animation values for all targets.
     pub fn sample(&self) -> HashMap<AnimationTarget, AnimationValue> {
         if !self.enabled {
             return HashMap::new();
@@ -445,7 +632,18 @@ impl AnimationMixer {
         result
     }
 
-    /// Blend two animation values using the specified blend mode
+    /// Blend two animation values using the specified blend mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The base animation value.
+    /// * `overlay` - The overlay animation value.
+    /// * `blend_mode` - The blend mode to use.
+    /// * `weight` - The weight of the overlay value.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation value.
     fn blend_values(
         &self,
         base: &AnimationValue,
@@ -467,6 +665,17 @@ impl AnimationMixer {
         }
     }
 
+    /// Additive blend mode implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The base animation value.
+    /// * `overlay` - The overlay animation value.
+    /// * `weight` - The weight of the overlay value.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation value.
     fn additive_blend(
         &self,
         base: &AnimationValue,
@@ -488,6 +697,17 @@ impl AnimationMixer {
         }
     }
 
+    /// Multiply blend mode implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The base animation value.
+    /// * `overlay` - The overlay animation value.
+    /// * `weight` - The weight of the overlay value.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation value.
     fn multiply_blend(
         &self,
         base: &AnimationValue,
@@ -507,6 +727,17 @@ impl AnimationMixer {
         }
     }
 
+    /// Subtract blend mode implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The base animation value.
+    /// * `overlay` - The overlay animation value.
+    /// * `weight` - The weight of the overlay value.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation value.
     fn subtract_blend(
         &self,
         base: &AnimationValue,
@@ -524,6 +755,17 @@ impl AnimationMixer {
         }
     }
 
+    /// Subtract blend mode implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The base animation value.
+    /// * `overlay` - The overlay animation value.
+    /// * `weight` - The weight of the overlay value.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation value.
     fn maximum_blend(
         &self,
         base: &AnimationValue,
@@ -539,6 +781,17 @@ impl AnimationMixer {
         }
     }
 
+    /// Subtract blend mode implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The base animation value.
+    /// * `overlay` - The overlay animation value.
+    /// * `weight` - The weight of the overlay value.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation value.
     fn minimum_blend(
         &self,
         base: &AnimationValue,
@@ -554,6 +807,17 @@ impl AnimationMixer {
         }
     }
 
+    /// Subtract blend mode implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The base animation value.
+    /// * `overlay` - The overlay animation value.
+    /// * `weight` - The weight of the overlay value.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation value.
     fn screen_blend(
         &self,
         base: &AnimationValue,
@@ -569,6 +833,17 @@ impl AnimationMixer {
         }
     }
 
+    /// Subtract blend mode implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The base animation value.
+    /// * `overlay` - The overlay animation value.
+    /// * `weight` - The weight of the overlay value.
+    ///
+    /// # Returns
+    ///
+    /// The blended animation value.
     fn overlay_blend(
         &self,
         base: &AnimationValue,
@@ -588,6 +863,16 @@ impl AnimationMixer {
         }
     }
 
+    /// Apply global weight to an animation value.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - The animation value to modify.
+    /// * `weight` - The global weight to apply.
+    ///
+    /// # Returns
+    ///
+    /// The modified animation value.
     fn apply_global_weight(&self, value: &AnimationValue, weight: f32) -> AnimationValue {
         match value {
             AnimationValue::Float(f) => AnimationValue::Float(f * weight),
@@ -603,27 +888,47 @@ impl AnimationMixer {
         }
     }
 
-    /// Set global mixer weight
+    /// Set global mixer weight.
+    ///
+    /// # Arguments
+    ///
+    /// * `weight` - The global weight value (clamped to 0.0-1.0).
     pub fn set_global_weight(&mut self, weight: f32) {
         self.global_weight = weight.clamp(0.0, 1.0);
     }
 
-    /// Enable or disable the mixer
+    /// Enables or disables the mixer.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - Whether the mixer should be enabled.
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
     }
 
-    /// Get the number of layers
+    /// Gets the number of layers.
+    ///
+    /// # Returns
+    ///
+    /// The number of blend layers in the mixer.
     pub fn layer_count(&self) -> usize {
         self.layers.len()
     }
 
-    /// Get all layer indices
+    /// Gets all layer indices.
+    ///
+    /// # Returns
+    ///
+    /// A vector of all layer indices.
     pub fn get_layer_indices(&self) -> Vec<i32> {
         self.layers.iter().map(|l| l.index).collect()
     }
 
-    /// Check if mixer has any playing animations
+    /// Check if mixer has any playing animations.
+    ///
+    /// # Returns
+    ///
+    /// `true` if any layer has playing animations.
     pub fn has_playing_animations(&self) -> bool {
         self.layers
             .iter()
@@ -632,6 +937,11 @@ impl AnimationMixer {
 }
 
 impl Default for AnimationMixer {
+    /// Creates a default animation mixer.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationMixer`] instance.
     fn default() -> Self {
         Self::new()
     }

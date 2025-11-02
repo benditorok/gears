@@ -24,6 +24,7 @@ edition = "2024"
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
+debug = true
 # rustflags = ["-Zthreads=8"] # Better compile performance. # requires the nightly compiler
 
 [profile.release]

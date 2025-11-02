@@ -3,7 +3,11 @@ pub use crate::{
     GearsApp, async_system,
     errors::{EngineError, EngineResult},
     new_entity,
-    systems::{AsyncSystem, SystemCollection, SystemError, system},
+    systems::{
+        AsyncSystem, SystemCollection,
+        errors::{SystemError, SystemResult},
+        system,
+    },
 };
 pub use gears_core::Dt;
 pub use gears_ecs::{
@@ -28,3 +32,13 @@ pub use gears_ecs::{
     query::{ComponentQuery, WorldQueryExt},
 };
 pub use gears_macro::Component;
+pub use gears_renderer::animation::{
+    clip::*,
+    controller::{AnimationController, TransitionSettings},
+    state::{
+        AnimationStateMachine, ParameterCondition, StateParameters, StateTransition,
+        TransitionCondition,
+    },
+    timeline::*,
+    track::*,
+};

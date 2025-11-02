@@ -1,21 +1,23 @@
-//! Animation track implementation for storing and interpolating keyframes.
-
 use super::{AnimationValue, InterpolationMode, Keyframe};
 use cgmath::{InnerSpace, Quaternion, Vector3};
 
-/// An animation track contains keyframes for a single animated property
+/// An animation track contains keyframes for a single animated property.
 #[derive(Debug, Clone)]
 pub struct AnimationTrack {
-    /// The keyframes that define this track
+    /// The keyframes that define this track.
     pub keyframes: Vec<Keyframe>,
-    /// Default interpolation mode for this track
+    /// Default interpolation mode for this track.
     pub default_interpolation: InterpolationMode,
-    /// Whether this track should be normalized (for rotations)
+    /// Whether this track should be normalized (for rotations).
     pub normalize: bool,
 }
 
 impl AnimationTrack {
-    /// Create a new empty animation track
+    /// Create a new empty animation track.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationTrack`] instance.
     pub fn new() -> Self {
         Self {
             keyframes: Vec::new(),
@@ -24,7 +26,15 @@ impl AnimationTrack {
         }
     }
 
-    /// Create a new animation track with specified interpolation mode
+    /// Create a new animation track with specified interpolation mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `interpolation` - The default interpolation mode for the track.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationTrack`] instance.
     pub fn with_interpolation(interpolation: InterpolationMode) -> Self {
         Self {
             keyframes: Vec::new(),
@@ -33,7 +43,11 @@ impl AnimationTrack {
         }
     }
 
-    /// Create a track for rotation data (enables quaternion normalization)
+    /// Create a track for rotation data (enables quaternion normalization).
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationTrack`] instance for rotations.
     pub fn new_rotation_track() -> Self {
         Self {
             keyframes: Vec::new(),
@@ -42,7 +56,15 @@ impl AnimationTrack {
         }
     }
 
-    /// Add a keyframe to this track
+    /// Add a keyframe to this track.
+    ///
+    /// # Arguments
+    ///
+    /// * `keyframe` - The keyframe to add.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to self.
     pub fn add_keyframe(&mut self, keyframe: Keyframe) -> &mut Self {
         // Insert keyframe in sorted order by time
         let insert_pos = self
@@ -55,18 +77,39 @@ impl AnimationTrack {
         self
     }
 
-    /// Add a keyframe with time and value
+    /// Add a keyframe with time and value.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time of the keyframe.
+    /// * `value` - The value of the keyframe.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to self.
     pub fn add_keyframe_simple(&mut self, time: f32, value: AnimationValue) -> &mut Self {
         let keyframe = Keyframe::new(time, value);
         self.add_keyframe(keyframe)
     }
 
-    /// Get the duration of this track (time of last keyframe)
+    /// Get the duration of this track (time of last keyframe).
+    ///
+    /// # Returns
+    ///
+    /// The duration in seconds.
     pub fn duration(&self) -> f32 {
         self.keyframes.last().map(|k| k.time).unwrap_or(0.0)
     }
 
-    /// Sample the track at a given time
+    /// Sample the track at a given time.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time to sample at.
+    ///
+    /// # Returns
+    ///
+    /// An optional [`AnimationValue`] at the sampled time.
     pub fn sample(&self, time: f32) -> Option<AnimationValue> {
         if self.keyframes.is_empty() {
             return None;
@@ -95,7 +138,17 @@ impl AnimationTrack {
         None
     }
 
-    /// Interpolate between two keyframes at the given time
+    /// Interpolate between two keyframes at the given time.
+    ///
+    /// # Arguments
+    ///
+    /// * `from` - The starting keyframe.
+    /// * `to` - The ending keyframe.
+    /// * `time` - The time to interpolate at.
+    ///
+    /// # Returns
+    ///
+    /// An optional [`AnimationValue`] resulting from the interpolation.
     fn interpolate_between(
         &self,
         from: &Keyframe,
@@ -141,7 +194,15 @@ impl AnimationTrack {
         }
     }
 
-    /// Normalize animation values (mainly for quaternions)
+    /// Normalize animation values (mainly for quaternions).
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - The animation value to normalize.
+    ///
+    /// # Returns
+    ///
+    /// An optional normalized [`AnimationValue`].
     fn normalize_value(&self, value: AnimationValue) -> Option<AnimationValue> {
         match value {
             AnimationValue::Quaternion(mut q) => {
@@ -158,17 +219,41 @@ impl AnimationTrack {
         }
     }
 
-    /// Get keyframe at a specific index
+    /// Get keyframe at a specific index.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the keyframe to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An optional reference to the [`Keyframe`].
     pub fn get_keyframe(&self, index: usize) -> Option<&Keyframe> {
         self.keyframes.get(index)
     }
 
-    /// Get mutable keyframe at a specific index
+    /// Get mutable keyframe at a specific index.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the keyframe to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An optional mutable reference to the [`Keyframe`].
     pub fn get_keyframe_mut(&mut self, index: usize) -> Option<&mut Keyframe> {
         self.keyframes.get_mut(index)
     }
 
-    /// Remove a keyframe at the specified index
+    /// Remove a keyframe at the specified index.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the keyframe to remove.
+    ///
+    /// # Returns
+    ///
+    /// An optional [`Keyframe`] that was removed.
     pub fn remove_keyframe(&mut self, index: usize) -> Option<Keyframe> {
         if index < self.keyframes.len() {
             Some(self.keyframes.remove(index))
@@ -177,22 +262,42 @@ impl AnimationTrack {
         }
     }
 
-    /// Clear all keyframes
+    /// Clear all keyframes.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to self.
     pub fn clear(&mut self) {
         self.keyframes.clear();
     }
 
-    /// Get the number of keyframes
+    /// Get the number of keyframes.
+    ///
+    /// # Returns
+    ///
+    /// The number of keyframes in the track.
     pub fn keyframe_count(&self) -> usize {
         self.keyframes.len()
     }
 
-    /// Check if this track is empty
+    /// Check if this track is empty.
+    ///
+    /// # Returns
+    ///
+    /// `true˙ if the track has no keyframes.
     pub fn is_empty(&self) -> bool {
         self.keyframes.is_empty()
     }
 
-    /// Find the keyframe indices that surround the given time
+    /// Find the keyframe indices that surround the given time.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time to find surrounding keyframes for.
+    ///
+    /// # Returns
+    ///
+    /// An optional tuple of indices (previous, next).
     pub fn find_keyframe_indices(&self, time: f32) -> Option<(usize, usize)> {
         if self.keyframes.len() < 2 {
             return None;
@@ -207,21 +312,38 @@ impl AnimationTrack {
         None
     }
 
-    /// Scale all keyframe times by a factor
+    /// Scale all keyframe times by a factor.
+    ///
+    /// # Arguments
+    ///
+    /// * `scale_factor` - The factor to scale times by.
     pub fn scale_time(&mut self, scale_factor: f32) {
         for keyframe in &mut self.keyframes {
             keyframe.time *= scale_factor;
         }
     }
 
-    /// Offset all keyframe times by a constant
+    /// Offset all keyframe times by a constant.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset` - The amount to offset times by.
     pub fn offset_time(&mut self, offset: f32) {
         for keyframe in &mut self.keyframes {
             keyframe.time += offset;
         }
     }
 
-    /// Create a sub-track from a time range
+    /// Create a sub-track from a time range.
+    ///
+    /// # Arguments
+    ///
+    /// * `start_time` - The start time of the sub-track.
+    /// * `end_time` - The end time of the sub-track.
+    ///
+    /// # Returns
+    ///
+    /// An optional [`AnimationTrack`] representing the sub-track.
     pub fn create_sub_track(&self, start_time: f32, end_time: f32) -> Option<AnimationTrack> {
         if start_time >= end_time {
             return None;
@@ -275,7 +397,11 @@ impl AnimationTrack {
         }
     }
 
-    /// Reverse the track (play backwards)
+    /// Reverse the track (play backwards).
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to self.
     pub fn reverse(&mut self) {
         let duration = self.duration();
 
@@ -286,7 +412,18 @@ impl AnimationTrack {
         self.keyframes.reverse();
     }
 
-    /// Combine this track with another track using weighted blending
+    /// Combine this track with another track using weighted blending.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The other animation track to blend with.
+    /// * `weight` - The blend weight (0.0 = this track,
+    ///   1.0 = other track).
+    /// * `time` - The time to sample and blend at.
+    ///
+    /// # Returns
+    ///
+    /// An optional blended [`AnimationValue`].
     pub fn blend_with(
         &self,
         other: &AnimationTrack,
@@ -308,61 +445,144 @@ impl AnimationTrack {
 }
 
 impl Default for AnimationTrack {
+    /// Creates a default empty animation track.
+    ///
+    /// # Returns
+    ///
+    /// The default [`AnimationTrack`] instance.
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Builder for creating animation tracks fluently
+/// Builder for creating animation tracks,
 pub struct AnimationTrackBuilder {
+    /// The animation track being built.
     track: AnimationTrack,
 }
 
 impl AnimationTrackBuilder {
+    /// Create a new animation track builder.
+    ///
+    /// # Returns
+    ///
+    /// A new [`AnimationTrackBuilder`] instance.
     pub fn new() -> Self {
         Self {
             track: AnimationTrack::new(),
         }
     }
 
+    /// Set the interpolation mode for the track.
+    ///
+    /// # Arguments
+    ///
+    /// * `interpolation` - The interpolation mode to set.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference to self.
     pub fn with_interpolation(mut self, interpolation: InterpolationMode) -> Self {
         self.track.default_interpolation = interpolation;
         self
     }
 
+    /// Set whether the track should normalize values.
+    ///
+    /// # Arguments
+    ///
+    /// * `normalize` - Whether to normalize values.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference to self.
     pub fn with_normalization(mut self, normalize: bool) -> Self {
         self.track.normalize = normalize;
         self
     }
 
+    /// Add a keyframe to the track.
+    ///
+    /// # Arguments
+    ///
+    /// * `keyframe` - The keyframe to add.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference to self.
     pub fn add_keyframe(mut self, keyframe: Keyframe) -> Self {
         self.track.add_keyframe(keyframe);
         self
     }
 
+    /// Add a simple keyframe with time and value.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time of the keyframe.
+    /// * `value` - The value of the keyframe.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference to self.
     pub fn add_keyframe_simple(mut self, time: f32, value: AnimationValue) -> Self {
         self.track.add_keyframe_simple(time, value);
         self
     }
 
+    /// Add a translation keyframe.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time of the keyframe.
+    /// * `translation` - The translation vector.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference to self.
     pub fn add_translation_keyframe(mut self, time: f32, translation: Vector3<f32>) -> Self {
         self.track
             .add_keyframe_simple(time, AnimationValue::Vector3(translation));
         self
     }
 
+    /// Add a rotation keyframe.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time of the keyframe.
+    /// * `rotation` - The rotation quaternion.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference to self.
     pub fn add_rotation_keyframe(mut self, time: f32, rotation: Quaternion<f32>) -> Self {
         self.track
             .add_keyframe_simple(time, AnimationValue::Quaternion(rotation));
         self
     }
 
+    /// Add a scale keyframe.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The time of the keyframe.
+    /// * `scale` - The scale vector.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference to self.
     pub fn add_scale_keyframe(mut self, time: f32, scale: Vector3<f32>) -> Self {
         self.track
             .add_keyframe_simple(time, AnimationValue::Vector3(scale));
         self
     }
 
+    /// Build the animation track.
+    ///
+    /// # Returns
+    ///
+    /// The constructed [`AnimationTrack`].
     pub fn build(self) -> AnimationTrack {
         self.track
     }

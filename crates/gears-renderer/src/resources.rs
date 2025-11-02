@@ -1,6 +1,7 @@
-use crate::errors::RendererError;
-
 use super::{animation, model, texture};
+use crate::animation::clip::AnimationClip;
+use crate::animation::track::AnimationTrack;
+use crate::errors::RendererError;
 use cgmath::InnerSpace;
 use gltf::Gltf;
 use log::{info, warn};
@@ -8,10 +9,28 @@ use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
 use wgpu::util::DeviceExt;
 
+/// Gets the full path to a resource file in the resources directory.
+///
+/// # Arguments
+///
+/// * `file_path` - The relative path to the resource file.
+///
+/// # Returns
+///
+/// The absolute path to the resource file.
 fn get_resource_path(file_path: &str) -> PathBuf {
     Path::new(env!("RES_DIR")).join(file_path)
 }
 
+/// Loads a text file from the resources directory.
+///
+/// # Arguments
+///
+/// * `file_path` - The relative path to the text file.
+///
+/// # Returns
+///
+/// A `Result` containing the file contents as a `String` or a `RendererError`.
 pub(crate) async fn load_string(file_path: &str) -> Result<String, RendererError> {
     let path = get_resource_path(file_path);
     let txt = std::fs::read_to_string(&path).map_err(|_err| {
@@ -21,6 +40,15 @@ pub(crate) async fn load_string(file_path: &str) -> Result<String, RendererError
     Ok(txt)
 }
 
+/// Loads a text file from an absolute path.
+///
+/// # Arguments
+///
+/// * `path` - The absolute path to the text file.
+///
+/// # Returns
+///
+/// A `Result` containing the file contents as a `String` or a `RendererError`.
 pub(crate) async fn load_string_path(path: PathBuf) -> Result<String, RendererError> {
     let txt = std::fs::read_to_string(&path).map_err(|_err| {
         RendererError::ResourceLoadingFailed(format!(
@@ -32,6 +60,15 @@ pub(crate) async fn load_string_path(path: PathBuf) -> Result<String, RendererEr
     Ok(txt)
 }
 
+/// Loads a binary file from the resources directory.
+///
+/// # Arguments
+///
+/// * `file_path` - The relative path to the binary file.
+///
+/// # Returns
+///
+/// A `Result` containing the file contents as a `Vec<u8>` or a `RendererError`.
 pub(crate) async fn load_binary(file_path: &str) -> Result<Vec<u8>, RendererError> {
     let path = get_resource_path(file_path);
     let data = std::fs::read(&path).map_err(|_err| {
@@ -44,6 +81,15 @@ pub(crate) async fn load_binary(file_path: &str) -> Result<Vec<u8>, RendererErro
     Ok(data)
 }
 
+/// Loads a binary file from an absolute path.
+///
+/// # Arguments
+///
+/// * `path` - The absolute path to the binary file.
+///
+/// # Returns
+///
+/// A `Result` containing the file contents as a `Vec<u8>` or a `RendererError`.
 pub(crate) async fn load_binary_path(path: PathBuf) -> Result<Vec<u8>, RendererError> {
     let data = std::fs::read(&path).map_err(|_err| {
         RendererError::ResourceLoadingFailed(format!(
@@ -55,6 +101,18 @@ pub(crate) async fn load_binary_path(path: PathBuf) -> Result<Vec<u8>, RendererE
     Ok(data)
 }
 
+/// Loads a texture from the resources directory.
+///
+/// # Arguments
+///
+/// * `file_path` - The relative path to the texture file.
+/// * `device` - The GPU device for texture creation.
+/// * `queue` - The GPU queue for texture uploads.
+/// * `is_normal_map` - Whether the texture is a normal map.
+///
+/// # Returns
+///
+/// A `Result` containing the loaded `Texture` or a `RendererError`.
 pub(crate) async fn load_texture(
     file_path: &str,
     device: &wgpu::Device,
@@ -66,6 +124,14 @@ pub(crate) async fn load_texture(
     texture::Texture::from_bytes(device, queue, &data, file_path, is_normal_map)
 }
 
+/// Loads a texture from an absolute path.
+///
+/// # Arguments
+///
+/// * `path` - The absolute path to the texture file.
+/// * `device` - The GPU device for texture creation.
+/// * `queue` - The GPU queue for texture uploads.
+/// * `is_normal_map` - Whether the texture is a normal map.
 pub(crate) async fn load_texture_path(
     path: PathBuf,
     device: &wgpu::Device,
@@ -83,7 +149,19 @@ pub(crate) async fn load_texture_path(
     )
 }
 
-// TODO ! use the example from the tobj crate's documentation
+// TODO use the example from the tobj crate's documentation
+/// Loads an OBJ model from the resources directory.
+///
+/// # Arguments
+///
+/// * `file_path` - The relative path to the OBJ model file.
+/// * `device` - The GPU device for buffer creation.
+/// * `queue` - The GPU queue for texture uploads.
+/// * `layout` - The bind group layout for material textures.
+///
+/// # Returns
+///
+/// A `Result` containing the loaded `Model` or a `RendererError`.
 pub(crate) async fn load_model_obj(
     file_path: &str,
     device: &wgpu::Device,
@@ -118,19 +196,6 @@ pub(crate) async fn load_model_obj(
 
     let mut materials = Vec::new();
     for m in obj_materials? {
-        // let diffuse_texture = load_texture(
-        //     model_root_dir
-        //         .join(m.diffuse_texture.as_ref().expect(
-        //             format!("Diffuse texture is required for material {}", &m.name).as_str(),
-        //         ))
-        //         .to_str()
-        //         .unwrap(),
-        //     device,
-        //     queue,
-        //     false,
-        // )
-        // .await?;
-
         // Try to load the diffuse texture if it exists for this material
         let diffuse_texture = if let Some(diffuse_texture) = m.diffuse_texture {
             load_texture(
@@ -351,6 +416,20 @@ pub(crate) async fn load_model_obj(
     })
 }
 
+/// Loads a GLTF/GLB model from the resources directory with animations.
+/// This function is partially implemented and needs further enhancements
+/// to load complex animations.
+///
+/// # Arguments
+///
+/// * `gltf_path` - The relative path to the GLTF/GLB model file.
+/// * `device` - The GPU device for buffer creation.
+/// * `queue` - The GPU queue for texture uploads.
+/// * `layout` - The bind group layout for material textures.
+///
+/// # Returns
+///
+/// A `Result` containing the loaded `Model` or a `RendererError`.
 pub(crate) async fn load_model_gltf(
     gltf_path: &str,
     device: &wgpu::Device,
@@ -392,12 +471,12 @@ pub(crate) async fn load_model_gltf(
     }
 
     // Load animations using the new animation system
-    let mut animation_clips: Vec<animation::AnimationClip> = Vec::new();
+    let mut animation_clips: Vec<AnimationClip> = Vec::new();
     for gltf_animation in gltf.animations() {
         let animation_name = gltf_animation.name().unwrap_or("Default").to_string();
         log::info!("Loading GLTF animation: {}", animation_name);
 
-        let mut clip = animation::AnimationClip::new(&animation_name);
+        let mut clip = AnimationClip::new(&animation_name);
         let mut max_duration = 0.0f32;
 
         for channel in gltf_animation.channels() {
@@ -432,9 +511,9 @@ pub(crate) async fn load_model_gltf(
 
             // Create animation track
             let mut track = if target == animation::AnimationTarget::Rotation {
-                animation::AnimationTrack::new_rotation_track()
+                AnimationTrack::new_rotation_track()
             } else {
-                animation::AnimationTrack::new()
+                AnimationTrack::new()
             };
 
             // Read keyframe data
@@ -569,6 +648,7 @@ pub(crate) async fn load_model_gltf(
     let mut meshes = Vec::new();
 
     // Recursive function to traverse all nodes in the scene hierarchy
+    /// Recursively traverses GLTF scene nodes to extract meshes and transforms.
     fn traverse_node(
         node: gltf::Node,
         meshes: &mut Vec<model::Mesh>,
