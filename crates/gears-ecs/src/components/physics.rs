@@ -416,3 +416,23 @@ impl<T: CollisionBox> RigidBody<T> {
             .clamp(-MAX_VERTICAL_VELOCITY, MAX_VERTICAL_VELOCITY);
     }
 }
+
+impl RigidBody<AABBCollisionBox> {
+    /// Returns the minimum point of the collision box.
+    ///
+    /// # Returns
+    ///
+    /// The minimum point of the AABB collision box.
+    pub fn collision_box_min(&self) -> cgmath::Vector3<f32> {
+        self.collision_box.min
+    }
+
+    /// Returns the maximum point of the collision box.
+    ///
+    /// # Returns
+    ///
+    /// The maximum point of the AABB collision box.
+    pub fn collision_box_max(&self) -> cgmath::Vector3<f32> {
+        self.collision_box.max
+    }
+}

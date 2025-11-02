@@ -4,6 +4,8 @@ mod init;
 mod pipeline;
 mod resources;
 
+use gears_ecs::components::interactive::ShootingIntent;
+
 use super::instance;
 use super::model::{self, DrawModelMesh, DrawWireframeMesh};
 use crate::{BufferComponent, errors::RendererError};
@@ -61,6 +63,8 @@ pub struct State {
     world: Arc<World>,
     /// Whether the mouse button is currently pressed.
     mouse_pressed: bool,
+    /// Whether a mouse click event just occurred (one-shot, not held).
+    mouse_clicked: bool,
     /// Whether to draw collision box wireframes.
     pub draw_colliders: bool,
     /// The egui renderer for UI elements.
@@ -184,6 +188,7 @@ impl State {
             window,
             world,
             mouse_pressed: false,
+            mouse_clicked: false,
             draw_colliders: false,
             egui_renderer,
             egui_windows,
@@ -302,6 +307,29 @@ impl State {
             thickness,
             color,
         );
+    }
+
+    /// Check if the mouse button is currently pressed.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the left mouse button is pressed, `false` otherwise.
+    pub fn is_mouse_pressed(&self) -> bool {
+        self.mouse_pressed
+    }
+
+    /// Check if a mouse click just occurred (one-shot event).
+    ///
+    /// # Returns
+    ///
+    /// `true` if a mouse click event just occurred, `false` otherwise.
+    pub fn is_mouse_clicked(&self) -> bool {
+        self.mouse_clicked
+    }
+
+    /// Resets the mouse clicked state (should be called after handling the click).
+    pub fn reset_mouse_clicked(&mut self) {
+        self.mouse_clicked = false;
     }
 
     /// Check if the state is paused.
@@ -493,7 +521,28 @@ impl State {
                 state,
                 ..
             } => {
+                let was_pressed = self.mouse_pressed;
                 self.mouse_pressed = *state == ElementState::Pressed;
+
+                // Set mouse_clicked to true only on the transition from released to pressed
+                if self.mouse_pressed && !was_pressed {
+                    self.mouse_clicked = true;
+
+                    // Set shooting intent on player entity if it exists
+                    if let Some(player_entity) = self.player_entity {
+                        if let Some(shooting_intent_comp) =
+                            self.world.get_component::<ShootingIntent>(player_entity)
+                        {
+                            if let Ok(mut shooting_intent) = shooting_intent_comp.write() {
+                                shooting_intent.trigger();
+                                log::info!("Shooting intent triggered for player entity");
+                            } else {
+                                log::warn!("Could not acquire write lock on ShootingIntent");
+                            }
+                        }
+                    }
+                }
+
                 true
             }
             _ => false,
@@ -575,6 +624,9 @@ impl State {
                 }
             }
         }
+
+        // Reset the one-shot mouse click flag at the end of the frame
+        self.mouse_clicked = false;
 
         Ok(())
     }

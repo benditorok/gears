@@ -18,8 +18,11 @@ use std::sync::{Arc, RwLock};
 use std::time;
 use systems::SystemCollection;
 use winit::application::ApplicationHandler;
-use winit::event::{DeviceEvent, WindowEvent};
+use winit::dpi::LogicalSize;
+use winit::event::{DeviceEvent, MouseButton, RawKeyEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::platform::x11::WindowAttributesExtX11;
 use winit::window::{Window, WindowAttributes, WindowId};
 
 /// [`GearsApp`] runs and manages the application through its lifecycle.
@@ -291,6 +294,7 @@ impl ApplicationHandler for GearsApp {
                 .with_transparent(true)
                 .with_maximized(self.config.maximized)
                 .with_active(true)
+                .with_base_size(LogicalSize::new(1280, 720))
                 .with_window_icon(None);
 
             let window = Arc::new(

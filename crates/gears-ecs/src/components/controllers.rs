@@ -446,6 +446,23 @@ impl ViewController {
             self.pitch = cgmath::Rad(SAFE_FRAC_PI_2);
         }
     }
+
+    /// Gets the forward direction vector based on the current yaw and pitch.
+    ///
+    /// # Returns
+    ///
+    /// The normalized forward direction vector.
+    pub fn get_forward(&self) -> cgmath::Vector3<f32> {
+        let yaw = self.yaw.0;
+        let pitch = self.pitch.0;
+
+        cgmath::Vector3::new(
+            yaw.cos() * pitch.cos(),
+            pitch.sin(),
+            yaw.sin() * pitch.cos(),
+        )
+        .normalize()
+    }
 }
 
 /// Updates the rotation of the camera based on the mouse motion.

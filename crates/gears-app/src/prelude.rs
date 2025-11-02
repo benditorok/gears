@@ -15,7 +15,7 @@ pub use gears_ecs::{
     components::{
         controllers::{MovementController, ViewController},
         fsm::{FiniteStateMachine, State, StateContext, StateData, StateId, StateIdentifier},
-        interactive::Weapon,
+        interactive::{ShootingIntent, Weapon},
         lights::Light,
         misc::{
             AnimationQueue, CameraMarker, EnemyMarker, Health, LightMarker, Name, ObstacleMarker,
