@@ -359,6 +359,10 @@ async fn main() -> EngineResult<()> {
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);
     env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
+    env_builder.filter_module(
+        "gears_ecs::components::interactive",
+        log::LevelFilter::Debug,
+    );
     env_builder.init();
 
     let mut app = GearsApp::default();
@@ -462,9 +466,17 @@ async fn main() -> EngineResult<()> {
 
                 ui.separator();
                 ui.label("Controls:");
-                ui.label("- Left Click: Shoot");
+                ui.label("- Left Click: Shoot (200ms cooldown)");
                 ui.label("- WASD: Move");
                 ui.label("- Mouse: Look around");
+                ui.label("- Alt: Toggle cursor grab");
+                ui.label("- F1: Toggle debug wireframes");
+
+                ui.separator();
+                ui.label("Shooting Tips:");
+                ui.label("- Aim crosshair at the enemy sphere");
+                ui.label("- Enemy has AABB collision box");
+                ui.label("- Check console for hit/miss feedback");
 
                 ui.separator();
                 ui.label("System Integration:");

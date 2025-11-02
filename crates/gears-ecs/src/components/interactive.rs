@@ -82,8 +82,22 @@ impl Weapon {
         // Get the shooting direction from the view controller
         let shoot_direction = self_view.get_forward();
 
-        // Ray origin is the shooter's position (could add offset for weapon position)
-        let ray_origin = self_pos3.pos;
+        // Ray origin is the shooter's position with head offset (to match camera position)
+        let ray_origin = Vector3::new(
+            self_pos3.pos.x,
+            self_pos3.pos.y + self_view.head_offset,
+            self_pos3.pos.z,
+        );
+
+        log::debug!(
+            "Ray cast - Origin: [{:.2}, {:.2}, {:.2}], Direction: [{:.2}, {:.2}, {:.2}]",
+            ray_origin.x,
+            ray_origin.y,
+            ray_origin.z,
+            shoot_direction.x,
+            shoot_direction.y,
+            shoot_direction.z
+        );
 
         // Perform ray-AABB intersection test
         if Self::ray_intersects_aabb(ray_origin, shoot_direction, target_pos3, target_body) {
@@ -118,6 +132,16 @@ impl Weapon {
         let aabb_min = target_pos3.pos + target_body.collision_box_min();
         let aabb_max = target_pos3.pos + target_body.collision_box_max();
 
+        log::debug!(
+            "Target AABB - Min: [{:.2}, {:.2}, {:.2}], Max: [{:.2}, {:.2}, {:.2}]",
+            aabb_min.x,
+            aabb_min.y,
+            aabb_min.z,
+            aabb_max.x,
+            aabb_max.y,
+            aabb_max.z
+        );
+
         // Slab method for ray-AABB intersection
         let mut tmin = 0.0f32;
         let mut tmax = f32::MAX;
@@ -151,7 +175,16 @@ impl Weapon {
             }
         }
 
-        // Check if intersection is in front of the ray (positive t)
-        tmax >= 0.0
+        // Check if intersection is valid
+        let hit = tmax >= 0.0 && tmin <= tmax;
+
+        log::debug!(
+            "Ray-AABB result - tmin: {:.4}, tmax: {:.4}, hit: {}",
+            tmin,
+            tmax,
+            hit
+        );
+
+        hit
     }
 }
