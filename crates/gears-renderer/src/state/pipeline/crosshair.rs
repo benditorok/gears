@@ -22,9 +22,7 @@ struct CrosshairUniforms {
     gap: f32,
     length: f32,
     thickness: f32,
-    _padding0: f32,
-    _padding1: f32,
-    _padding2: f32,
+    _padding0: [u32; 3],
     color: [f32; 4],
 }
 
@@ -46,9 +44,7 @@ impl CrosshairPipeline {
             gap: 5.0,
             length: 15.0,
             thickness: 2.0,
-            _padding0: 0.0,
-            _padding1: 0.0,
-            _padding2: 0.0,
+            _padding0: [0; 3],
             color: [1.0, 1.0, 1.0, 1.0], // White
         };
 
@@ -161,9 +157,7 @@ impl CrosshairPipeline {
             gap,
             length,
             thickness,
-            _padding0: 0.0,
-            _padding1: 0.0,
-            _padding2: 0.0,
+            _padding0: [0; 3],
             color,
         };
 

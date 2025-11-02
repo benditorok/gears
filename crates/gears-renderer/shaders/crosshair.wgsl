@@ -4,9 +4,6 @@ struct CrosshairUniforms {
     gap: f32,
     length: f32,
     thickness: f32,
-    _padding0: f32,
-    _padding1: f32,
-    _padding2: f32,
     color: vec4<f32>,
 }
 
