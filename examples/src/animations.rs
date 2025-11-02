@@ -146,9 +146,9 @@ async fn main() -> EngineResult<()> {
     app.add_window(Box::new(move |ui| {
         egui::Window::new("Animation System Demo")
             .default_open(true)
-            .max_width(1000.0)
-            .max_height(800.0)
-            .default_width(800.0)
+            .max_width(200.0)
+            .max_height(600.0)
+            .default_width(200.0)
             .resizable(true)
             .anchor(Align2::RIGHT_TOP, [0.0, 0.0])
             .show(ui, |ui| {

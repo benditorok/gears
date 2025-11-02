@@ -1,8 +1,3 @@
-// Intelligent AI System - Fixed version using Query System to prevent deadlocks
-// This system demonstrates sophisticated AI enemies that use A* pathfinding for navigation
-// while exhibiting complex behavioral states with physics-based movement.
-// The key difference is using the query system to prevent resource starvation.
-
 use cgmath::{InnerSpace, Vector3, Zero};
 use gears_app::prelude::*;
 use log::{LevelFilter, info};
@@ -386,9 +381,8 @@ async fn main() -> EngineResult<()> {
     app.add_window(Box::new(move |ui| {
         egui::Window::new("Intelligent AI Demo")
             .default_open(true)
-            .max_width(450.0)
-            .max_height(700.0)
-            .default_width(400.0)
+            .max_width(300.0)
+            .max_height(600.0)
             .resizable(true)
             .anchor(egui::Align2::RIGHT_TOP, [0.0, 0.0])
             .show(ui, |ui| {
