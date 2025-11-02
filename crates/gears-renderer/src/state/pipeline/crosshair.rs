@@ -14,15 +14,23 @@ pub struct CrosshairPipeline {
     visible: bool,
 }
 
+/// Uniforms for the crosshair shader.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CrosshairUniforms {
+    /// The width of the screen in pixels.
     screen_width: f32,
+    /// The height of the screen in pixels.
     screen_height: f32,
+    /// The gap between the center and the start of each crosshair line.
     gap: f32,
+    /// The length of each crosshair line.
     length: f32,
+    /// The thickness of each crosshair line.
     thickness: f32,
+    /// Padding for alignment.
     _padding0: [u32; 3],
+    /// The RGBA color of the crosshair.
     color: [f32; 4],
 }
 
@@ -188,7 +196,7 @@ impl CrosshairPipeline {
     ///
     /// # Returns
     ///
-    /// `true` if the crosshair is visible, `false` otherwise.
+    /// `true` if the crosshair is visible.
     pub fn is_visible(&self) -> bool {
         self.visible
     }

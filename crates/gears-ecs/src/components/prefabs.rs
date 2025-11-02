@@ -1,11 +1,10 @@
-use crate::{Component, components::misc::PlayerMarker};
-
 use super::{
     controllers::{MovementController, ViewController},
     models::ModelSource,
     physics::{AABBCollisionBox, RigidBody},
     transforms::Pos3,
 };
+use crate::{Component, components::misc::PlayerMarker};
 
 pub trait Prefab {
     fn unpack_prefab(&mut self) -> Vec<Box<dyn Component>>;

@@ -2,6 +2,7 @@ use crate::Component;
 use cgmath::One;
 use gears_macro::Component;
 
+/// A trait for getting the position of an object.
 pub trait Pos {
     /// Gets the position of the object.
     ///
@@ -14,7 +15,9 @@ pub trait Pos {
 /// A component that stores the position of any object.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct Pos3 {
+    /// The position of the object in 3D space.
     pub pos: cgmath::Vector3<f32>,
+    /// The rotation of the object as a quaternion.
     pub rot: cgmath::Quaternion<f32>,
 }
 
