@@ -1,7 +1,7 @@
-# Blender 4.5.4 LTS MTL File: 'plane.blend'
+# Blender 4.5.4 LTS MTL File: 'wall.blend'
 # www.blender.org
 
-newmtl Material.001
+newmtl Material
 Ns 250.000000
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -9,4 +9,4 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd solid_ffffc7_256x256.png
+map_Kd solid_473335_256x256.png
