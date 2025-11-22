@@ -20,3 +20,33 @@ impl Default for Config {
         }
     }
 }
+
+impl Config {
+    /// Sets the window title.
+    ///
+    /// # Arguments
+    ///
+    /// * `title` - The title to set for the window.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`Config`] instance.
+    pub fn with_window_title(mut self, title: &'static str) -> Self {
+        self.window_title = title;
+        self
+    }
+
+    /// Sets whether the window should be maximized at startup.
+    ///
+    /// # Arguments
+    ///
+    /// * `maximized` - A boolean indicating if the window should be maximized.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`Config`] instance.
+    pub fn with_maximized(mut self, maximized: bool) -> Self {
+        self.maximized = maximized;
+        self
+    }
+}
