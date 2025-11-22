@@ -514,8 +514,8 @@ async fn main() -> EngineResult<()> {
         RigidBodyMarker,
         Name("Wall 2"),
         RigidBody::new_static(AABBCollisionBox {
-            min: cgmath::Vector3::new(-50.0, -2.0, -1.0),
-            max: cgmath::Vector3::new(50.0, 2.0, 1.0),
+            min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
+            max: cgmath::Vector3::new(1.0, 2.0, 50.0),
         }),
         Pos3::new_with_rot(
             Vector3::new(0.0, 1.0, -51.0),
@@ -543,8 +543,8 @@ async fn main() -> EngineResult<()> {
         RigidBodyMarker,
         Name("Wall 4"),
         RigidBody::new_static(AABBCollisionBox {
-            min: cgmath::Vector3::new(-50.0, -2.0, -1.0),
-            max: cgmath::Vector3::new(50.0, 2.0, 1.0),
+            min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
+            max: cgmath::Vector3::new(1.0, 2.0, 50.0),
         }),
         Pos3::new_with_rot(
             Vector3::new(0.0, 1.0, 51.0),
