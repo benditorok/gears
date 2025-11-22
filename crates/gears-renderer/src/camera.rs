@@ -2,6 +2,8 @@ use cgmath::{InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3, perspectiv
 use gears_core::OPENGL_TO_WGPU_MATRIX;
 use gears_ecs::components;
 
+const EPSILON: f32 = 1e-6;
+
 /// Uniform data sent to the GPU for camera transformations.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -57,18 +59,38 @@ impl CameraUniform {
         controller: &components::controllers::ViewController,
         pos3: &components::transforms::Pos3,
     ) -> Matrix4<f32> {
-        let (sin_pitch, cos_pitch) = controller.pitch.0.sin_cos();
-        let (sin_yaw, cos_yaw) = controller.yaw.0.sin_cos();
+        // Use higher precision by computing sin/cos separately to avoid precision loss
+        let pitch = controller.pitch.0 as f64;
+        let yaw = controller.yaw.0 as f64;
+
+        let (sin_pitch, cos_pitch) = pitch.sin_cos();
+        let (sin_yaw, cos_yaw) = yaw.sin_cos();
+
+        // Convert back to f32 after high-precision calculation
+        let sin_pitch = sin_pitch as f32;
+        let cos_pitch = cos_pitch as f32;
+        let sin_yaw = sin_yaw as f32;
+        let cos_yaw = cos_yaw as f32;
 
         // Add the head offset to the position only for the view calculation
         let view_position =
             Point3::new(pos3.pos.x, pos3.pos.y + controller.head_offset, pos3.pos.z);
 
-        Matrix4::look_to_rh(
-            view_position,
-            Vector3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
-            Vector3::unit_y(),
-        )
+        // Compute direction vector with better precision
+        let forward_x = cos_pitch * cos_yaw;
+        let forward_y = sin_pitch;
+        let forward_z = cos_pitch * sin_yaw;
+
+        let forward = Vector3::new(forward_x, forward_y, forward_z);
+
+        // Ensure the forward vector is normalized properly with epsilon check
+        let forward_normalized = if forward.magnitude2() > EPSILON {
+            forward.normalize()
+        } else {
+            Vector3::new(0.0, 0.0, -1.0) // Default forward direction
+        };
+
+        Matrix4::look_to_rh(view_position, forward_normalized, Vector3::unit_y())
     }
 }
 
