@@ -3,10 +3,12 @@
 #![forbid(unsafe_code)]
 
 pub mod components;
+pub mod intents;
 pub mod query;
 pub mod utils;
 
 use dashmap::DashMap;
+use intents::{IntentSender, create_intent_channel};
 use log::debug;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
@@ -188,6 +190,8 @@ pub struct World {
     pub(crate) active_accesses: DashMap<(Entity, TypeId), Vec<query::ResourceAccess>>,
     /// The next query identifier.
     pub(crate) next_query_id: AtomicU64,
+    /// Intent sender for sending intents to the application event loop.
+    intent_sender: IntentSender,
 }
 
 impl Default for World {
@@ -197,11 +201,13 @@ impl Default for World {
     ///
     /// A new [`World`] instance.
     fn default() -> Self {
+        let (intent_sender, _) = create_intent_channel();
         Self {
             next_entity: AtomicU32::new(0),
             storage: DashMap::with_capacity(47),
             active_accesses: DashMap::with_capacity(97),
             next_query_id: AtomicU64::new(0),
+            intent_sender,
         }
     }
 }
@@ -213,11 +219,13 @@ impl World {
     ///
     /// A new [`World`] instance.
     pub fn new() -> Self {
+        let (intent_sender, _) = create_intent_channel();
         Self {
             next_entity: AtomicU32::new(0),
             storage: DashMap::new(),
             active_accesses: DashMap::new(),
             next_query_id: AtomicU64::new(0),
+            intent_sender,
         }
     }
 
@@ -227,12 +235,62 @@ impl World {
     ///
     /// A new [`World`] instance.
     pub fn with_capacity(capacity: u32) -> Self {
+        let (intent_sender, _) = create_intent_channel();
         Self {
             next_entity: AtomicU32::new(0),
             storage: DashMap::with_capacity(capacity as usize),
             active_accesses: DashMap::new(),
             next_query_id: AtomicU64::new(0),
+            intent_sender,
         }
+    }
+
+    /// Create a new world with a provided intent sender.
+    ///
+    /// # Arguments
+    ///
+    /// * `intent_sender` - The intent sender to use for this world.
+    ///
+    /// # Returns
+    ///
+    /// A new [`World`] instance.
+    pub fn new_with_intent_sender(intent_sender: IntentSender) -> Self {
+        Self {
+            next_entity: AtomicU32::new(0),
+            storage: DashMap::new(),
+            active_accesses: DashMap::new(),
+            next_query_id: AtomicU64::new(0),
+            intent_sender,
+        }
+    }
+
+    /// Create a new world with a provided intent sender and specified capacity.
+    ///
+    /// # Arguments
+    ///
+    /// * `intent_sender` - The intent sender to use for this world.
+    /// * `capacity` - Initial capacity for the world storage.
+    ///
+    /// # Returns
+    ///
+    /// A new [`World`] instance.
+    pub fn new_with_intent_sender_and_capacity(intent_sender: IntentSender, capacity: u32) -> Self {
+        Self {
+            next_entity: AtomicU32::new(0),
+            storage: DashMap::with_capacity(capacity as usize),
+            active_accesses: DashMap::new(),
+            next_query_id: AtomicU64::new(0),
+            intent_sender,
+        }
+    }
+
+    /// Get a reference to the intent sender.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`IntentSender`] for sending intents.
+    pub fn intent_sender(&self) -> &IntentSender {
+        &self.intent_sender
     }
 
     /// Get the number of entities with components stored.

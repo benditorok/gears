@@ -909,6 +909,7 @@ name = "gears-ecs"
 version = "0.1.0"
 dependencies = [
  "cgmath",
+ "crossbeam",
  "dashmap",
  "gears-core",
  "gears-macro",

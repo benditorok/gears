@@ -332,6 +332,8 @@ pub struct ViewController {
     pub yaw: cgmath::Rad<f32>,
     /// Pitch of the player's view.
     pub pitch: cgmath::Rad<f32>,
+    /// Smoothing factor for camera movement (0.0 = no smoothing, higher = more smoothing).
+    pub smoothing: f32,
 }
 
 impl Default for ViewController {
@@ -348,6 +350,7 @@ impl Default for ViewController {
             rotate_vertical: 0.0,
             yaw: cgmath::Rad(0.0),
             pitch: cgmath::Rad(0.0),
+            smoothing: 0.0,
         }
     }
 }
@@ -371,6 +374,7 @@ impl ViewController {
             rotate_vertical: 0.0,
             yaw: cgmath::Rad(0.0),
             pitch: cgmath::Rad(0.0),
+            smoothing: 0.0, // Default: no smoothing for direct response
         }
     }
 
@@ -405,6 +409,7 @@ impl ViewController {
             rotate_vertical: 0.0,
             yaw: cgmath::Rad(yaw),
             pitch: cgmath::Rad(pitch),
+            smoothing: 0.0,
         }
     }
 
@@ -425,9 +430,28 @@ impl ViewController {
     /// * `pos3` - The position and rotation of the camera.
     /// * `dt` - The time elapsed since the last update.
     pub fn update_rot(&mut self, pos3: &mut Pos3, dt: f32) {
-        // Rotate
-        self.yaw += cgmath::Rad(self.rotate_horizontal) * dt;
-        self.pitch += cgmath::Rad(-self.rotate_vertical) * dt;
+        // Apply smoothing if enabled (higher smoothing = slower response)
+        let smoothing_factor = if self.smoothing > 0.0 {
+            1.0 / (1.0 + self.smoothing * dt)
+        } else {
+            1.0
+        };
+
+        // Rotate (sensitivity is already applied in process_mouse)
+        // Use dt for frame-rate independence
+        let yaw_delta = self.rotate_horizontal * dt * smoothing_factor;
+        let pitch_delta = -self.rotate_vertical * dt * smoothing_factor;
+
+        self.yaw += cgmath::Rad(yaw_delta);
+        self.pitch += cgmath::Rad(pitch_delta);
+
+        // Keep the camera's angle from going too high/low (clamp before updating quaternion)
+        const MAX_PITCH: f32 = SAFE_FRAC_PI_2;
+        if self.pitch.0 < -MAX_PITCH {
+            self.pitch = cgmath::Rad(-MAX_PITCH);
+        } else if self.pitch.0 > MAX_PITCH {
+            self.pitch = cgmath::Rad(MAX_PITCH);
+        }
 
         // Update the rotation quaternion
         pos3.rot = cgmath::Quaternion::from_angle_y(self.yaw)
@@ -438,13 +462,23 @@ impl ViewController {
         // when moving in a non-cardinal direction.
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
+    }
 
-        // Keep the camera's angle from going too high/low.
-        if self.pitch < -cgmath::Rad(SAFE_FRAC_PI_2) {
-            self.pitch = -cgmath::Rad(SAFE_FRAC_PI_2);
-        } else if self.pitch > cgmath::Rad(SAFE_FRAC_PI_2) {
-            self.pitch = cgmath::Rad(SAFE_FRAC_PI_2);
-        }
+    /// Gets the forward direction vector based on the current yaw and pitch.
+    ///
+    /// # Returns
+    ///
+    /// The normalized forward direction vector.
+    pub fn get_forward(&self) -> cgmath::Vector3<f32> {
+        let yaw = self.yaw.0;
+        let pitch = self.pitch.0;
+
+        cgmath::Vector3::new(
+            yaw.cos() * pitch.cos(),
+            pitch.sin(),
+            yaw.sin() * pitch.cos(),
+        )
+        .normalize()
     }
 }
 

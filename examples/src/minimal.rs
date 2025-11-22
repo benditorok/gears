@@ -26,30 +26,39 @@ async fn main() -> EngineResult<()> {
         )
     );
 
-    // Use the entity builder
-    app.new_entity() // Add ambient light
-        .add_component(LightMarker)
-        .add_component(Name("Ambient Light"))
-        .add_component(Light::Ambient { intensity: 0.05 })
-        .add_component(Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
-        .new_entity() // Add directional light
-        .add_component(LightMarker)
-        .add_component(Name("Directional Light"))
-        .add_component(Light::Directional {
+    // Add ambient light
+    new_entity!(
+        app,
+        LightMarker,
+        Name("Ambient Light"),
+        Light::Ambient { intensity: 0.1 },
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0))
+    );
+
+    // Add directional light
+    new_entity!(
+        app,
+        LightMarker,
+        Name("Directional Light"),
+        Light::Directional {
             direction: [-0.5, -0.5, 0.0],
-            intensity: 0.3,
-        })
-        .add_component(Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0)))
-        .new_entity() // Add a green light
-        .add_component(LightMarker)
-        .add_component(Name("Green Light"))
-        .add_component(Light::PointColoured {
+            intensity: 0.6,
+        },
+        Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
+    );
+
+    // Add a green light
+    new_entity!(
+        app,
+        LightMarker,
+        Name("Green Light"),
+        Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.8, 0.0],
             intensity: 0.6,
-        })
-        .add_component(Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
-        .build();
+        },
+        Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)),
+    );
 
     // Add a sphere and get the Entity for reference
     let sphere_entity = new_entity!(
@@ -57,22 +66,24 @@ async fn main() -> EngineResult<()> {
         StaticModelMarker,
         Name("Sphere1"),
         ModelSource::Obj("models/sphere/sphere.obj"),
-        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        Pos3::default(),
     );
 
-    // Use the update loop to spin all spheres using the new simplified async_system! macro
+    // Create a system to rotate the sphere
     async_system!(app, "update_rot", move |world, dt| {
-        let spin_speed = 0.5f32;
+        const SPIN_SPEED: f32 = 1_f32;
         if let Some(pos3) = world.get_component::<Pos3>(sphere_entity) {
             let mut wlock_pos3 = pos3.write().unwrap();
 
             let rotation = wlock_pos3.rot;
-            wlock_pos3.rot =
-                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
+            wlock_pos3.rot = Quaternion::from_angle_y(cgmath::Rad(
+                SPIN_SPEED * dt.as_secs_f32(), // Scale by delta time
+            )) * rotation;
         }
 
         Ok(())
     });
 
+    // Run the application
     app.run()
 }

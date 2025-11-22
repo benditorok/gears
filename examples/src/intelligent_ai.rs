@@ -1,8 +1,3 @@
-// Intelligent AI System - Fixed version using Query System to prevent deadlocks
-// This system demonstrates sophisticated AI enemies that use A* pathfinding for navigation
-// while exhibiting complex behavioral states with physics-based movement.
-// The key difference is using the query system to prevent resource starvation.
-
 use cgmath::{InnerSpace, Vector3, Zero};
 use gears_app::prelude::*;
 use log::{LevelFilter, info};
@@ -359,6 +354,10 @@ async fn main() -> EngineResult<()> {
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);
     env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
+    env_builder.filter_module(
+        "gears_ecs::components::interactive",
+        log::LevelFilter::Debug,
+    );
     env_builder.init();
 
     let mut app = GearsApp::default();
@@ -369,18 +368,21 @@ async fn main() -> EngineResult<()> {
     let w1_ai_sub_state = Arc::new(Mutex::new(Option::None));
     let w1_ai_color = Arc::new(Mutex::new([0.2f32, 0.2f32, 0.8f32]));
     let w1_pathfind_behavior = Arc::new(Mutex::new(PathfindingBehavior::Wander));
+    let w1_player_health = Arc::new(Mutex::new(100.0f32));
+    let w1_enemy_health = Arc::new(Mutex::new(100.0f32));
 
     let ai_state = w1_ai_state.clone();
     let ai_sub_state = w1_ai_sub_state.clone();
     let ai_color = w1_ai_color.clone();
     let pathfind_behavior = w1_pathfind_behavior.clone();
+    let player_health_ui = w1_player_health.clone();
+    let enemy_health_ui = w1_enemy_health.clone();
 
     app.add_window(Box::new(move |ui| {
         egui::Window::new("Intelligent AI Demo")
             .default_open(true)
-            .max_width(450.0)
-            .max_height(700.0)
-            .default_width(400.0)
+            .max_width(300.0)
+            .max_height(600.0)
             .resizable(true)
             .anchor(egui::Align2::RIGHT_TOP, [0.0, 0.0])
             .show(ui, |ui| {
@@ -446,6 +448,31 @@ async fn main() -> EngineResult<()> {
                 ));
 
                 ui.separator();
+                ui.heading("Health Status");
+                ui.label(format!(
+                    "Player HP: {:.1}/100.0",
+                    player_health_ui.lock().unwrap()
+                ));
+                ui.label(format!(
+                    "Enemy HP: {:.1}/100.0",
+                    enemy_health_ui.lock().unwrap()
+                ));
+
+                ui.separator();
+                ui.label("Controls:");
+                ui.label("- Left Click: Shoot (200ms cooldown)");
+                ui.label("- WASD: Move");
+                ui.label("- Mouse: Look around");
+                ui.label("- Alt: Toggle cursor grab");
+                ui.label("- F1: Toggle debug wireframes");
+
+                ui.separator();
+                ui.label("Shooting Tips:");
+                ui.label("- Aim crosshair at the enemy sphere");
+                ui.label("- Enemy has AABB collision box");
+                ui.label("- Check console for hit/miss feedback");
+
+                ui.separator();
                 ui.label("System Integration:");
                 ui.label("- FSM states determine pathfinding behavior");
                 ui.label("- A* algorithm for intelligent navigation");
@@ -509,6 +536,7 @@ async fn main() -> EngineResult<()> {
         player_prefab.view_controller.take().unwrap(),
         player_prefab.rigidbody.take().unwrap(),
         Health::default(),
+        Weapon::new(10.0),
     );
 
     // Create obstacles for pathfinding to navigate around
@@ -558,6 +586,7 @@ async fn main() -> EngineResult<()> {
         intelligent_ai,
         pathfinding,
         Health::new(100.0, 100.0),
+        Weapon::new(5.0),
         LightMarker,
         Light::PointColoured {
             radius: 10.0,
@@ -566,7 +595,6 @@ async fn main() -> EngineResult<()> {
         },
     );
 
-    // Intelligent AI Update System using Query System
     async_system!(
         app,
         "intelligent_ai_update_query",
@@ -575,12 +603,28 @@ async fn main() -> EngineResult<()> {
             w1_ai_state,
             w1_ai_sub_state,
             w1_ai_color,
-            w1_pathfind_behavior
+            w1_pathfind_behavior,
+            w1_player_health,
+            w1_enemy_health,
+            player,
+            ai_enemy
         ),
         |world, dt| {
             w1_frame_tx
                 .send(dt)
                 .map_err(|_| SystemError::Other("Failed to send dt".into()))?;
+
+            // Update health displays
+            if let Some(player_health_comp) = world.get_component::<Health>(player) {
+                if let Ok(health) = player_health_comp.read() {
+                    *w1_player_health.lock().unwrap() = health.get_health();
+                }
+            }
+            if let Some(enemy_health_comp) = world.get_component::<Health>(ai_enemy) {
+                if let Ok(health) = enemy_health_comp.read() {
+                    *w1_enemy_health.lock().unwrap() = health.get_health();
+                }
+            }
 
             // Get player position for AI targeting
             let player_pos = if let Some(player_pos3) = world.get_component::<Pos3>(player) {
@@ -843,6 +887,101 @@ async fn main() -> EngineResult<()> {
 
         Ok(())
     });
+
+    // Clone intent receiver for use in shooting system
+    let intent_receiver = app.clone_intent_receiver();
+    let last_shot = Arc::new(Mutex::new(Instant::now() - Duration::from_secs(10)));
+    let cooldown = Duration::from_millis(200);
+
+    // Intent processing system - processes shooting intents from the event loop
+    async_system!(
+        app,
+        "process_shooting_intents",
+        (player, ai_enemy, intent_receiver, last_shot, cooldown),
+        |world, dt| {
+            // Process all pending shooting intents
+            for intent in intent_receiver.iter() {
+                match intent {
+                    Intent::Shoot { entity } => {
+                        // Check cooldown
+                        let now = Instant::now();
+                        let mut last_time = last_shot.lock().unwrap();
+                        let time_since_last = now.duration_since(*last_time);
+
+                        if time_since_last < cooldown {
+                            continue; // Skip this shot due to cooldown
+                        }
+
+                        *last_time = now;
+                        drop(last_time);
+
+                        // Perform shooting raycast from player to enemy
+                        let query = ComponentQuery::new()
+                            .read::<Pos3>(vec![player, ai_enemy])
+                            .read::<ViewController>(vec![player])
+                            .read::<Weapon>(vec![player])
+                            .read::<RigidBody<AABBCollisionBox>>(vec![ai_enemy])
+                            .write::<Health>(vec![ai_enemy]);
+
+                        if let Some(resources) = world.acquire_query(query) {
+                            if let (
+                                Some(player_pos_comp),
+                                Some(player_view_comp),
+                                Some(player_weapon_comp),
+                                Some(enemy_pos_comp),
+                                Some(enemy_body_comp),
+                                Some(enemy_health_comp),
+                            ) = (
+                                resources.get::<Pos3>(player),
+                                resources.get::<ViewController>(player),
+                                resources.get::<Weapon>(player),
+                                resources.get::<Pos3>(ai_enemy),
+                                resources.get::<RigidBody<AABBCollisionBox>>(ai_enemy),
+                                resources.get::<Health>(ai_enemy),
+                            ) {
+                                if let (
+                                    Ok(player_pos),
+                                    Ok(player_view),
+                                    Ok(weapon),
+                                    Ok(enemy_pos),
+                                    Ok(enemy_body),
+                                    Ok(mut enemy_health),
+                                ) = (
+                                    player_pos_comp.read(),
+                                    player_view_comp.read(),
+                                    player_weapon_comp.read(),
+                                    enemy_pos_comp.read(),
+                                    enemy_body_comp.read(),
+                                    enemy_health_comp.write(),
+                                ) {
+                                    let hit = weapon.shoot(
+                                        &player_pos,
+                                        &player_view,
+                                        &enemy_pos,
+                                        &enemy_body,
+                                        &mut enemy_health,
+                                    );
+
+                                    if hit {
+                                        info!(
+                                            "HIT! Enemy HP: {:.1}/{:.1}",
+                                            enemy_health.get_health(),
+                                            enemy_health.get_max_health()
+                                        );
+                                    } else {
+                                        info!("MISS!");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {} // Ignore other intent types for now
+                }
+            }
+
+            Ok(())
+        }
+    );
 
     // Run the application
     app.run()

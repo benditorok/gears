@@ -48,10 +48,6 @@ name = "animations"
 path = "src/animations.rs"
 
 [[example]]
-name = "aim"
-path = "src/aim.rs"
-
-[[example]]
 name = "fsm_character"
 path = "src/fsm_character.rs"
 
