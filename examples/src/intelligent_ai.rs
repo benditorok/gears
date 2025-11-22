@@ -537,7 +537,6 @@ async fn main() -> EngineResult<()> {
         player_prefab.rigidbody.take().unwrap(),
         Health::default(),
         Weapon::new(10.0),
-        ShootingIntent::new(),
     );
 
     // Create obstacles for pathfinding to navigate around
@@ -594,110 +593,6 @@ async fn main() -> EngineResult<()> {
             intensity: 6.0,
             color: [0.2, 0.2, 0.8],
         },
-    );
-
-    // Shooting system - handles player shooting based on ShootingIntent component
-    let last_shot_time = Arc::new(Mutex::new(Instant::now() - Duration::from_secs(10)));
-    let shot_cooldown = Duration::from_millis(200); // 200ms cooldown between shots
-
-    async_system!(
-        app,
-        "shooting_system",
-        (player, ai_enemy, last_shot_time),
-        |world, dt| {
-            // Check ShootingIntent component on player
-            let should_shoot =
-                if let Some(intent_comp) = world.get_component::<ShootingIntent>(player) {
-                    if let Ok(mut intent) = intent_comp.try_write() {
-                        let shoot = intent.is_shooting();
-                        if shoot {
-                            intent.reset(); // Reset immediately
-                        }
-                        shoot
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                };
-
-            if should_shoot {
-                // Check cooldown
-                let now = Instant::now();
-                let mut last_time = last_shot_time.lock().unwrap();
-                let time_since_last = now.duration_since(*last_time);
-
-                if time_since_last < shot_cooldown {
-                    // Still on cooldown, skip this shot
-                    return Ok(());
-                }
-
-                *last_time = now;
-                drop(last_time); // Release the lock
-
-                // Perform shooting raycast from player to enemy
-                let query = ComponentQuery::new()
-                    .read::<Pos3>(vec![player, ai_enemy])
-                    .read::<ViewController>(vec![player])
-                    .read::<Weapon>(vec![player])
-                    .read::<RigidBody<AABBCollisionBox>>(vec![ai_enemy])
-                    .write::<Health>(vec![ai_enemy]);
-
-                if let Some(resources) = world.acquire_query(query) {
-                    if let (
-                        Some(player_pos_comp),
-                        Some(player_view_comp),
-                        Some(player_weapon_comp),
-                        Some(enemy_pos_comp),
-                        Some(enemy_body_comp),
-                        Some(enemy_health_comp),
-                    ) = (
-                        resources.get::<Pos3>(player),
-                        resources.get::<ViewController>(player),
-                        resources.get::<Weapon>(player),
-                        resources.get::<Pos3>(ai_enemy),
-                        resources.get::<RigidBody<AABBCollisionBox>>(ai_enemy),
-                        resources.get::<Health>(ai_enemy),
-                    ) {
-                        if let (
-                            Ok(player_pos),
-                            Ok(player_view),
-                            Ok(weapon),
-                            Ok(enemy_pos),
-                            Ok(enemy_body),
-                            Ok(mut enemy_health),
-                        ) = (
-                            player_pos_comp.read(),
-                            player_view_comp.read(),
-                            player_weapon_comp.read(),
-                            enemy_pos_comp.read(),
-                            enemy_body_comp.read(),
-                            enemy_health_comp.write(),
-                        ) {
-                            let hit = weapon.shoot(
-                                &player_pos,
-                                &player_view,
-                                &enemy_pos,
-                                &enemy_body,
-                                &mut enemy_health,
-                            );
-
-                            if hit {
-                                info!(
-                                    "🎯 HIT! Enemy HP: {:.1}/{:.1}",
-                                    enemy_health.get_health(),
-                                    enemy_health.get_max_health()
-                                );
-                            } else {
-                                info!("❌ MISS!");
-                            }
-                        }
-                    }
-                }
-            }
-
-            Ok(())
-        }
     );
 
     async_system!(
@@ -992,6 +887,101 @@ async fn main() -> EngineResult<()> {
 
         Ok(())
     });
+
+    // Clone intent receiver for use in shooting system
+    let intent_receiver = app.clone_intent_receiver();
+    let last_shot = Arc::new(Mutex::new(Instant::now() - Duration::from_secs(10)));
+    let cooldown = Duration::from_millis(200);
+
+    // Intent processing system - processes shooting intents from the event loop
+    async_system!(
+        app,
+        "process_shooting_intents",
+        (player, ai_enemy, intent_receiver, last_shot, cooldown),
+        |world, dt| {
+            // Process all pending shooting intents
+            for intent in intent_receiver.iter() {
+                match intent {
+                    Intent::Shoot { entity } => {
+                        // Check cooldown
+                        let now = Instant::now();
+                        let mut last_time = last_shot.lock().unwrap();
+                        let time_since_last = now.duration_since(*last_time);
+
+                        if time_since_last < cooldown {
+                            continue; // Skip this shot due to cooldown
+                        }
+
+                        *last_time = now;
+                        drop(last_time);
+
+                        // Perform shooting raycast from player to enemy
+                        let query = ComponentQuery::new()
+                            .read::<Pos3>(vec![player, ai_enemy])
+                            .read::<ViewController>(vec![player])
+                            .read::<Weapon>(vec![player])
+                            .read::<RigidBody<AABBCollisionBox>>(vec![ai_enemy])
+                            .write::<Health>(vec![ai_enemy]);
+
+                        if let Some(resources) = world.acquire_query(query) {
+                            if let (
+                                Some(player_pos_comp),
+                                Some(player_view_comp),
+                                Some(player_weapon_comp),
+                                Some(enemy_pos_comp),
+                                Some(enemy_body_comp),
+                                Some(enemy_health_comp),
+                            ) = (
+                                resources.get::<Pos3>(player),
+                                resources.get::<ViewController>(player),
+                                resources.get::<Weapon>(player),
+                                resources.get::<Pos3>(ai_enemy),
+                                resources.get::<RigidBody<AABBCollisionBox>>(ai_enemy),
+                                resources.get::<Health>(ai_enemy),
+                            ) {
+                                if let (
+                                    Ok(player_pos),
+                                    Ok(player_view),
+                                    Ok(weapon),
+                                    Ok(enemy_pos),
+                                    Ok(enemy_body),
+                                    Ok(mut enemy_health),
+                                ) = (
+                                    player_pos_comp.read(),
+                                    player_view_comp.read(),
+                                    player_weapon_comp.read(),
+                                    enemy_pos_comp.read(),
+                                    enemy_body_comp.read(),
+                                    enemy_health_comp.write(),
+                                ) {
+                                    let hit = weapon.shoot(
+                                        &player_pos,
+                                        &player_view,
+                                        &enemy_pos,
+                                        &enemy_body,
+                                        &mut enemy_health,
+                                    );
+
+                                    if hit {
+                                        info!(
+                                            "HIT! Enemy HP: {:.1}/{:.1}",
+                                            enemy_health.get_health(),
+                                            enemy_health.get_max_health()
+                                        );
+                                    } else {
+                                        info!("MISS!");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {} // Ignore other intent types for now
+                }
+            }
+
+            Ok(())
+        }
+    );
 
     // Run the application
     app.run()

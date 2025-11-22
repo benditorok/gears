@@ -12,3 +12,4 @@ cgmath = { workspace = true }
 winit = { workspace = true }
 rayon = { workspace = true }
 tokio = { workspace = true }
+crossbeam = { workspace = true }

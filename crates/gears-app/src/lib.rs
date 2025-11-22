@@ -7,8 +7,10 @@ pub mod macros;
 pub mod prelude;
 pub mod systems;
 
+use gears_ecs::intents::{IntentReceiver, create_intent_channel};
+
 use crate::errors::EngineError;
-use gears_core::config::{self, Config};
+use gears_core::config::Config;
 use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_gui::EguiWindowCallback;
 use gears_renderer::state::State;
@@ -19,9 +21,8 @@ use std::time;
 use systems::SystemCollection;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{DeviceEvent, MouseButton, RawKeyEvent, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::platform::x11::WindowAttributesExtX11;
 use winit::window::{Window, WindowAttributes, WindowId};
 
@@ -49,6 +50,10 @@ pub struct GearsApp {
     dt: time::Duration,
     /// Indicates whether the application was paused.
     was_paused: bool,
+    /// Intent receiver for processing intents from the application event loop.
+    intent_receiver: IntentReceiver,
+    /// Whether the mouse button is currently pressed.
+    mouse_pressed: bool,
 }
 
 impl Default for GearsApp {
@@ -58,9 +63,11 @@ impl Default for GearsApp {
     ///
     /// The default [`GearsApp`] instance.
     fn default() -> Self {
+        let (intent_sender, intent_receiver) = create_intent_channel();
+        let world = World::new_with_intent_sender(intent_sender);
         Self {
             config: Config::default(),
-            world: Arc::new(World::default()),
+            world: Arc::new(world),
             window: None,
             state: None,
             egui_windows: None,
@@ -70,6 +77,8 @@ impl Default for GearsApp {
             last_render_time: time::Instant::now(),
             dt: time::Duration::from_secs_f32(0_f32),
             was_paused: false,
+            intent_receiver,
+            mouse_pressed: false,
         }
     }
 }
@@ -84,10 +93,12 @@ impl GearsApp {
     /// # Returns
     ///
     /// The created [`GearsApp`] instance.
-    pub fn new(config: config::Config) -> Self {
+    pub fn new(config: Config) -> Self {
+        let (intent_sender, intent_receiver) = create_intent_channel();
+        let world = World::new_with_intent_sender(intent_sender);
         Self {
             config,
-            world: Arc::new(World::default()),
+            world: Arc::new(world),
             window: None,
             state: None,
             egui_windows: None,
@@ -97,6 +108,8 @@ impl GearsApp {
             last_render_time: time::Instant::now(),
             dt: time::Duration::from_secs_f32(0_f32),
             was_paused: false,
+            intent_receiver,
+            mouse_pressed: false,
         }
     }
 
@@ -266,6 +279,24 @@ impl GearsApp {
         debug!("All {} internal systems completed", total_systems);
     }
 
+    /// Get a reference to the intent receiver.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`IntentReceiver`] for processing intents.
+    pub fn intent_receiver(&self) -> &IntentReceiver {
+        &self.intent_receiver
+    }
+
+    /// Clone the intent receiver for use in systems.
+    ///
+    /// # Returns
+    ///
+    /// A cloned [`IntentReceiver`] that can be moved into system closures.
+    pub fn clone_intent_receiver(&self) -> IntentReceiver {
+        self.intent_receiver.clone()
+    }
+
     /// Add a custom window to the app.
     ///
     /// # Arguments
@@ -428,8 +459,36 @@ impl ApplicationHandler for GearsApp {
         event: WindowEvent,
     ) {
         if let (Some(state), Some(window)) = (&self.state, &self.window) {
-            // Check if this is our window and if input should be handled
-            if window_id != window.id() || state.write().unwrap().input(&event) {
+            // Check if this is our window
+            if window_id != window.id() {
+                return;
+            }
+
+            // Handle mouse input for shooting before passing to state
+            if let WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: button_state,
+                ..
+            } = &event
+            {
+                let was_pressed = self.mouse_pressed;
+                self.mouse_pressed = *button_state == ElementState::Pressed;
+
+                // On transition from released to pressed, send shooting intent
+                if self.mouse_pressed && !was_pressed {
+                    if let Some(player_entity) = state.read().unwrap().player_entity() {
+                        let intent_sender = self.world.intent_sender();
+                        if intent_sender.send_shoot(*player_entity) {
+                            log::info!("Shooting intent sent for player entity");
+                        } else {
+                            log::warn!("Failed to send shooting intent");
+                        }
+                    }
+                }
+            }
+
+            // Pass event to state for other input handling
+            if state.write().unwrap().input(&event) {
                 return;
             }
 

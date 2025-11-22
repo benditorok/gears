@@ -6,37 +6,6 @@ use crate::{Component, components::controllers::ViewController, components::tran
 use cgmath::{InnerSpace, Vector3};
 use gears_macro::Component;
 
-/// A component that tracks shooting intent (set by input handler).
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct ShootingIntent {
-    /// Whether a shoot action should be performed this frame.
-    pub should_shoot: bool,
-}
-
-impl ShootingIntent {
-    /// Creates a new shooting intent.
-    pub fn new() -> Self {
-        Self {
-            should_shoot: false,
-        }
-    }
-
-    /// Triggers a shoot action.
-    pub fn trigger(&mut self) {
-        self.should_shoot = true;
-    }
-
-    /// Resets the shoot action (should be called after handling).
-    pub fn reset(&mut self) {
-        self.should_shoot = false;
-    }
-
-    /// Checks if shooting is intended.
-    pub fn is_shooting(&self) -> bool {
-        self.should_shoot
-    }
-}
-
 /// A component representing a weapon that can be used to attack other entities.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Weapon {

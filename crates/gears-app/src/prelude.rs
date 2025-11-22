@@ -15,7 +15,7 @@ pub use gears_ecs::{
     components::{
         controllers::{MovementController, ViewController},
         fsm::{FiniteStateMachine, State, StateContext, StateData, StateId, StateIdentifier},
-        interactive::{ShootingIntent, Weapon},
+        interactive::Weapon,
         lights::Light,
         misc::{
             AnimationQueue, CameraMarker, EnemyMarker, Health, LightMarker, Name, ObstacleMarker,
@@ -29,6 +29,7 @@ pub use gears_ecs::{
         prefabs::Player,
         transforms::{Flip, Pos3, Scale},
     },
+    intents::{Intent, IntentReceiver},
     query::{ComponentQuery, WorldQueryExt},
 };
 pub use gears_macro::Component;
