@@ -1,6 +1,7 @@
 use cgmath::{InnerSpace, Rotation3, Vector3, Zero};
 use gears_app::prelude::*;
 use log::{LevelFilter, info};
+use rand::Rng;
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
@@ -303,7 +304,7 @@ struct EscapeState;
 impl State<CharacterState> for EscapeState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("escape_timer", 0.0);
-        context.set_float("speed", 15.0);
+        context.set_float("speed", 20.0);
         context.set_vector3("color", [0.8, 0.2, 0.8].into()); // Magenta
         info!("AI fleeing!");
     }
@@ -402,10 +403,10 @@ async fn main() -> EngineResult<()> {
     app.add_window(Box::new(move |ui| {
         egui::Window::new("Interactive Demo")
             .default_open(true)
-            .max_width(350.0)
-            .max_height(700.0)
+            .max_width(300.0)
+            .max_height(750.0)
             .resizable(true)
-            .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+            .anchor(egui::Align2::RIGHT_TOP, [0.0, 0.0])
             .show(ui, |ui| {
                 if let Ok(dt) = w1_frame_rx.try_recv() {
                     ui.label(format!("Frame time: {:.2} ms", dt.as_secs_f32() * 1000.0));
@@ -414,7 +415,8 @@ async fn main() -> EngineResult<()> {
 
                 ui.separator();
                 ui.heading("Interactive AI Demo");
-                ui.label("Multiple AI entities with FSM + A* Pathfinding");
+                ui.label("8 AI entities with FSM + A* Pathfinding");
+                ui.label("20-35 random obstacles each startup!");
 
                 ui.separator();
                 ui.label("Color-Coded AI States:");
@@ -456,9 +458,9 @@ async fn main() -> EngineResult<()> {
                 ui.label("• Idle: Random wandering");
                 ui.label("• Attack: Pursue and strike player");
                 ui.label("• Defend: Maintain safe distance");
-                ui.label("• Escape: Flee when health is low");
-                ui.label("• Each AI navigates around obstacles");
-                ui.label("• State transitions based on health/distance");
+                ui.label("• Escape: Flee opposite direction (HP < 30)");
+                ui.label("• AI use A* pathfinding to navigate");
+                ui.label("• Obstacles dynamically block paths");
             });
     }));
 
@@ -486,10 +488,11 @@ async fn main() -> EngineResult<()> {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Ground Plane"),
         RigidBody::new_static(AABBCollisionBox {
-            min: cgmath::Vector3::new(-50.0, -0.1, -50.0),
-            max: cgmath::Vector3::new(50.0, 0.1, 50.0),
+            min: Vector3::new(-100.0, -0.1, -100.0),
+            max: Vector3::new(100.0, 0.1, 100.0),
         }),
         Pos3::new(Vector3::new(0.0, -1.0, 0.0)),
         ModelSource::Obj("models/plane/plane.obj"),
@@ -499,6 +502,7 @@ async fn main() -> EngineResult<()> {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Wall 1"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
@@ -512,6 +516,7 @@ async fn main() -> EngineResult<()> {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Wall 2"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
@@ -528,6 +533,7 @@ async fn main() -> EngineResult<()> {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Wall 3"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
@@ -541,6 +547,7 @@ async fn main() -> EngineResult<()> {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Wall 4"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
@@ -568,31 +575,20 @@ async fn main() -> EngineResult<()> {
         Weapon::new(15.0),
     );
 
-    // Create obstacles in a more complex pattern
-    let obstacle_positions = vec![
-        // Inner ring
-        (10.0, 0.0),
-        (-10.0, 0.0),
-        (0.0, 10.0),
-        (0.0, -10.0),
-        // Diagonal positions
-        (15.0, 15.0),
-        (-15.0, 15.0),
-        (15.0, -15.0),
-        (-15.0, -15.0),
-        // Outer ring
-        (25.0, 0.0),
-        (-25.0, 0.0),
-        (0.0, 25.0),
-        (0.0, -25.0),
-        // Additional scattered obstacles
-        (8.0, -18.0),
-        (-12.0, 20.0),
-        (18.0, -8.0),
-        (-20.0, -12.0),
-    ];
+    // Generate random obstacles
+    let mut rng = rand::rng();
+    let num_obstacles = rng.random_range(20..35);
 
-    for (i, (x, z)) in obstacle_positions.into_iter().enumerate() {
+    for i in 0..num_obstacles {
+        // Generate random position within a reasonable range
+        let x: f32 = rng.random_range(-40.0..40.0);
+        let z: f32 = rng.random_range(-40.0..40.0);
+
+        // Avoid spawning too close to center where player starts
+        if x.abs() < 5.0 && z.abs() < 5.0 {
+            continue;
+        }
+
         new_entity!(
             app,
             RigidBodyMarker,
@@ -772,9 +768,20 @@ async fn main() -> EngineResult<()> {
                                     player_pos + direction_away * safe_distance
                                 }
                                 PathfindingBehavior::Flee => {
+                                    // Calculate direction away from player
                                     let direction_away = (current_pos.pos - player_pos).normalize();
-                                    let flee_distance = 30.0;
-                                    current_pos.pos + direction_away * flee_distance
+                                    let flee_distance = 40.0;
+
+                                    // Target a position far from the player in the opposite direction
+                                    let flee_target =
+                                        current_pos.pos + direction_away * flee_distance;
+
+                                    // Clamp to bounds to keep within the play area
+                                    Vector3::new(
+                                        flee_target.x.clamp(-45.0, 45.0),
+                                        current_pos.pos.y,
+                                        flee_target.z.clamp(-45.0, 45.0),
+                                    )
                                 }
                                 PathfindingBehavior::Wander => {
                                     let wander_radius = 20.0;
@@ -803,7 +810,7 @@ async fn main() -> EngineResult<()> {
 
     // Pathfinding System
     async_system!(app, "pathfinding_update", |world, dt| {
-        // Collect obstacle data
+        // Collect all entities marked as obstacles
         let obstacle_entities = world.get_entities_with_component::<ObstacleMarker>();
         let mut obstacles = Vec::new();
 
