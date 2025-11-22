@@ -578,11 +578,11 @@ async fn main() -> EngineResult<()> {
             Vector3::zero(),
             Vector3::new(0.0, -20.0, 0.0),
             AABBCollisionBox {
-                min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
-                max: cgmath::Vector3::new(1.0, 1.0, 1.0),
+                min: cgmath::Vector3::new(-1.0, -2.0, -1.0),
+                max: cgmath::Vector3::new(1.0, 2.0, 1.0),
             }
         ),
-        ModelSource::Obj("models/sphere/sphere.obj"),
+        ModelSource::Obj("models/capsule/capsule.obj"),
         intelligent_ai,
         pathfinding,
         Health::new(100.0, 100.0),
