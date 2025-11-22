@@ -1,4 +1,4 @@
-use cgmath::InnerSpace;
+use cgmath::{InnerSpace, Vector3, Zero};
 use egui::Align2;
 use gears_app::prelude::*;
 use log::{LevelFilter, info};
@@ -143,15 +143,15 @@ async fn main() -> EngineResult<()> {
             Name(Box::leak(enemy_name.into_boxed_str())),
             Pos3::new(pos),
             RigidBody::new(
-                1.5,                                   // Mass of the enemy
-                cgmath::Vector3::new(0.0, 0.0, 0.0),   // Initial velocity
-                cgmath::Vector3::new(0.0, -10.0, 0.0), // Initial acceleration (gravity)
+                1.5,
+                Vector3::zero(),
+                Vector3::new(0.0, -10.0, 0.0),
                 AABBCollisionBox {
-                    min: cgmath::Vector3::new(-1.0, -1.0, -1.0),
-                    max: cgmath::Vector3::new(1.0, 1.0, 1.0),
-                },
+                    min: cgmath::Vector3::new(-1.0, -2.0, -1.0),
+                    max: cgmath::Vector3::new(1.0, 2.0, 1.0),
+                }
             ),
-            ModelSource::Obj("models/sphere/sphere.obj"),
+            ModelSource::Obj("models/capsule/capsule.obj"),
             pathfinding,
         );
         enemies.push(enemy);
