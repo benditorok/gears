@@ -151,7 +151,7 @@ async fn main() -> EngineResult<()> {
                     max: cgmath::Vector3::new(1.0, 2.0, 1.0),
                 }
             ),
-            ModelSource::Obj("models/capsule/capsule.obj"),
+            ModelSource::Obj("models/capsule/bcd8c1/capsule.obj"),
             pathfinding,
         );
         enemies.push(enemy);
