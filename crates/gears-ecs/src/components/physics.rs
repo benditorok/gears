@@ -58,6 +58,55 @@ pub struct AABBCollisionBox {
     pub max: cgmath::Vector3<f32>,
 }
 
+impl AABBCollisionBox {
+    /// Get the rotated AABB bounds in world space.
+    ///
+    /// # Arguments
+    /// * `pos3` - The position and rotation of the collision box.
+    ///
+    /// # Returns
+    /// A tuple of (min, max) vectors representing the axis-aligned bounding box
+    /// that encompasses the rotated collision box.
+    fn get_rotated_aabb(&self, pos3: &Pos3) -> (cgmath::Vector3<f32>, cgmath::Vector3<f32>) {
+        // Get the 8 corners of the AABB in local space
+        let corners = [
+            cgmath::Vector3::new(self.min.x, self.min.y, self.min.z),
+            cgmath::Vector3::new(self.max.x, self.min.y, self.min.z),
+            cgmath::Vector3::new(self.min.x, self.max.y, self.min.z),
+            cgmath::Vector3::new(self.max.x, self.max.y, self.min.z),
+            cgmath::Vector3::new(self.min.x, self.min.y, self.max.z),
+            cgmath::Vector3::new(self.max.x, self.min.y, self.max.z),
+            cgmath::Vector3::new(self.min.x, self.max.y, self.max.z),
+            cgmath::Vector3::new(self.max.x, self.max.y, self.max.z),
+        ];
+
+        // Rotate and translate each corner
+        let transformed_corners: Vec<cgmath::Vector3<f32>> = corners
+            .iter()
+            .map(|&corner| {
+                // Rotate using quaternion: q * v * q^-1
+                let rotated = pos3.rot * corner;
+                rotated + pos3.pos
+            })
+            .collect();
+
+        // Find the min and max of the transformed corners to get the new AABB
+        let mut min = transformed_corners[0];
+        let mut max = transformed_corners[0];
+
+        for corner in &transformed_corners[1..] {
+            min.x = min.x.min(corner.x);
+            min.y = min.y.min(corner.y);
+            min.z = min.z.min(corner.z);
+            max.x = max.x.max(corner.x);
+            max.y = max.y.max(corner.y);
+            max.z = max.z.max(corner.z);
+        }
+
+        (min, max)
+    }
+}
+
 impl CollisionBox for AABBCollisionBox {
     /// Check if two AABB collision boxes intersect.
     ///
@@ -67,10 +116,8 @@ impl CollisionBox for AABBCollisionBox {
     /// * `obj_b` - The second AABB collision box.
     /// * `obj_b_pos3` - The position of the second AABB collision box.
     fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool {
-        let a_min = obj_a_pos3.pos + obj_a.min;
-        let a_max = obj_a_pos3.pos + obj_a.max;
-        let b_min = obj_b_pos3.pos + obj_b.min;
-        let b_max = obj_b_pos3.pos + obj_b.max;
+        let (a_min, a_max) = obj_a.get_rotated_aabb(obj_a_pos3);
+        let (b_min, b_max) = obj_b.get_rotated_aabb(obj_b_pos3);
 
         a_min.x < b_max.x
             && a_max.x > b_min.x
@@ -93,10 +140,8 @@ impl CollisionBox for AABBCollisionBox {
         obj_b: &mut RigidBody<Self>,
         obj_b_pos3: &mut Pos3,
     ) {
-        let a_min = obj_a_pos3.pos + obj_a.collision_box.min;
-        let a_max = obj_a_pos3.pos + obj_a.collision_box.max;
-        let b_min = obj_b_pos3.pos + obj_b.collision_box.min;
-        let b_max = obj_b_pos3.pos + obj_b.collision_box.max;
+        let (a_min, a_max) = obj_a.collision_box.get_rotated_aabb(obj_a_pos3);
+        let (b_min, b_max) = obj_b.collision_box.get_rotated_aabb(obj_b_pos3);
 
         // Calculate overlap depths
         let overlap_x = (a_max.x.min(b_max.x)) - (a_min.x.max(b_min.x));
