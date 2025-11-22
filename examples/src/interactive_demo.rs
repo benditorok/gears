@@ -60,11 +60,10 @@ pub struct IntelligentAI {
     pub target_entity: Option<Entity>,
     pub last_behavior_change: Instant,
     pub behavior_change_interval: Duration,
-    pub base_color: [f32; 3],
 }
 
 impl IntelligentAI {
-    pub fn new(base_color: [f32; 3]) -> Self {
+    pub fn new() -> Self {
         let mut fsm = FiniteStateMachine::<CharacterState>::new();
 
         // Add states
@@ -97,7 +96,8 @@ impl IntelligentAI {
         fsm.context_mut().set_float("health", 100.0);
         fsm.context_mut().set_float("max_health", 100.0);
         fsm.context_mut().set_float("enemy_distance", 100.0);
-        fsm.context_mut().set_vector3("color", base_color.into());
+        fsm.context_mut()
+            .set_vector3("color", [0.5, 0.5, 0.5].into());
 
         Self {
             fsm,
@@ -105,7 +105,6 @@ impl IntelligentAI {
             target_entity: None,
             last_behavior_change: Instant::now(),
             behavior_change_interval: Duration::from_millis(500),
-            base_color,
         }
     }
 }
@@ -353,49 +352,8 @@ async fn main() -> EngineResult<()> {
 
     let mut app = GearsApp::default();
 
-    // Define color palette
-    let colors = [
-        (
-            [
-                0x22 as f32 / 255.0,
-                0x2E as f32 / 255.0,
-                0x50 as f32 / 255.0,
-            ],
-            "222e50",
-        ), // Dark blue
-        (
-            [
-                0x00 as f32 / 255.0,
-                0x79 as f32 / 255.0,
-                0x91 as f32 / 255.0,
-            ],
-            "007991",
-        ), // Teal
-        (
-            [
-                0x43 as f32 / 255.0,
-                0x9A as f32 / 255.0,
-                0x86 as f32 / 255.0,
-            ],
-            "439a86",
-        ), // Sea green
-        (
-            [
-                0xBC as f32 / 255.0,
-                0xD8 as f32 / 255.0,
-                0xC1 as f32 / 255.0,
-            ],
-            "bcd8c1",
-        ), // Light green
-        (
-            [
-                0xE9 as f32 / 255.0,
-                0xD9 as f32 / 255.0,
-                0x85 as f32 / 255.0,
-            ],
-            "e9d985",
-        ), // Yellow
-    ];
+    // Define color palette of available models
+    let colors = ["222e50", "007991", "439a86", "bcd8c1", "e9d985"];
 
     // Custom UI window
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
@@ -414,9 +372,10 @@ async fn main() -> EngineResult<()> {
                 }
 
                 ui.separator();
-                ui.heading("Interactive AI Demo");
+                ui.heading("Interactive Demo");
                 ui.label("8 AI entities with FSM + A* Pathfinding");
                 ui.label("20-35 random obstacles each startup!");
+                ui.label("The player can shoot the enemies to reduce their health.");
 
                 ui.separator();
                 ui.label("Color-Coded AI States:");
@@ -488,7 +447,6 @@ async fn main() -> EngineResult<()> {
     new_entity!(
         app,
         RigidBodyMarker,
-        ObstacleMarker,
         Name("Ground Plane"),
         RigidBody::new_static(AABBCollisionBox {
             min: Vector3::new(-100.0, -0.1, -100.0),
@@ -616,8 +574,8 @@ async fn main() -> EngineResult<()> {
     ];
 
     for (i, pos) in positions.into_iter().enumerate() {
-        let (base_color, color_name) = colors[i % colors.len()];
-        let mut intelligent_ai = IntelligentAI::new(base_color);
+        let color_name = colors[i % colors.len()];
+        let mut intelligent_ai = IntelligentAI::new();
         intelligent_ai.target_entity = Some(player);
 
         let pathfinding = PathfindingComponent::new(Vector3::new(0.0, 1.0, 0.0), 25.0, 2.0);
@@ -649,7 +607,7 @@ async fn main() -> EngineResult<()> {
             Light::PointColoured {
                 radius: 8.0,
                 intensity: 4.0,
-                color: base_color,
+                color: [0.5, 0.5, 0.5],
             },
         );
     }
