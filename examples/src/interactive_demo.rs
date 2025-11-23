@@ -350,7 +350,7 @@ async fn main() -> EngineResult<()> {
     env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
     env_builder.init();
 
-    let mut app = GearsApp::default();
+    let mut app = GearsApp::new(Config::default().with_crosshair_enabled(true));
 
     // Define color palette of available models
     let colors = ["222e50", "007991", "439a86", "bcd8c1", "e9d985"];

@@ -340,12 +340,15 @@ impl ApplicationHandler for GearsApp {
             // Initialize state
             let state = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
-                    Arc::new(RwLock::new(
-                        State::new(Arc::clone(&window), Arc::clone(&self.world)).await,
-                    ))
+                    let mut state = State::new(Arc::clone(&window), Arc::clone(&self.world)).await;
+
+                    // Set initial states from config
+                    state.set_debug(self.config.debug_enabled);
+                    state.set_crosshair(self.config.crosshair_enabled);
+
+                    Arc::new(RwLock::new(state))
                 })
             });
-            state.write().unwrap().set_debug(self.config.debug);
 
             // Add egui windows if any
             if let Some(windows) = self.egui_windows.take() {

@@ -9,7 +9,7 @@ pub use crate::{
         system,
     },
 };
-pub use gears_core::Dt;
+pub use gears_core::{Dt, config::Config};
 pub use gears_ecs::{
     Component, Entity, EntityBuilder, World,
     components::{

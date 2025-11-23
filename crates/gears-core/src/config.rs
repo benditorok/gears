@@ -9,7 +9,9 @@ pub struct Config {
     /// The height of the window.
     pub window_height: u32,
     /// Whether to enable debug mode.
-    pub debug: bool,
+    pub debug_enabled: bool,
+    /// Whether to enable the crosshair display.
+    pub crosshair_enabled: bool,
     // * Configuration options can be added here as needed
 }
 
@@ -25,7 +27,8 @@ impl Default for Config {
             maximized: false,
             window_width: 1280,
             window_height: 720,
-            debug: true,
+            debug_enabled: true,
+            crosshair_enabled: false,
         }
     }
 }
@@ -84,8 +87,22 @@ impl Config {
     /// # Returns
     ///
     /// The updated [`Config`] instance.
-    pub fn with_debug(mut self, debug: bool) -> Self {
-        self.debug = debug;
+    pub fn with_debug_enabled(mut self, debug: bool) -> Self {
+        self.debug_enabled = debug;
+        self
+    }
+
+    /// Sets whether to enable the crosshair display.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - A boolean indicating if the crosshair should be enabled.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`Config`] instance.
+    pub fn with_crosshair_enabled(mut self, enabled: bool) -> Self {
+        self.crosshair_enabled = enabled;
         self
     }
 }
