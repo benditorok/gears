@@ -460,7 +460,7 @@ async fn main() -> EngineResult<()> {
             max: cgmath::Vector3::new(1.0, 2.0, 50.0),
         }),
         Pos3::new(Vector3::new(-51.0, 1.0, 0.0)),
-        ModelSource::Obj("models/wall/wall.obj")
+        ModelSource::Obj("models/wall_50/wall_50.obj")
     );
 
     // Wall 2
@@ -477,7 +477,7 @@ async fn main() -> EngineResult<()> {
             Vector3::new(0.0, 1.0, -51.0),
             Rotation3::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(90.0)), // Rotate wall 90 degrees around Y-axis
         ),
-        ModelSource::Obj("models/wall/wall.obj")
+        ModelSource::Obj("models/wall_50/wall_50.obj")
     );
 
     // Wall 3
@@ -491,7 +491,7 @@ async fn main() -> EngineResult<()> {
             max: cgmath::Vector3::new(1.0, 2.0, 50.0),
         }),
         Pos3::new(Vector3::new(51.0, 1.0, 0.0)),
-        ModelSource::Obj("models/wall/wall.obj")
+        ModelSource::Obj("models/wall_50/wall_50.obj")
     );
 
     // Wall 4
@@ -508,7 +508,7 @@ async fn main() -> EngineResult<()> {
             Vector3::new(0.0, 1.0, 51.0),
             Rotation3::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(90.0)), // Rotate wall 90 degrees around Y-axis
         ),
-        ModelSource::Obj("models/wall/wall.obj")
+        ModelSource::Obj("models/wall_50/wall_50.obj")
     );
 
     // Create player

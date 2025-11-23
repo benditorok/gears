@@ -6,20 +6,11 @@ use std::sync::{Arc, Mutex, mpsc};
 
 #[tokio::main]
 async fn main() -> EngineResult<()> {
-    std::panic::set_hook(Box::new(|info| {
-        eprintln!("{}", info);
-        println!("Press Enter to close...");
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-    }));
-
     // Initialize the logger
-    let mut env_builder = env_logger::Builder::new();
-    env_builder.filter_level(LevelFilter::Info);
-    env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
-    env_builder.filter_module("wgpu_hal", log::LevelFilter::Warn);
-    env_builder.filter_module("wgpu_core", log::LevelFilter::Warn);
-    env_builder.init();
+    env_logger::Builder::new()
+        .filter_level(LevelFilter::Info)
+        .filter_module("wgpu_core::device::resource", log::LevelFilter::Warn)
+        .init();
 
     let mut app = GearsApp::default();
 
