@@ -337,13 +337,6 @@ impl State<CharacterState> for EscapeState {
 
 #[tokio::main]
 async fn main() -> EngineResult<()> {
-    std::panic::set_hook(Box::new(|info| {
-        eprintln!("{}", info);
-        println!("Press Enter to close...");
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-    }));
-
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);

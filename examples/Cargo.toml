@@ -48,16 +48,8 @@ name = "animations"
 path = "src/animations.rs"
 
 [[example]]
-name = "fsm_character"
-path = "src/fsm_character.rs"
-
-[[example]]
 name = "pathfinding"
 path = "src/pathfinding.rs"
-
-[[example]]
-name = "intelligent_ai"
-path = "src/intelligent_ai.rs"
 
 [[example]]
 name = "interactive_demo"
