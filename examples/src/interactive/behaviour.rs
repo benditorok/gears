@@ -1,5 +1,6 @@
 use gears_app::prelude::*;
 use log::info;
+use rand::Rng;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -53,13 +54,36 @@ impl State<CharacterState> for IdleState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("idle_timer", 0.0);
         context.set_float("speed", 8.0);
-        // Keep base color for idle state
-        info!("AI entered Idle state");
+        context.set_float("wander_timer", 0.0);
+
+        // Generate initial random wander point within map bounds (-40 to 40)
+        let mut rng = rand::rng();
+        let wander_x = rng.random_range(-40.0..40.0);
+        let wander_z = rng.random_range(-40.0..40.0);
+        context.set_vector3(
+            "wander_target",
+            cgmath::Vector3::new(wander_x, 1.0, wander_z),
+        );
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
         let timer = context.get_float("idle_timer").unwrap_or(0.0) + dt.as_secs_f32();
         context.set_float("idle_timer", timer);
+
+        let wander_timer = context.get_float("wander_timer").unwrap_or(0.0) + dt.as_secs_f32();
+        context.set_float("wander_timer", wander_timer);
+
+        // Generate new wander point every 8-15 seconds
+        if wander_timer > 10.0 {
+            let mut rng = rand::rng();
+            let wander_x = rng.random_range(-40.0..40.0);
+            let wander_z = rng.random_range(-40.0..40.0);
+            context.set_vector3(
+                "wander_target",
+                cgmath::Vector3::new(wander_x, 1.0, wander_z),
+            );
+            context.set_float("wander_timer", 0.0);
+        }
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
@@ -118,20 +142,27 @@ pub(super) struct AttackApproachState;
 impl State<CharacterState> for AttackApproachState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("speed", 12.0);
+        context.set_float("approach_timer", 0.0);
         context.set_vector3("color", [0.8, 0.4, 0.1].into()); // Orange
-        info!("AI entering Attack Approach sub-state");
     }
 
-    fn on_update(&mut self, _context: &mut StateContext, _dt: Duration) {
-        // Movement handled by pathfinding
+    fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
+        let timer = context.get_float("approach_timer").unwrap_or(0.0) + dt.as_secs_f32();
+        context.set_float("approach_timer", timer);
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
+        let approach_timer = context.get_float("approach_timer").unwrap_or(0.0);
 
         if enemy_distance < 5.0 {
             Some(CharacterState::AttackStrike)
+        } else if approach_timer > 8.0 {
+            // Been approaching for too long without reaching target, might be stuck
+            info!("Approach timeout, returning to Idle");
+            Some(CharacterState::Idle)
         } else {
+            // Let parent Attack state handle distance-based transitions
             None
         }
     }
@@ -171,7 +202,6 @@ impl State<CharacterState> for AttackRetreatState {
         context.set_float("retreat_timer", 0.0);
         context.set_float("speed", 10.0);
         context.set_vector3("color", [0.6, 0.2, 0.2].into()); // Dark red
-        info!("AI retreating after strike");
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -214,12 +244,16 @@ impl State<CharacterState> for DefendState {
     fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let health = context.get_float("health").unwrap_or(100.0);
         let enemy_distance = context.get_float("enemy_distance").unwrap_or(100.0);
+        let defend_timer = context.get_float("defend_timer").unwrap_or(0.0);
 
         if health < 30.0 {
             Some(CharacterState::Escape)
         } else if health > 70.0 && enemy_distance < 10.0 {
             Some(CharacterState::Attack)
         } else if enemy_distance > 20.0 {
+            Some(CharacterState::Idle)
+        } else if defend_timer > 10.0 && enemy_distance > 12.0 {
+            // Defended long enough and enemy is at medium distance
             Some(CharacterState::Idle)
         } else {
             None
@@ -243,9 +277,7 @@ impl State<CharacterState> for EscapeState {
         context.set_float("escape_timer", timer);
     }
 
-    fn on_exit(&mut self, _context: &mut StateContext) {
-        info!("AI stopped fleeing");
-    }
+    fn on_exit(&mut self, _context: &mut StateContext) {}
 
     fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
         let health = context.get_float("health").unwrap_or(100.0);

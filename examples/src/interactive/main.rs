@@ -1,9 +1,9 @@
 use crate::behaviour::*;
 use crate::components::*;
-use cgmath::{InnerSpace, Rotation3, Vector3, Zero};
+use cgmath::{InnerSpace, Vector3, Zero};
 use gears_app::prelude::*;
 use log::{LevelFilter, info};
-use rand::Rng;
+
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
@@ -174,8 +174,11 @@ async fn main() -> EngineResult<()> {
         let color_name = colors[i % colors.len()];
         let mut intelligent_ai = IntelligentAI::new();
         intelligent_ai.target_entity = Some(player);
+        intelligent_ai.last_position = pos; // Initialize with spawn position
 
-        let pathfinding = PathfindingComponent::new(Vector3::new(0.0, 1.0, 0.0), 25.0, 2.0);
+        let mut pathfinding = PathfindingComponent::new(Vector3::new(0.0, 1.0, 0.0), 25.0, 2.0);
+        pathfinding.path_recalc_interval = 0.5; // More responsive pathfinding
+        pathfinding.waypoint_threshold = 1.5; // Easier to reach waypoints
         let model_path = format!("models/capsule/{}/capsule.obj", color_name);
 
         new_entity!(
@@ -339,14 +342,11 @@ async fn main() -> EngineResult<()> {
                                     )
                                 }
                                 PathfindingBehavior::Wander => {
-                                    let wander_radius = 20.0;
-                                    let random_angle =
-                                        ai.fsm.context().time_in_state.as_secs_f32() * 0.3;
-                                    Vector3::new(
-                                        current_pos.pos.x + random_angle.cos() * wander_radius,
-                                        current_pos.pos.y,
-                                        current_pos.pos.z + random_angle.sin() * wander_radius,
-                                    )
+                                    // Use the wander target from the FSM state context
+                                    ai.fsm
+                                        .context()
+                                        .get_vector3("wander_target")
+                                        .unwrap_or(current_pos.pos)
                                 }
                                 PathfindingBehavior::Guard => current_pos.pos,
                             };
@@ -390,23 +390,43 @@ async fn main() -> EngineResult<()> {
         let follower_entities = world.get_entities_with_component::<PathfindingFollower>();
 
         for &entity in follower_entities.iter() {
-            // Check if we need a new path
+            // Check if we need a new path (including stuck detection)
             let needs_new_path = {
                 let query = ComponentQuery::new()
                     .write::<PathfindingComponent>(vec![entity])
+                    .write::<IntelligentAI>(vec![entity])
                     .read::<Pos3>(vec![entity]);
 
                 if let Some(resources) = world.acquire_query(query) {
-                    if let (Some(pathfinding_comp), Some(pos3_comp)) = (
+                    if let (Some(pathfinding_comp), Some(ai_comp), Some(pos3_comp)) = (
                         resources.get::<PathfindingComponent>(entity),
+                        resources.get::<IntelligentAI>(entity),
                         resources.get::<Pos3>(entity),
                     ) {
-                        if let (Ok(mut pathfinding), Ok(current_pos)) =
-                            (pathfinding_comp.write(), pos3_comp.read())
+                        if let (Ok(mut pathfinding), Ok(mut ai), Ok(current_pos)) =
+                            (pathfinding_comp.write(), ai_comp.write(), pos3_comp.read())
                         {
                             pathfinding.update(dt.as_secs_f32());
-                            pathfinding.needs_pathfinding(current_pos.pos)
-                                && pathfinding.should_recalculate_path()
+
+                            // Stuck detection: check if entity hasn't moved much
+                            let distance_moved = (current_pos.pos - ai.last_position).magnitude();
+                            if distance_moved < ai.stuck_threshold {
+                                ai.stuck_timer += dt.as_secs_f32();
+                            } else {
+                                ai.stuck_timer = 0.0;
+                                ai.last_position = current_pos.pos;
+                            }
+
+                            // Force recalculation if stuck for more than 2 seconds
+                            let is_stuck = ai.stuck_timer > 2.0;
+                            if is_stuck {
+                                ai.stuck_timer = 0.0; // Reset stuck timer
+                                ai.last_position = current_pos.pos;
+                                true // Force path recalculation
+                            } else {
+                                pathfinding.needs_pathfinding(current_pos.pos)
+                                    && pathfinding.should_recalculate_path()
+                            }
                         } else {
                             false
                         }
@@ -432,7 +452,7 @@ async fn main() -> EngineResult<()> {
                         if let (Ok(current_pos), Ok(mut pathfinding)) =
                             (pos3_comp.read(), pathfinding_comp.write())
                         {
-                            let mut astar = AStar::new(2.0, DistanceHeuristic::Manhattan);
+                            let mut astar = AStar::new(2.0, DistanceHeuristic::Chebyshev);
                             astar.build_grid_from_entities(
                                 obstacles.iter().map(|(pos, cb)| (pos, cb)),
                             );
