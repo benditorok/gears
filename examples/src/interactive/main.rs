@@ -22,7 +22,7 @@ async fn main() -> EngineResult<()> {
     let mut app = GearsApp::new(Config::default().with_crosshair_enabled(true));
 
     // Define color palette of available models
-    let colors = ["222e50", "007991", "439a86", "bcd8c1", "e9d985"];
+    let colors = ["fb4d3d", "e40066", "e9d985", "03cea4"];
 
     // Custom UI window
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
