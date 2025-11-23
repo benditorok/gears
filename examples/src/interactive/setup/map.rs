@@ -1,0 +1,79 @@
+use cgmath::{Rotation3, Vector3};
+use gears_app::prelude::*;
+
+pub fn setup_map(app: &mut GearsApp) {
+    // Create ground plane
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Ground Plane"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: Vector3::new(-100.0, -0.1, -100.0),
+            max: Vector3::new(100.0, 0.1, 100.0),
+        }),
+        Pos3::new(Vector3::new(0.0, -1.0, 0.0)),
+        ModelSource::Obj("models/plane/plane.obj"),
+    );
+
+    // Wall 1
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        ObstacleMarker,
+        Name("Wall 1"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
+            max: cgmath::Vector3::new(1.0, 2.0, 50.0),
+        }),
+        Pos3::new(Vector3::new(-51.0, 1.0, 0.0)),
+        ModelSource::Obj("models/wall_50/wall_50.obj")
+    );
+
+    // Wall 2
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        ObstacleMarker,
+        Name("Wall 2"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
+            max: cgmath::Vector3::new(1.0, 2.0, 50.0),
+        }),
+        Pos3::new_with_rot(
+            Vector3::new(0.0, 1.0, -51.0),
+            Rotation3::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(90.0)), // Rotate wall 90 degrees around Y-axis
+        ),
+        ModelSource::Obj("models/wall_50/wall_50.obj")
+    );
+
+    // Wall 3
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        ObstacleMarker,
+        Name("Wall 3"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
+            max: cgmath::Vector3::new(1.0, 2.0, 50.0),
+        }),
+        Pos3::new(Vector3::new(51.0, 1.0, 0.0)),
+        ModelSource::Obj("models/wall_50/wall_50.obj")
+    );
+
+    // Wall 4
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        ObstacleMarker,
+        Name("Wall 4"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.0, -2.0, -50.0),
+            max: cgmath::Vector3::new(1.0, 2.0, 50.0),
+        }),
+        Pos3::new_with_rot(
+            Vector3::new(0.0, 1.0, 51.0),
+            Rotation3::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(90.0)), // Rotate wall 90 degrees around Y-axis
+        ),
+        ModelSource::Obj("models/wall_50/wall_50.obj")
+    );
+}
