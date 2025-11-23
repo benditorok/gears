@@ -325,7 +325,10 @@ impl ApplicationHandler for GearsApp {
                 .with_transparent(true)
                 .with_maximized(self.config.maximized)
                 .with_active(true)
-                .with_base_size(LogicalSize::new(1280, 720))
+                .with_base_size(LogicalSize::new(
+                    self.config.window_width,
+                    self.config.window_height,
+                ))
                 .with_window_icon(None);
 
             let window = Arc::new(

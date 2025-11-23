@@ -4,6 +4,10 @@ pub struct Config {
     pub window_title: &'static str,
     /// Whether the window should be maximized at startup.
     pub maximized: bool,
+    /// The width of the window.
+    pub window_width: u32,
+    /// The height of the window.
+    pub window_height: u32,
     /// Whether to enable debug mode.
     pub debug: bool,
     // * Configuration options can be added here as needed
@@ -19,6 +23,8 @@ impl Default for Config {
         Config {
             window_title: "Gears App",
             maximized: false,
+            window_width: 1280,
+            window_height: 720,
             debug: true,
         }
     }
@@ -50,6 +56,22 @@ impl Config {
     /// The updated [`Config`] instance.
     pub fn with_maximized(mut self, maximized: bool) -> Self {
         self.maximized = maximized;
+        self
+    }
+
+    /// Sets the window size.
+    ///
+    /// # Arguments
+    ///
+    /// * `width` - The width of the window.
+    /// * `height` - The height of the window.
+    ///
+    /// # Returns
+    ///
+    /// The updated [`Config`] instance.
+    pub fn with_window_size(mut self, width: u32, height: u32) -> Self {
+        self.window_width = width;
+        self.window_height = height;
         self
     }
 
