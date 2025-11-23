@@ -130,44 +130,44 @@ async fn main() -> EngineResult<()> {
         Weapon::new(15.0),
     );
 
-    // Generate random obstacles
-    let mut rng = rand::rng();
-    let num_obstacles = rng.random_range(20..35);
+    // // Generate random obstacles
+    // let mut rng = rand::rng();
+    // let num_obstacles = rng.random_range(20..35);
 
-    for i in 0..num_obstacles {
-        // Generate random position within a reasonable range
-        let x: f32 = rng.random_range(-40.0..40.0);
-        let z: f32 = rng.random_range(-40.0..40.0);
+    // for i in 0..num_obstacles {
+    //     // Generate random position within a reasonable range
+    //     let x: f32 = rng.random_range(-40.0..40.0);
+    //     let z: f32 = rng.random_range(-40.0..40.0);
 
-        // Avoid spawning too close to center where player starts
-        if x.abs() < 5.0 && z.abs() < 5.0 {
-            continue;
-        }
+    //     // Avoid spawning too close to center where player starts
+    //     if x.abs() < 5.0 && z.abs() < 5.0 {
+    //         continue;
+    //     }
 
-        new_entity!(
-            app,
-            RigidBodyMarker,
-            ObstacleMarker,
-            Name(Box::leak(format!("Obstacle_{}", i + 1).into_boxed_str())),
-            Pos3::new(Vector3::new(x, 1.0, z)),
-            RigidBody::new_static(AABBCollisionBox {
-                min: Vector3::new(-1.0, -1.0, -1.0),
-                max: Vector3::new(1.0, 1.0, 1.0),
-            }),
-            ModelSource::Obj("models/cube/cube.obj"),
-        );
-    }
+    //     new_entity!(
+    //         app,
+    //         RigidBodyMarker,
+    //         ObstacleMarker,
+    //         Name(Box::leak(format!("Obstacle_{}", i + 1).into_boxed_str())),
+    //         Pos3::new(Vector3::new(x, 1.0, z)),
+    //         RigidBody::new_static(AABBCollisionBox {
+    //             min: Vector3::new(-1.0, -1.0, -1.0),
+    //             max: Vector3::new(1.0, 1.0, 1.0),
+    //         }),
+    //         ModelSource::Obj("models/cube/cube.obj"),
+    //     );
+    // }
 
     // Create 8 AI entities with colors from the palette
     let positions = vec![
-        Vector3::new(-30.0, 1.5, -30.0),
-        Vector3::new(30.0, 1.5, -30.0),
-        Vector3::new(-30.0, 1.5, 30.0),
-        Vector3::new(30.0, 1.5, 30.0),
-        Vector3::new(0.0, 1.5, 35.0),
-        Vector3::new(35.0, 1.5, 0.0),
-        Vector3::new(-35.0, 1.5, 0.0),
-        Vector3::new(0.0, 1.5, -35.0),
+        Vector3::new(-30.0, 5.0, -30.0),
+        Vector3::new(30.0, 5.0, -30.0),
+        Vector3::new(-30.0, 5.0, 30.0),
+        Vector3::new(30.0, 5.0, 30.0),
+        Vector3::new(0.0, 5.0, 35.0),
+        Vector3::new(35.0, 5.0, 0.0),
+        Vector3::new(-35.0, 5.0, 0.0),
+        Vector3::new(0.0, 5.0, -35.0),
     ];
 
     for (i, pos) in positions.into_iter().enumerate() {
