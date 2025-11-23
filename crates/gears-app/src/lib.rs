@@ -342,6 +342,7 @@ impl ApplicationHandler for GearsApp {
                     ))
                 })
             });
+            state.write().unwrap().set_debug(self.config.debug);
 
             // Add egui windows if any
             if let Some(windows) = self.egui_windows.take() {

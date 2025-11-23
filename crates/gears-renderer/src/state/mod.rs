@@ -265,6 +265,15 @@ impl State {
         &self.size
     }
 
+    /// Sets the debug mode for rendering.
+    ///
+    /// # Arguments
+    ///
+    /// * `debug` - Whether to enable debug mode.
+    pub fn set_debug(&mut self, debug: bool) {
+        self.draw_colliders = debug;
+    }
+
     /// Toggle the debug mode.
     pub fn toggle_debug(&mut self) {
         self.draw_colliders = !self.draw_colliders;
