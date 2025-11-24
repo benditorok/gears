@@ -337,11 +337,11 @@ pub fn setup_map(app: &mut GearsApp) {
             max: cgmath::Vector3::new(1.5, 1.0, 10.0),
         }),
         Pos3::new_with_rot(
-            cgmath::Vector3::new(-40.0, -1.0, -35.0),
+            cgmath::Vector3::new(-40.0, -1.5, -35.0),
             Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
         ),
         ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
-        Scale::Uniform(0.75),
+        Scale::Uniform(0.8),
     );
 
     new_entity!(
@@ -350,14 +350,14 @@ pub fn setup_map(app: &mut GearsApp) {
         Name("Tree 2"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
-            max: cgmath::Vector3::new(1.5, 1.0, 10.0),
+            max: cgmath::Vector3::new(1.5, -1.5, 10.0),
         }),
         Pos3::new_with_rot(
-            cgmath::Vector3::new(20.0, -1.0, -40.0),
+            cgmath::Vector3::new(20.0, -1.5, -40.0),
             Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
         ),
         ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
-        Scale::Uniform(0.75),
+        Scale::Uniform(1.5),
     );
 
     new_entity!(
@@ -369,11 +369,11 @@ pub fn setup_map(app: &mut GearsApp) {
             max: cgmath::Vector3::new(1.5, 1.0, 10.0),
         }),
         Pos3::new_with_rot(
-            cgmath::Vector3::new(-30.0, -1.0, 30.0),
+            cgmath::Vector3::new(-30.0, -1.5, 30.0),
             Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
         ),
         ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
-        Scale::Uniform(0.75),
+        Scale::Uniform(0.25),
     );
 
     new_entity!(
@@ -385,11 +385,10 @@ pub fn setup_map(app: &mut GearsApp) {
             max: cgmath::Vector3::new(1.5, 1.0, 10.0),
         }),
         Pos3::new_with_rot(
-            cgmath::Vector3::new(40.0, -1.0, 35.0),
+            cgmath::Vector3::new(40.0, -1.5, 35.0),
             Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
         ),
         ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
-        Scale::Uniform(0.75),
     );
 
     new_entity!(
@@ -401,10 +400,29 @@ pub fn setup_map(app: &mut GearsApp) {
             max: cgmath::Vector3::new(1.5, 1.0, 10.0),
         }),
         Pos3::new_with_rot(
-            cgmath::Vector3::new(10.0, -1.0, 15.0),
+            cgmath::Vector3::new(10.0, -1.5, 15.0),
             Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
         ),
         ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
-        Scale::Uniform(0.75),
+        Scale::Uniform(0.5),
+    );
+
+    // Boxes scattered around the map
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 1"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(15.0, 1.0, 15.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
     );
 }
