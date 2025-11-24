@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 mod behaviour;
 mod components;
-mod setup;
+mod map;
 
 #[tokio::main]
 async fn main() -> EngineResult<()> {
@@ -93,7 +93,7 @@ async fn main() -> EngineResult<()> {
     }));
 
     // Setup the map
-    setup::map::setup_map(&mut app);
+    map::setup_map(&mut app);
 
     // Add lighting
     new_entity!(
@@ -174,11 +174,9 @@ async fn main() -> EngineResult<()> {
         let color_name = colors[i % colors.len()];
         let mut intelligent_ai = IntelligentAI::new();
         intelligent_ai.target_entity = Some(player);
-        intelligent_ai.last_position = pos; // Initialize with spawn position
 
         let mut pathfinding = PathfindingComponent::new(Vector3::new(0.0, 1.0, 0.0), 25.0, 2.0);
-        pathfinding.path_recalc_interval = 0.5; // More responsive pathfinding
-        pathfinding.waypoint_threshold = 1.5; // Easier to reach waypoints
+        pathfinding.path_recalc_interval = 1.5; // Default pathfinding recalculation
         let model_path = format!("models/capsule/{}/capsule.obj", color_name);
 
         new_entity!(
@@ -390,43 +388,23 @@ async fn main() -> EngineResult<()> {
         let follower_entities = world.get_entities_with_component::<PathfindingFollower>();
 
         for &entity in follower_entities.iter() {
-            // Check if we need a new path (including stuck detection)
+            // Check if we need a new path
             let needs_new_path = {
                 let query = ComponentQuery::new()
                     .write::<PathfindingComponent>(vec![entity])
-                    .write::<IntelligentAI>(vec![entity])
                     .read::<Pos3>(vec![entity]);
 
                 if let Some(resources) = world.acquire_query(query) {
-                    if let (Some(pathfinding_comp), Some(ai_comp), Some(pos3_comp)) = (
+                    if let (Some(pathfinding_comp), Some(pos3_comp)) = (
                         resources.get::<PathfindingComponent>(entity),
-                        resources.get::<IntelligentAI>(entity),
                         resources.get::<Pos3>(entity),
                     ) {
-                        if let (Ok(mut pathfinding), Ok(mut ai), Ok(current_pos)) =
-                            (pathfinding_comp.write(), ai_comp.write(), pos3_comp.read())
+                        if let (Ok(mut pathfinding), Ok(current_pos)) =
+                            (pathfinding_comp.write(), pos3_comp.read())
                         {
                             pathfinding.update(dt.as_secs_f32());
-
-                            // Stuck detection: check if entity hasn't moved much
-                            let distance_moved = (current_pos.pos - ai.last_position).magnitude();
-                            if distance_moved < ai.stuck_threshold {
-                                ai.stuck_timer += dt.as_secs_f32();
-                            } else {
-                                ai.stuck_timer = 0.0;
-                                ai.last_position = current_pos.pos;
-                            }
-
-                            // Force recalculation if stuck for more than 2 seconds
-                            let is_stuck = ai.stuck_timer > 2.0;
-                            if is_stuck {
-                                ai.stuck_timer = 0.0; // Reset stuck timer
-                                ai.last_position = current_pos.pos;
-                                true // Force path recalculation
-                            } else {
-                                pathfinding.needs_pathfinding(current_pos.pos)
-                                    && pathfinding.should_recalculate_path()
-                            }
+                            pathfinding.needs_pathfinding(current_pos.pos)
+                                && pathfinding.should_recalculate_path()
                         } else {
                             false
                         }
@@ -438,7 +416,7 @@ async fn main() -> EngineResult<()> {
                 }
             };
 
-            // Calculate new path if needed
+            // If we need a new path, calculate it
             if needs_new_path {
                 let query = ComponentQuery::new()
                     .write::<PathfindingComponent>(vec![entity])
@@ -466,7 +444,7 @@ async fn main() -> EngineResult<()> {
                 }
             }
 
-            // Move along path
+            // Move the entity along its path
             let query = ComponentQuery::new()
                 .write::<PathfindingComponent>(vec![entity])
                 .read::<Pos3>(vec![entity])
@@ -483,36 +461,40 @@ async fn main() -> EngineResult<()> {
                         pos3_comp.read(),
                         rigidbody_comp.write(),
                     ) {
-                        let should_advance = if let Some(waypoint) = pathfinding.current_waypoint()
+                        let should_advance_waypoint = if let Some(waypoint) =
+                            pathfinding.current_waypoint()
                         {
                             let mut direction = waypoint - pos3.pos;
-                            direction.y = 0.0;
+                            direction.y = 0.0; // Only horizontal movement
 
                             if direction.magnitude() > pathfinding.waypoint_threshold {
+                                // Move toward waypoint
                                 let normalized_dir = direction.normalize();
-                                let target_acceleration = normalized_dir * pathfinding.speed * 10.0;
+                                let target_acceleration = normalized_dir * pathfinding.speed * 8.0;
 
                                 rigidbody.acceleration.x = target_acceleration.x;
                                 rigidbody.acceleration.z = target_acceleration.z;
                                 rigidbody.velocity.x *= 0.85;
                                 rigidbody.velocity.z *= 0.85;
-                                false
+                                false // Don't advance waypoint
                             } else {
+                                // Reached waypoint - stop movement and mark for advancement
                                 rigidbody.acceleration.x = 0.0;
                                 rigidbody.acceleration.z = 0.0;
                                 rigidbody.velocity.x *= 0.5;
                                 rigidbody.velocity.z *= 0.5;
-                                true
+                                true // Advance waypoint
                             }
                         } else {
+                            // No waypoint, stop movement
                             rigidbody.acceleration.x = 0.0;
                             rigidbody.acceleration.z = 0.0;
                             rigidbody.velocity.x *= 0.8;
                             rigidbody.velocity.z *= 0.8;
-                            false
+                            false // No waypoint to advance
                         };
 
-                        if should_advance {
+                        if should_advance_waypoint {
                             pathfinding.advance_waypoint();
                         }
                     }

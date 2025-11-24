@@ -157,7 +157,7 @@ impl State<CharacterState> for AttackApproachState {
 
         if enemy_distance < 5.0 {
             Some(CharacterState::AttackStrike)
-        } else if approach_timer > 8.0 {
+        } else if approach_timer > 15.0 {
             // Been approaching for too long without reaching target, might be stuck
             info!("Approach timeout, returning to Idle");
             Some(CharacterState::Idle)

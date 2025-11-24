@@ -52,9 +52,5 @@ name = "pathfinding"
 path = "src/pathfinding.rs"
 
 [[example]]
-name = "interactive_demo"
-path = "src/interactive_demo.rs"
-
-[[example]]
 name = "interactive"
 path = "src/interactive/main.rs"

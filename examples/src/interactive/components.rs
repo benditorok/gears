@@ -9,9 +9,6 @@ pub(super) struct IntelligentAI {
     pub target_entity: Option<Entity>,
     pub last_behavior_change: Instant,
     pub behavior_change_interval: Duration,
-    pub last_position: cgmath::Vector3<f32>,
-    pub stuck_timer: f32,
-    pub stuck_threshold: f32,
 }
 
 impl IntelligentAI {
@@ -57,9 +54,6 @@ impl IntelligentAI {
             target_entity: None,
             last_behavior_change: Instant::now(),
             behavior_change_interval: Duration::from_millis(500),
-            last_position: cgmath::Vector3::new(0.0, 0.0, 0.0),
-            stuck_timer: 0.0,
-            stuck_threshold: 0.5, // If we haven't moved 0.5 units in 2 seconds, we're stuck
         }
     }
 }
