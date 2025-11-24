@@ -408,7 +408,6 @@ pub fn setup_map(app: &mut GearsApp) {
     );
 
     // Boxes scattered around the map
-
     new_entity!(
         app,
         RigidBodyMarker,
@@ -423,6 +422,159 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(15.0, 1.0, 15.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 2"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(-30.0, 1.0, -15.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 3"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(25.0, 1.0, -35.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 4"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(-10.0, 1.0, 20.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 5"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(30.0, 1.0, 10.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 6"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(-20.0, 1.0, -35.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 7"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(0.0, 1.0, -5.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 8"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(-40.0, 1.0, 15.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 9"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(40.0, 1.0, -5.0)),
+        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Box 10"),
+        RigidBody::new(
+            60.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-1.5, -1.5, -1.5),
+                max: cgmath::Vector3::new(1.5, 1.5, 1.5),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(10.0, 1.0, 40.0)),
         ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
     );
 }
