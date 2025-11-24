@@ -1,0 +1,11 @@
+Model Information:
+* title:	Wooden Box Low Poly
+* source:	https://sketchfab.com/3d-models/wooden-box-low-poly-c8bd95e6ff8b4b89b41e1537cabe7813
+* author:	yevheniia (https://sketchfab.com/yevheniia)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Wooden Box Low Poly" (https://sketchfab.com/3d-models/wooden-box-low-poly-c8bd95e6ff8b4b89b41e1537cabe7813) by yevheniia (https://sketchfab.com/yevheniia) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -331,6 +331,7 @@ pub fn setup_map(app: &mut GearsApp) {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Tree 1"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
@@ -347,6 +348,7 @@ pub fn setup_map(app: &mut GearsApp) {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Tree 2"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
@@ -363,6 +365,7 @@ pub fn setup_map(app: &mut GearsApp) {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Tree 3"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
@@ -379,6 +382,7 @@ pub fn setup_map(app: &mut GearsApp) {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Tree 4"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
@@ -394,6 +398,7 @@ pub fn setup_map(app: &mut GearsApp) {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Tree 5"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
@@ -411,6 +416,7 @@ pub fn setup_map(app: &mut GearsApp) {
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Box 1"),
         RigidBody::new(
             60.0,
@@ -422,12 +428,13 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(15.0, 1.0, 15.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Box 2"),
         RigidBody::new(
             60.0,
@@ -439,12 +446,13 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(-30.0, 1.0, -15.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Box 3"),
         RigidBody::new(
             60.0,
@@ -456,12 +464,13 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(25.0, 1.0, -35.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Box 4"),
         RigidBody::new(
             60.0,
@@ -473,12 +482,13 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(-10.0, 1.0, 20.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Box 5"),
         RigidBody::new(
             60.0,
@@ -490,12 +500,13 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(30.0, 1.0, 10.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Box 6"),
         RigidBody::new(
             60.0,
@@ -507,12 +518,13 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(-20.0, 1.0, -35.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
+        ObstacleMarker,
         Name("Box 7"),
         RigidBody::new(
             60.0,
@@ -524,13 +536,14 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(0.0, 1.0, -5.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
         Name("Box 8"),
+        ObstacleMarker,
         RigidBody::new(
             60.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
@@ -541,13 +554,14 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(-40.0, 1.0, 15.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
         Name("Box 9"),
+        ObstacleMarker,
         RigidBody::new(
             60.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
@@ -558,13 +572,14 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(40.0, 1.0, -5.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
     );
 
     new_entity!(
         app,
         RigidBodyMarker,
         Name("Box 10"),
+        ObstacleMarker,
         RigidBody::new(
             60.0,
             cgmath::Vector3::new(0.0, 0.0, 0.0),
@@ -575,6 +590,64 @@ pub fn setup_map(app: &mut GearsApp) {
             },
         ),
         Pos3::new(cgmath::Vector3::new(10.0, 1.0, 40.0)),
-        ModelSource::Gltf("gltf/wooden_box_low_poly/scene.gltf"),
+        ModelSource::Gltf("gltf/low_poly_wooden_box/scene.gltf"),
+    );
+
+    // Concrete blocks scattered around the map
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        ObstacleMarker,
+        Name("Concrete block 1"),
+        RigidBody::new(
+            5000.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-0.5, -0.5, -1.0),
+                max: cgmath::Vector3::new(0.5, 0.5, 1.0),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(14.0, 1.0, 38.0)),
+        ModelSource::Gltf("gltf/low_poly_concrete_block/scene.gltf"),
+        Scale::Uniform(3.0)
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        ObstacleMarker,
+        Name("Concrete block 2"),
+        RigidBody::new(
+            5000.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-0.5, -0.5, -1.0),
+                max: cgmath::Vector3::new(0.5, 0.5, 1.0),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(-20.0, 1.0, -32.0)),
+        ModelSource::Gltf("gltf/low_poly_concrete_block/scene.gltf"),
+        Scale::Uniform(3.0)
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        ObstacleMarker,
+        Name("Concrete block 3"),
+        RigidBody::new(
+            5000.0,
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            AABBCollisionBox {
+                min: cgmath::Vector3::new(-0.5, -0.5, -1.0),
+                max: cgmath::Vector3::new(0.5, 0.5, 1.0),
+            },
+        ),
+        Pos3::new(cgmath::Vector3::new(32.0, 1.0, 1.0)),
+        ModelSource::Gltf("gltf/low_poly_concrete_block/scene.gltf"),
+        Scale::Uniform(3.0)
     );
 }
