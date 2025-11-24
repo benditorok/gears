@@ -25,26 +25,39 @@ pub trait CollisionBox {
     /// # Arguments
     /// * `obj_a` - The first AABB collision box.
     /// * `obj_a_pos3` - The position of the first AABB collision box.
+    /// * `obj_a_scale` - The scale of the first AABB collision box.
     /// * `obj_b` - The second AABB collision box.
     /// * `obj_b_pos3` - The position of the second AABB collision box.
+    /// * `obj_b_scale` - The scale of the second AABB collision box.
     ///
     /// # Returns
     ///
     /// * `true` if the two AABB collision boxes intersect.
-    fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool;
+    fn intersects(
+        obj_a: &Self,
+        obj_a_pos3: &Pos3,
+        obj_a_scale: Option<&cgmath::Vector3<f32>>,
+        obj_b: &Self,
+        obj_b_pos3: &Pos3,
+        obj_b_scale: Option<&cgmath::Vector3<f32>>,
+    ) -> bool;
 
     /// Resolve collision between two AABB collision boxes.
     ///
     /// # Arguments
     /// * `obj_a` - The first AABB collision box.
     /// * `obj_a_pos3` - The position of the first AABB collision box.
+    /// * `obj_a_scale` - The scale of the first AABB collision box.
     /// * `obj_b` - The second AABB collision box.
     /// * `obj_b_pos3` - The position of the second AABB collision box.
+    /// * `obj_b_scale` - The scale of the second AABB collision box.
     fn resolve(
         obj_a: &mut RigidBody<Self>,
         obj_a_pos3: &mut Pos3,
+        obj_a_scale: Option<&cgmath::Vector3<f32>>,
         obj_b: &mut RigidBody<Self>,
         obj_b_pos3: &mut Pos3,
+        obj_b_scale: Option<&cgmath::Vector3<f32>>,
     ) where
         Self: Sized;
 }
@@ -59,15 +72,23 @@ pub struct AABBCollisionBox {
 }
 
 impl AABBCollisionBox {
-    /// Get the rotated AABB bounds in world space.
+    /// Get the rotated and scaled AABB bounds in world space.
     ///
     /// # Arguments
     /// * `pos3` - The position and rotation of the collision box.
+    /// * `scale` - The scale to apply to the collision box (defaults to (1, 1, 1) if None).
     ///
     /// # Returns
     /// A tuple of (min, max) vectors representing the axis-aligned bounding box
-    /// that encompasses the rotated collision box.
-    fn get_rotated_aabb(&self, pos3: &Pos3) -> (cgmath::Vector3<f32>, cgmath::Vector3<f32>) {
+    /// that encompasses the rotated and scaled collision box.
+    fn get_rotated_aabb(
+        &self,
+        pos3: &Pos3,
+        scale: Option<&cgmath::Vector3<f32>>,
+    ) -> (cgmath::Vector3<f32>, cgmath::Vector3<f32>) {
+        let default_scale = cgmath::Vector3::new(1.0, 1.0, 1.0);
+        let scale = scale.unwrap_or(&default_scale);
+
         // Get the 8 corners of the AABB in local space
         let corners = [
             cgmath::Vector3::new(self.min.x, self.min.y, self.min.z),
@@ -80,12 +101,19 @@ impl AABBCollisionBox {
             cgmath::Vector3::new(self.max.x, self.max.y, self.max.z),
         ];
 
-        // Rotate and translate each corner
+        // Scale, rotate and translate each corner
         let transformed_corners: Vec<cgmath::Vector3<f32>> = corners
             .iter()
             .map(|&corner| {
-                // Rotate using quaternion: q * v * q^-1
-                let rotated = pos3.rot * corner;
+                // Apply scale first
+                let scaled = cgmath::Vector3::new(
+                    corner.x * scale.x,
+                    corner.y * scale.y,
+                    corner.z * scale.z,
+                );
+                // Then rotate using quaternion: q * v * q^-1
+                let rotated = pos3.rot * scaled;
+                // Finally translate
                 rotated + pos3.pos
             })
             .collect();
@@ -113,11 +141,20 @@ impl CollisionBox for AABBCollisionBox {
     /// # Arguments
     /// * `obj_a` - The first AABB collision box.
     /// * `obj_a_pos3` - The position of the first AABB collision box.
+    /// * `obj_a_scale` - The scale of the first AABB collision box.
     /// * `obj_b` - The second AABB collision box.
     /// * `obj_b_pos3` - The position of the second AABB collision box.
-    fn intersects(obj_a: &Self, obj_a_pos3: &Pos3, obj_b: &Self, obj_b_pos3: &Pos3) -> bool {
-        let (a_min, a_max) = obj_a.get_rotated_aabb(obj_a_pos3);
-        let (b_min, b_max) = obj_b.get_rotated_aabb(obj_b_pos3);
+    /// * `obj_b_scale` - The scale of the second AABB collision box.
+    fn intersects(
+        obj_a: &Self,
+        obj_a_pos3: &Pos3,
+        obj_a_scale: Option<&cgmath::Vector3<f32>>,
+        obj_b: &Self,
+        obj_b_pos3: &Pos3,
+        obj_b_scale: Option<&cgmath::Vector3<f32>>,
+    ) -> bool {
+        let (a_min, a_max) = obj_a.get_rotated_aabb(obj_a_pos3, obj_a_scale);
+        let (b_min, b_max) = obj_b.get_rotated_aabb(obj_b_pos3, obj_b_scale);
 
         a_min.x < b_max.x
             && a_max.x > b_min.x
@@ -132,16 +169,24 @@ impl CollisionBox for AABBCollisionBox {
     /// # Arguments
     /// * `obj_a` - The first rigid body.
     /// * `obj_a_pos3` - The position of the first rigid body.
+    /// * `obj_a_scale` - The scale of the first rigid body.
     /// * `obj_b` - The second rigid body.
     /// * `obj_b_pos3` - The position of the second rigid body.
+    /// * `obj_b_scale` - The scale of the second rigid body.
     fn resolve(
         obj_a: &mut RigidBody<Self>,
         obj_a_pos3: &mut Pos3,
+        obj_a_scale: Option<&cgmath::Vector3<f32>>,
         obj_b: &mut RigidBody<Self>,
         obj_b_pos3: &mut Pos3,
+        obj_b_scale: Option<&cgmath::Vector3<f32>>,
     ) {
-        let (a_min, a_max) = obj_a.collision_box.get_rotated_aabb(obj_a_pos3);
-        let (b_min, b_max) = obj_b.collision_box.get_rotated_aabb(obj_b_pos3);
+        let (a_min, a_max) = obj_a
+            .collision_box
+            .get_rotated_aabb(obj_a_pos3, obj_a_scale);
+        let (b_min, b_max) = obj_b
+            .collision_box
+            .get_rotated_aabb(obj_b_pos3, obj_b_scale);
 
         // Calculate overlap depths
         let overlap_x = (a_max.x.min(b_max.x)) - (a_min.x.max(b_min.x));
@@ -422,21 +467,34 @@ impl<T: CollisionBox> RigidBody<T> {
     ///
     /// * `obj_a` - A mutable reference to the first object.
     /// * `obj_a_pos3` - A mutable reference to the position of the first object.
+    /// * `obj_a_scale` - The scale of the first object.
     /// * `obj_b` - A mutable reference to the second object.
     /// * `obj_b_pos3` - A mutable reference to the position of the second object.
+    /// * `obj_b_scale` - The scale of the second object.
     pub fn check_and_resolve_collision(
         obj_a: &mut Self,
         obj_a_pos3: &mut Pos3,
+        obj_a_scale: Option<&cgmath::Vector3<f32>>,
         obj_b: &mut Self,
         obj_b_pos3: &mut Pos3,
+        obj_b_scale: Option<&cgmath::Vector3<f32>>,
     ) {
         if CollisionBox::intersects(
             &obj_a.collision_box,
             obj_a_pos3,
+            obj_a_scale,
             &obj_b.collision_box,
             obj_b_pos3,
+            obj_b_scale,
         ) {
-            CollisionBox::resolve(obj_a, obj_a_pos3, obj_b, obj_b_pos3);
+            CollisionBox::resolve(
+                obj_a,
+                obj_a_pos3,
+                obj_a_scale,
+                obj_b,
+                obj_b_pos3,
+                obj_b_scale,
+            );
         }
     }
 
