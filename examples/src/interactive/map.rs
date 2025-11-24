@@ -326,4 +326,85 @@ pub fn setup_map(app: &mut GearsApp) {
         ),
         ModelSource::Obj("models/wall_10/wall_10.obj")
     );
+
+    // Trees scattered around the map
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Tree 1"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
+            max: cgmath::Vector3::new(1.5, 1.0, 10.0),
+        }),
+        Pos3::new_with_rot(
+            cgmath::Vector3::new(-40.0, -1.0, -35.0),
+            Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
+        ),
+        ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
+        Scale::Uniform(0.75),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Tree 2"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
+            max: cgmath::Vector3::new(1.5, 1.0, 10.0),
+        }),
+        Pos3::new_with_rot(
+            cgmath::Vector3::new(20.0, -1.0, -40.0),
+            Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
+        ),
+        ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
+        Scale::Uniform(0.75),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Tree 3"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
+            max: cgmath::Vector3::new(1.5, 1.0, 10.0),
+        }),
+        Pos3::new_with_rot(
+            cgmath::Vector3::new(-30.0, -1.0, 30.0),
+            Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
+        ),
+        ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
+        Scale::Uniform(0.75),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Tree 4"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
+            max: cgmath::Vector3::new(1.5, 1.0, 10.0),
+        }),
+        Pos3::new_with_rot(
+            cgmath::Vector3::new(40.0, -1.0, 35.0),
+            Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
+        ),
+        ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
+        Scale::Uniform(0.75),
+    );
+
+    new_entity!(
+        app,
+        RigidBodyMarker,
+        Name("Tree 5"),
+        RigidBody::new_static(AABBCollisionBox {
+            min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
+            max: cgmath::Vector3::new(1.5, 1.0, 10.0),
+        }),
+        Pos3::new_with_rot(
+            cgmath::Vector3::new(10.0, -1.0, 15.0),
+            Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
+        ),
+        ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
+        Scale::Uniform(0.75),
+    );
 }
