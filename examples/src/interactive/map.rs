@@ -352,10 +352,10 @@ pub fn setup_map(app: &mut GearsApp) {
         Name("Tree 2"),
         RigidBody::new_static(AABBCollisionBox {
             min: cgmath::Vector3::new(-1.5, -1.0, -1.5),
-            max: cgmath::Vector3::new(1.5, -1.5, 10.0),
+            max: cgmath::Vector3::new(1.5, 1.0, 10.0),
         }),
         Pos3::new_with_rot(
-            cgmath::Vector3::new(20.0, -1.5, -40.0),
+            cgmath::Vector3::new(20.0, -1.8, -40.0),
             Rotation3::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(-90.0))
         ),
         ModelSource::Gltf("gltf/low_poly_tree/scene.gltf"),
