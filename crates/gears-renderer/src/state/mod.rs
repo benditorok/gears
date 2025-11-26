@@ -265,9 +265,27 @@ impl State {
         &self.size
     }
 
+    /// Sets the debug mode for rendering.
+    ///
+    /// # Arguments
+    ///
+    /// * `debug_enabled` - Whether debug mode should be enabled.
+    pub fn set_debug(&mut self, debug_enabled: bool) {
+        self.draw_colliders = debug_enabled;
+    }
+
     /// Toggle the debug mode.
     pub fn toggle_debug(&mut self) {
         self.draw_colliders = !self.draw_colliders;
+    }
+
+    /// Sets the crosshair state.
+    ///
+    /// # Arguments
+    ///
+    /// * `crosshair_enabled` - Whether the crosshair should be enabled.
+    pub fn set_crosshair(&mut self, crosshair_enabled: bool) {
+        self.crosshair_pipeline.set_visible(crosshair_enabled);
     }
 
     /// Toggles the crosshair visibility.

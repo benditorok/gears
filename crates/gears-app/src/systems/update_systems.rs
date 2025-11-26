@@ -418,7 +418,8 @@ pub(super) fn update_physics(
                     .write::<components::physics::RigidBody<AABBCollisionBox>>(vec![
                         entity_a, entity_b,
                     ])
-                    .write::<components::transforms::Pos3>(vec![entity_a, entity_b]);
+                    .write::<components::transforms::Pos3>(vec![entity_a, entity_b])
+                    .read::<components::transforms::Scale>(vec![entity_a, entity_b]);
 
                 if let Some(resources) = world.acquire_query(query) {
                     if let (
@@ -432,6 +433,9 @@ pub(super) fn update_physics(
                         resources.get::<components::physics::RigidBody<AABBCollisionBox>>(entity_b),
                         resources.get::<components::transforms::Pos3>(entity_b),
                     ) {
+                        // Get optional scale components
+                        let scale_a = resources.get::<components::transforms::Scale>(entity_a);
+                        let scale_b = resources.get::<components::transforms::Scale>(entity_b);
                         let mut wlock_physics_body_a = physics_body_a.write().map_err(|e| {
                             SystemError::ComponentAccess(format!(
                                 "Failed to write RigidBody A: {}",
@@ -451,11 +455,35 @@ pub(super) fn update_physics(
                             SystemError::ComponentAccess(format!("Failed to write Pos3 B: {}", e))
                         })?;
 
+                        // Convert Scale to Vector3 if present
+                        let scale_vec_a = scale_a.and_then(|s| {
+                            s.read().ok().map(|scale_guard| match *scale_guard {
+                                components::transforms::Scale::Uniform(s) => {
+                                    cgmath::Vector3::new(s, s, s)
+                                }
+                                components::transforms::Scale::NonUniform { x, y, z } => {
+                                    cgmath::Vector3::new(x, y, z)
+                                }
+                            })
+                        });
+                        let scale_vec_b = scale_b.and_then(|s| {
+                            s.read().ok().map(|scale_guard| match *scale_guard {
+                                components::transforms::Scale::Uniform(s) => {
+                                    cgmath::Vector3::new(s, s, s)
+                                }
+                                components::transforms::Scale::NonUniform { x, y, z } => {
+                                    cgmath::Vector3::new(x, y, z)
+                                }
+                            })
+                        });
+
                         components::physics::RigidBody::check_and_resolve_collision(
                             &mut wlock_physics_body_a,
                             &mut wlock_pos3_a,
+                            scale_vec_a.as_ref(),
                             &mut wlock_physics_body_b,
                             &mut wlock_pos3_b,
+                            scale_vec_b.as_ref(),
                         );
                     }
                 }

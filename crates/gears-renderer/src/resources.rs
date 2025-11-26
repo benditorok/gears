@@ -245,10 +245,7 @@ pub(crate) async fn load_model_obj(
                                 m.mesh.positions[i * 3 + 1],
                                 m.mesh.positions[i * 3 + 2],
                             ],
-                            tex_coords: [
-                                m.mesh.texcoords[i * 2],
-                                1.0 - m.mesh.texcoords[i * 2 + 1],
-                            ],
+                            tex_coords: [m.mesh.texcoords[i * 2], m.mesh.texcoords[i * 2 + 1]],
                             normal: [0.0, 0.0, 0.0],
                             tangent: [0.0; 3],
                             bitangent: [0.0; 3],
@@ -260,10 +257,7 @@ pub(crate) async fn load_model_obj(
                                 m.mesh.positions[i * 3 + 1],
                                 m.mesh.positions[i * 3 + 2],
                             ],
-                            tex_coords: [
-                                m.mesh.texcoords[i * 2],
-                                1.0 - m.mesh.texcoords[i * 2 + 1],
-                            ],
+                            tex_coords: [m.mesh.texcoords[i * 2], m.mesh.texcoords[i * 2 + 1]],
                             normal: [
                                 m.mesh.normals[i * 3],
                                 m.mesh.normals[i * 3 + 1],
@@ -682,15 +676,7 @@ pub(crate) async fn load_model_gltf(
                 // Read tex_coords or generate default
                 let tex_coords: Vec<[f32; 2]> = reader
                     .read_tex_coords(0)
-                    .map(|v| {
-                        v.into_f32()
-                            .map(|mut tex_coord| {
-                                // Flip the V-component of the texture coordinate
-                                tex_coord[1] = 1.0 - tex_coord[1];
-                                tex_coord
-                            })
-                            .collect::<Vec<_>>()
-                    })
+                    .map(|v| v.into_f32().collect::<Vec<_>>())
                     .unwrap_or_else(|| {
                         warn!("No texture coordinates found for mesh {}", mesh_name);
                         positions.iter().map(|_| [0.0, 0.0]).collect()

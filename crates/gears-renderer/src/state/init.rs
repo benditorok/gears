@@ -114,9 +114,7 @@ pub(super) async fn models(
             .unwrap_or_else(|| panic!("{}", components::misc::StaticModelMarker::describe()));
 
         let flip = world.get_component::<components::transforms::Flip>(*entity);
-
-        // TODO handle scale?
-        let _scale = world.get_component::<components::transforms::Scale>(*entity);
+        let scale = world.get_component::<components::transforms::Scale>(*entity);
 
         let obj_model = {
             let rlock_model_source = model_source.read().unwrap();
@@ -143,43 +141,38 @@ pub(super) async fn models(
             instance::Instance {
                 position: rlock_pos3.pos,
                 rotation: rlock_pos3.rot,
+                scale: cgmath::Vector3::new(1.0, 1.0, 1.0),
             }
         };
 
         if let Some(flip) = flip {
             let rlock_flip = flip.read().unwrap();
 
-            match *rlock_flip {
+            let flip_rotation = match *rlock_flip {
                 components::transforms::Flip::Horizontal => {
-                    instance.rotation =
-                        cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
+                    cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI))
                 }
                 components::transforms::Flip::Vertical => {
-                    instance.rotation =
-                        cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI))
                 }
                 components::transforms::Flip::Both => {
-                    instance.rotation =
-                        cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
-                    instance.rotation =
-                        cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI))
+                        * cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI))
                 }
-            }
+            };
+            instance.rotation = instance.rotation * flip_rotation;
         }
 
-        // TODO scale should update the rot (quaternion)??
-        // if let Some(scale) = scale {
-        //     let rlock_scale = scale.read().unwrap();
+        if let Some(scale) = scale {
+            let rlock_scale = scale.read().unwrap();
 
-        //     match *rlock_scale {
-        //         Scale::Uniform(s) => {
-        //             instance.scale = cgmath::Vector3::new(s, s, s);
-        //         }
-        //         Scale::NonUniform { x, y, z } => {
-        //             instance.scale = cgmath::Vector3::new(x, y, z);
-        //         }
-        //     }
-        // }
+            instance.scale = match *rlock_scale {
+                components::transforms::Scale::Uniform(s) => cgmath::Vector3::new(s, s, s),
+                components::transforms::Scale::NonUniform { x, y, z } => {
+                    cgmath::Vector3::new(x, y, z)
+                }
+            };
+        }
 
         let instance_raw = instance.to_raw();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -224,9 +217,7 @@ pub(super) async fn physics_models(
             .unwrap_or_else(|| panic!("{}", components::misc::RigidBodyMarker::describe()));
 
         let flip = world.get_component::<components::transforms::Flip>(*entity);
-
-        // TODO handle scale?
-        let _scale = world.get_component::<components::transforms::Scale>(*entity);
+        let scale = world.get_component::<components::transforms::Scale>(*entity);
 
         let obj_model = {
             let rlock_model_source = model_source.read().unwrap();
@@ -252,43 +243,38 @@ pub(super) async fn physics_models(
             instance::Instance {
                 position: rlock_pos3.pos,
                 rotation: rlock_pos3.rot,
+                scale: cgmath::Vector3::new(1.0, 1.0, 1.0),
             }
         };
 
         if let Some(flip) = flip {
             let rlock_flip = flip.read().unwrap();
 
-            match *rlock_flip {
+            let flip_rotation = match *rlock_flip {
                 components::transforms::Flip::Horizontal => {
-                    instance.rotation =
-                        cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
+                    cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI))
                 }
                 components::transforms::Flip::Vertical => {
-                    instance.rotation =
-                        cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI))
                 }
                 components::transforms::Flip::Both => {
-                    instance.rotation =
-                        cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI));
-                    instance.rotation =
-                        cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI));
+                    cgmath::Quaternion::from_angle_y(cgmath::Rad(std::f32::consts::PI))
+                        * cgmath::Quaternion::from_angle_x(cgmath::Rad(std::f32::consts::PI))
                 }
-            }
+            };
+            instance.rotation = instance.rotation * flip_rotation;
         }
 
-        // TODO scale should update the rot (quaternion)??
-        // if let Some(scale) = scale {
-        //     let rlock_scale = scale.read().unwrap();
+        if let Some(scale) = scale {
+            let rlock_scale = scale.read().unwrap();
 
-        //     match *rlock_scale {
-        //         Scale::Uniform(s) => {
-        //             instance.scale = cgmath::Vector3::new(s, s, s);
-        //         }
-        //         Scale::NonUniform { x, y, z } => {
-        //             instance.scale = cgmath::Vector3::new(x, y, z);
-        //         }
-        //     }
-        // }
+            instance.scale = match *rlock_scale {
+                components::transforms::Scale::Uniform(s) => cgmath::Vector3::new(s, s, s),
+                components::transforms::Scale::NonUniform { x, y, z } => {
+                    cgmath::Vector3::new(x, y, z)
+                }
+            };
+        }
 
         let instance_raw = instance.to_raw();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

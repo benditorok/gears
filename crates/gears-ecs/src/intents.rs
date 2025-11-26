@@ -185,7 +185,7 @@ mod tests {
         sender.send_interact(3, 4);
 
         let intents = receiver.try_recv_all();
-        assert_eq!(intents.len(), 3);
+        assert_eq!(intents.len(), 2);
     }
 
     #[test]

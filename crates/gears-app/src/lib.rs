@@ -325,7 +325,10 @@ impl ApplicationHandler for GearsApp {
                 .with_transparent(true)
                 .with_maximized(self.config.maximized)
                 .with_active(true)
-                .with_base_size(LogicalSize::new(1280, 720))
+                .with_base_size(LogicalSize::new(
+                    self.config.window_width,
+                    self.config.window_height,
+                ))
                 .with_window_icon(None);
 
             let window = Arc::new(
@@ -337,9 +340,13 @@ impl ApplicationHandler for GearsApp {
             // Initialize state
             let state = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
-                    Arc::new(RwLock::new(
-                        State::new(Arc::clone(&window), Arc::clone(&self.world)).await,
-                    ))
+                    let mut state = State::new(Arc::clone(&window), Arc::clone(&self.world)).await;
+
+                    // Set initial states from config
+                    state.set_debug(self.config.debug_enabled);
+                    state.set_crosshair(self.config.crosshair_enabled);
+
+                    Arc::new(RwLock::new(state))
                 })
             });
 
