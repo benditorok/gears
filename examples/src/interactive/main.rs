@@ -461,38 +461,48 @@ async fn main() -> EngineResult<()> {
                         pos3_comp.read(),
                         rigidbody_comp.write(),
                     ) {
-                        let should_advance_waypoint = if let Some(waypoint) =
-                            pathfinding.current_waypoint()
-                        {
-                            let mut direction = waypoint - pos3.pos;
-                            direction.y = 0.0; // Only horizontal movement
+                        // Calculate local obstacle avoidance
+                        let avoidance = pathfinding.calculate_avoidance_force(
+                            pos3.pos,
+                            obstacles.iter().map(|(p, cb)| (p, cb)),
+                        );
 
-                            if direction.magnitude() > pathfinding.waypoint_threshold {
-                                // Move toward waypoint
-                                let normalized_dir = direction.normalize();
-                                let target_acceleration = normalized_dir * pathfinding.speed * 8.0;
+                        let should_advance_waypoint =
+                            if let Some(waypoint) = pathfinding.current_waypoint() {
+                                let mut direction = waypoint - pos3.pos;
+                                direction.y = 0.0; // Only horizontal movement
 
-                                rigidbody.acceleration.x = target_acceleration.x;
-                                rigidbody.acceleration.z = target_acceleration.z;
-                                rigidbody.velocity.x *= 0.85;
-                                rigidbody.velocity.z *= 0.85;
-                                false // Don't advance waypoint
+                                if direction.magnitude() > pathfinding.waypoint_threshold {
+                                    // Move toward waypoint with obstacle avoidance
+                                    let normalized_dir = direction.normalize();
+                                    let path_force = normalized_dir * pathfinding.speed * 8.0;
+
+                                    // Combine pathfinding direction with obstacle avoidance
+                                    let mut avoidance_2d = avoidance;
+                                    avoidance_2d.y = 0.0;
+                                    let combined_force = path_force + avoidance_2d;
+
+                                    rigidbody.acceleration.x = combined_force.x;
+                                    rigidbody.acceleration.z = combined_force.z;
+                                    rigidbody.velocity.x *= 0.85;
+                                    rigidbody.velocity.z *= 0.85;
+                                    false // Don't advance waypoint
+                                } else {
+                                    // Reached waypoint - stop movement and mark for advancement
+                                    rigidbody.acceleration.x = 0.0;
+                                    rigidbody.acceleration.z = 0.0;
+                                    rigidbody.velocity.x *= 0.5;
+                                    rigidbody.velocity.z *= 0.5;
+                                    true // Advance waypoint
+                                }
                             } else {
-                                // Reached waypoint - stop movement and mark for advancement
+                                // No waypoint, stop movement
                                 rigidbody.acceleration.x = 0.0;
                                 rigidbody.acceleration.z = 0.0;
-                                rigidbody.velocity.x *= 0.5;
-                                rigidbody.velocity.z *= 0.5;
-                                true // Advance waypoint
-                            }
-                        } else {
-                            // No waypoint, stop movement
-                            rigidbody.acceleration.x = 0.0;
-                            rigidbody.acceleration.z = 0.0;
-                            rigidbody.velocity.x *= 0.8;
-                            rigidbody.velocity.z *= 0.8;
-                            false // No waypoint to advance
-                        };
+                                rigidbody.velocity.x *= 0.8;
+                                rigidbody.velocity.z *= 0.8;
+                                false // No waypoint to advance
+                            };
 
                         if should_advance_waypoint {
                             pathfinding.advance_waypoint();

@@ -76,14 +76,19 @@ impl GridPos {
     pub fn distance(from: GridPos, to: GridPos, heuristic: DistanceHeuristic) -> f32 {
         match heuristic {
             DistanceHeuristic::Manhattan => {
-                (to.x - from.x).abs() as f32 + (to.y - from.y).abs() as f32
+                (to.x - from.x).abs() as f32
+                    + (to.y - from.y).abs() as f32
+                    + (to.z - from.z).abs() as f32
             }
             DistanceHeuristic::Euclidean => {
-                (to.x - from.x).pow(2) as f32 + (to.y - from.y).pow(2) as f32
+                let dx = (to.x - from.x) as f32;
+                let dy = (to.y - from.y) as f32;
+                let dz = (to.z - from.z) as f32;
+                (dx * dx + dy * dy + dz * dz).sqrt()
             }
-            DistanceHeuristic::Chebyshev => {
-                ((to.x - from.x).abs() as f32).max((to.y - from.y).abs() as f32)
-            }
+            DistanceHeuristic::Chebyshev => ((to.x - from.x).abs() as f32)
+                .max((to.y - from.y).abs() as f32)
+                .max((to.z - from.z).abs() as f32),
         }
     }
 
@@ -104,37 +109,53 @@ impl GridPos {
         )
     }
 
-    /// Get all 26 neighbors in 3D space (including diagonals).
+    /// Get neighbors in 3D space, allowing limited vertical movement.
+    /// Includes horizontal neighbors and limited vertical neighbors to handle slopes/stairs.
     ///
     /// # Returns
     ///
-    /// A vector of [`GridPos`] representing the 26 neighbors.
+    /// A vector of [`GridPos`] representing valid neighbors.
     pub fn get_neighbors(self) -> Vec<GridPos> {
         let mut neighbors = Vec::new();
+
+        // Horizontal neighbors (same level) - 8 directions
         for dx in -1..=1 {
-            for dy in -1..=1 {
-                for dz in -1..=1 {
-                    if dx == 0 && dy == 0 && dz == 0 {
-                        continue; // Skip the center position
-                    }
-                    neighbors.push(GridPos::new(self.x + dx, self.y + dy, self.z + dz));
+            for dz in -1..=1 {
+                if dx == 0 && dz == 0 {
+                    continue;
                 }
+                neighbors.push(GridPos::new(self.x + dx, self.y, self.z + dz));
             }
         }
+
+        // Limited vertical movement (1 step up/down) for stairs/slopes
+        // Only allow vertical movement without horizontal component
+        neighbors.push(GridPos::new(self.x, self.y + 1, self.z));
+        neighbors.push(GridPos::new(self.x, self.y - 1, self.z));
+
+        // Diagonal up/down for slopes (4 cardinal directions with vertical)
+        for dx in [-1, 1] {
+            neighbors.push(GridPos::new(self.x + dx, self.y + 1, self.z));
+            neighbors.push(GridPos::new(self.x + dx, self.y - 1, self.z));
+        }
+        for dz in [-1, 1] {
+            neighbors.push(GridPos::new(self.x, self.y + 1, self.z + dz));
+            neighbors.push(GridPos::new(self.x, self.y - 1, self.z + dz));
+        }
+
         neighbors
     }
 
-    /// Get 6 neighbors (face-connected only, no diagonals).
+    /// Get horizontal neighbors only (4-connected, no diagonals or vertical).
+    /// Used for simpler pathfinding that prefers straight paths.
     ///
     /// # Returns
     ///
-    /// A vector of [`GridPos`] representing the 6 neighbors.
+    /// A vector of [`GridPos`] representing the 4 horizontal neighbors.
     pub fn get_face_neighbors(self) -> Vec<GridPos> {
         vec![
             GridPos::new(self.x + 1, self.y, self.z),
             GridPos::new(self.x - 1, self.y, self.z),
-            GridPos::new(self.x, self.y + 1, self.z),
-            GridPos::new(self.x, self.y - 1, self.z),
             GridPos::new(self.x, self.y, self.z + 1),
             GridPos::new(self.x, self.y, self.z - 1),
         ]
@@ -424,8 +445,8 @@ impl AStar {
 
             closed_set.insert(current_pos);
 
-            // Check all neighbors (using face neighbors for simpler pathfinding)
-            for neighbor_pos in current_pos.get_face_neighbors() {
+            // Check all neighbors (using extended neighbors for 3D pathfinding)
+            for neighbor_pos in current_pos.get_neighbors() {
                 if closed_set.contains(&neighbor_pos) || self.grid.is_obstacle(neighbor_pos) {
                     continue;
                 }
@@ -471,20 +492,37 @@ impl AStar {
     }
 
     /// Calculate movement cost between two adjacent grid positions.
+    /// Higher cost for vertical movement and diagonals.
     ///
     /// # Arguments
-    /// * `_from` - The starting grid position.
-    /// * `_to` - The ending grid position.
+    /// * `from` - The starting grid position.
+    /// * `to` - The ending grid position.
     ///
     /// # Returns
     ///
     /// The movement cost as a `f32`.
-    fn get_movement_cost(&self, _from: GridPos, _to: GridPos) -> f32 {
-        // Basic movement cost - could be extended for different terrain types
-        1.0
+    fn get_movement_cost(&self, from: GridPos, to: GridPos) -> f32 {
+        let dx = (to.x - from.x).abs();
+        let dy = (to.y - from.y).abs();
+        let dz = (to.z - from.z).abs();
+
+        // Base cost
+        let mut cost = 1.0;
+
+        // Diagonal movement costs more
+        if dx + dz == 2 {
+            cost *= 1.4; // sqrt(2) approximation
+        }
+
+        // Vertical movement costs more (climbing stairs, etc.)
+        if dy > 0 {
+            cost += dy as f32 * 0.5;
+        }
+
+        cost
     }
 
-    /// Reconstruct the path from `came_from` map.
+    /// Reconstruct the path from `came_from` map and apply path smoothing.
     ///
     /// # Arguments
     /// * `came_from` - A map of grid positions to their parent positions.
@@ -510,7 +548,78 @@ impl AStar {
         }
 
         path.reverse();
-        path
+
+        // Apply path smoothing to reduce unnecessary waypoints
+        self.smooth_path(path)
+    }
+
+    /// Smooth the path by removing unnecessary intermediate waypoints.
+    /// Uses a line-of-sight check to skip waypoints when possible.
+    ///
+    /// # Arguments
+    /// * `path` - The original path to smooth.
+    ///
+    /// # Returns
+    ///
+    /// A smoothed path with fewer waypoints.
+    fn smooth_path(&self, path: Vec<cgmath::Vector3<f32>>) -> Vec<cgmath::Vector3<f32>> {
+        if path.len() <= 2 {
+            return path;
+        }
+
+        let mut smoothed = Vec::new();
+        smoothed.push(path[0]);
+
+        let mut current_idx = 0;
+        while current_idx < path.len() - 1 {
+            let mut farthest_visible = current_idx + 1;
+
+            // Try to find the farthest waypoint we can see from current position
+            for test_idx in (current_idx + 2)..path.len() {
+                if self.has_line_of_sight(path[current_idx], path[test_idx]) {
+                    farthest_visible = test_idx;
+                }
+            }
+
+            smoothed.push(path[farthest_visible]);
+            current_idx = farthest_visible;
+        }
+
+        smoothed
+    }
+
+    /// Check if there's a clear line of sight between two points.
+    /// Samples points along the line and checks for obstacles.
+    ///
+    /// # Arguments
+    /// * `from` - Starting position.
+    /// * `to` - Ending position.
+    ///
+    /// # Returns
+    ///
+    /// `true` if there's a clear line of sight.
+    fn has_line_of_sight(&self, from: cgmath::Vector3<f32>, to: cgmath::Vector3<f32>) -> bool {
+        let direction = to - from;
+        let distance = direction.magnitude();
+
+        if distance < 0.001 {
+            return true;
+        }
+
+        let normalized = direction / distance;
+        let steps = (distance / (self.grid.cell_size() * 0.5)).ceil() as usize;
+
+        for i in 1..steps {
+            let t = (i as f32) / (steps as f32);
+            let point = from + normalized * (distance * t);
+            let grid_pos = GridPos::from_world_pos(point, self.grid.cell_size());
+
+            if self.grid.is_obstacle(grid_pos) {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
@@ -535,6 +644,10 @@ pub struct PathfindingComponent {
     pub path_recalc_interval: f32,
     /// Whether pathfinding is currently active.
     pub active: bool,
+    /// Local obstacle avoidance force
+    pub avoidance_force: cgmath::Vector3<f32>,
+    /// Radius for local obstacle detection
+    pub avoidance_radius: f32,
 }
 
 impl PathfindingComponent {
@@ -556,10 +669,12 @@ impl PathfindingComponent {
             current_waypoint: 0,
             speed,
             cell_size,
-            waypoint_threshold: cell_size * 0.5, // Half a grid cell
+            waypoint_threshold: cell_size * 0.8, // Most of a grid cell
             time_since_last_path: 0.0,
             path_recalc_interval: 1.5, // Recalculate every 1.5 seconds
             active: true,
+            avoidance_force: cgmath::Vector3::new(0.0, 0.0, 0.0),
+            avoidance_radius: cell_size * 3.0,
         }
     }
 
@@ -679,6 +794,57 @@ impl PathfindingComponent {
         } else {
             false
         }
+    }
+
+    /// Calculate local obstacle avoidance force based on nearby obstacles.
+    /// This provides dynamic obstacle avoidance during movement.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_pos` - The current position of the entity.
+    /// * `obstacles` - Iterator of obstacle positions and collision boxes.
+    ///
+    /// # Returns
+    ///
+    /// An avoidance force vector.
+    pub fn calculate_avoidance_force<'a, I>(
+        &mut self,
+        current_pos: cgmath::Vector3<f32>,
+        obstacles: I,
+    ) -> cgmath::Vector3<f32>
+    where
+        I: Iterator<Item = (&'a cgmath::Vector3<f32>, &'a AABBCollisionBox)>,
+    {
+        use cgmath::InnerSpace;
+
+        let mut avoidance = cgmath::Vector3::new(0.0, 0.0, 0.0);
+        let mut count = 0;
+
+        for (obstacle_pos, collision_box) in obstacles {
+            let to_obstacle = *obstacle_pos - current_pos;
+            let distance = to_obstacle.magnitude();
+
+            // Calculate effective obstacle radius from collision box
+            let obstacle_size = ((collision_box.max.x - collision_box.min.x).abs()
+                + (collision_box.max.z - collision_box.min.z).abs())
+                * 0.5;
+            let effective_radius = self.avoidance_radius + obstacle_size;
+
+            if distance < effective_radius && distance > 0.001 {
+                // Stronger avoidance for closer obstacles
+                let strength = 1.0 - (distance / effective_radius);
+                let repulsion = -to_obstacle.normalize() * strength * strength;
+                avoidance += repulsion;
+                count += 1;
+            }
+        }
+
+        if count > 0 {
+            avoidance = avoidance.normalize() * self.speed * 5.0;
+        }
+
+        self.avoidance_force = avoidance;
+        avoidance
     }
 }
 

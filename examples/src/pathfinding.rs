@@ -8,7 +8,7 @@ use std::sync::mpsc;
 async fn main() -> EngineResult<()> {
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
-    env_builder.filter_level(LevelFilter::Debug);
+    env_builder.filter_level(LevelFilter::Info);
     env_builder.filter_module("wgpu_core::device::resource", log::LevelFilter::Warn);
     env_builder.init();
 
@@ -300,7 +300,7 @@ async fn main() -> EngineResult<()> {
                 }
             }
 
-            // Move the entity along its path
+            // Move the entity along its path with obstacle avoidance
             let query = ComponentQuery::new()
                 .write::<PathfindingComponent>(vec![entity])
                 .read::<Pos3>(vec![entity])
@@ -325,22 +325,40 @@ async fn main() -> EngineResult<()> {
                         SystemError::ComponentAccess(format!("Failed to write RigidBody: {}", e))
                     })?;
 
+                    // Calculate local obstacle avoidance
+                    let avoidance = pathfinding.calculate_avoidance_force(
+                        pos3.pos,
+                        obstacles.iter().map(|(p, cb)| (p, cb)),
+                    );
+
                     let should_advance_waypoint =
                         if let Some(waypoint) = pathfinding.current_waypoint() {
                             let mut direction = waypoint - pos3.pos;
                             direction.y = 0.0; // Only horizontal movement
 
                             if direction.magnitude() > pathfinding.waypoint_threshold {
-                                // Move toward waypoint
+                                // Move toward waypoint with obstacle avoidance
                                 let normalized_dir = direction.normalize();
-                                let target_acceleration = normalized_dir * pathfinding.speed * 8.0;
+                                let path_force = normalized_dir * pathfinding.speed * 8.0;
 
-                                rigidbody.acceleration.x = target_acceleration.x;
-                                rigidbody.acceleration.z = target_acceleration.z;
+                                // Combine pathfinding direction with obstacle avoidance
+                                let mut avoidance_2d = avoidance;
+                                avoidance_2d.y = 0.0;
+                                let combined_force = path_force + avoidance_2d;
+
+                                rigidbody.acceleration.x = combined_force.x;
+                                rigidbody.acceleration.z = combined_force.z;
                                 rigidbody.velocity.x *= 0.85;
                                 rigidbody.velocity.z *= 0.85;
 
-                                info!("Entity {:?} moving toward waypoint {:?}", entity, waypoint);
+                                if avoidance.magnitude() > 0.1 {
+                                    info!(
+                                        "Entity {:?} avoiding obstacles (force: {:.2})",
+                                        entity,
+                                        avoidance.magnitude()
+                                    );
+                                }
+
                                 false // Don't advance waypoint
                             } else {
                                 // Reached waypoint - stop movement and mark for advancement
