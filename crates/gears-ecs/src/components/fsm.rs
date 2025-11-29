@@ -201,6 +201,12 @@ pub enum StateData {
     Vector3(cgmath::Vector3<f32>),
 }
 
+impl Default for StateContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StateContext {
     /// Create a new state context with default values.
     ///
@@ -367,7 +373,7 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
     pub fn add_sub_state(&mut self, parent_id: S, sub_id: S, state: Box<dyn State<S>>) {
         self.sub_states
             .entry(parent_id)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .insert(sub_id, state);
     }
 
@@ -381,7 +387,7 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         if self
             .sub_states
             .get(&parent_id)
-            .map_or(false, |subs| subs.contains_key(&sub_id))
+            .is_some_and(|subs| subs.contains_key(&sub_id))
         {
             self.initial_sub_states.insert(parent_id, sub_id);
         }
@@ -410,11 +416,10 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
                 self.current_sub_state = Some(initial_sub);
                 self.state_stack.push(initial_sub);
 
-                if let Some(sub_states) = self.sub_states.get_mut(&state_id) {
-                    if let Some(sub_state) = sub_states.get_mut(&initial_sub) {
+                if let Some(sub_states) = self.sub_states.get_mut(&state_id)
+                    && let Some(sub_state) = sub_states.get_mut(&initial_sub) {
                         sub_state.on_enter(&mut self.context);
                     }
-                }
             }
         }
     }
@@ -453,15 +458,12 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         }
 
         // Exit current sub-state if exists
-        if let Some(current_main) = self.current_state {
-            if let Some(current_sub) = self.current_sub_state {
-                if let Some(sub_states) = self.sub_states.get_mut(&current_main) {
-                    if let Some(sub_state) = sub_states.get_mut(&current_sub) {
+        if let Some(current_main) = self.current_state
+            && let Some(current_sub) = self.current_sub_state
+                && let Some(sub_states) = self.sub_states.get_mut(&current_main)
+                    && let Some(sub_state) = sub_states.get_mut(&current_sub) {
                         sub_state.on_exit(&mut self.context);
                     }
-                }
-            }
-        }
 
         // Exit current main state
         if let Some(current_id) = self.current_state {
@@ -488,11 +490,10 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
             self.current_sub_state = Some(initial_sub);
             self.state_stack.push(initial_sub);
 
-            if let Some(sub_states) = self.sub_states.get_mut(&new_state_id) {
-                if let Some(sub_state) = sub_states.get_mut(&initial_sub) {
+            if let Some(sub_states) = self.sub_states.get_mut(&new_state_id)
+                && let Some(sub_state) = sub_states.get_mut(&initial_sub) {
                     sub_state.on_enter(&mut self.context);
                 }
-            }
         }
     }
 
@@ -519,11 +520,10 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
                 sub_state.on_exit(&mut self.context);
             }
             // Remove current sub-state from stack
-            if let Some(last) = self.state_stack.last() {
-                if *last == current_sub {
+            if let Some(last) = self.state_stack.last()
+                && *last == current_sub {
                     self.state_stack.pop();
                 }
-            }
         }
 
         // Enter new sub-state
@@ -552,9 +552,9 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         };
 
         // Update current sub-state first (if exists)
-        if let Some(current_sub) = self.current_sub_state {
-            if let Some(sub_states) = self.sub_states.get_mut(&current_main) {
-                if let Some(sub_state) = sub_states.get_mut(&current_sub) {
+        if let Some(current_sub) = self.current_sub_state
+            && let Some(sub_states) = self.sub_states.get_mut(&current_main)
+                && let Some(sub_state) = sub_states.get_mut(&current_sub) {
                     sub_state.on_update(&mut self.context, dt);
 
                     // Check for sub-state transitions
@@ -563,8 +563,6 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
                         return;
                     }
                 }
-            }
-        }
 
         // Update current main state
         if let Some(state) = self.states.get_mut(&current_main) {
@@ -573,7 +571,6 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
             // Check for main state transitions
             if let Some(next_state) = state.check_transitions(&self.context) {
                 self.transition_to(next_state);
-                return;
             }
         }
     }

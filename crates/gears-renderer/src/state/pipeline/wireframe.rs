@@ -42,13 +42,13 @@ impl WireframePipeline {
         };
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Base::pipeline_layout"),
-            bind_group_layouts: &[&camera_layout],
+            bind_group_layouts: &[camera_layout],
             push_constant_ranges: &[],
         });
 
         // Construct the pipeline
         let pipeline = resources::create_wireframe_render_pipeline(
-            &device,
+            device,
             &pipeline_layout,
             hdr_pipeline.format(), // Use the format that the HDR pipeline uses
             Some(texture::Texture::DEPTH_FORMAT),

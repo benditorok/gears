@@ -3,7 +3,7 @@ use super::{
     physics::{AABBCollisionBox, RigidBody},
 };
 use crate::{Component, components::controllers::ViewController, components::transforms::Pos3};
-use cgmath::{InnerSpace, Vector3};
+use cgmath::Vector3;
 use gears_macro::Component;
 
 /// A component representing a weapon that can be used to attack other entities.

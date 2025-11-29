@@ -179,11 +179,10 @@ impl MovementController {
             }
 
             // Check if they've been grounded long enough
-            if let Some(grounded_since) = self.grounded_time {
-                if grounded_since.elapsed() >= GROUNDED_TIME_THRESHOLD {
+            if let Some(grounded_since) = self.grounded_time
+                && grounded_since.elapsed() >= GROUNDED_TIME_THRESHOLD {
                     return true;
                 }
-            }
         } else {
             // Not on ground, reset tracking
             self.grounded_time = None;

@@ -374,20 +374,18 @@ impl AnimationTrack {
             }
         } else {
             // Ensure we have keyframes at the exact start and end times
-            if sub_track.keyframes[0].time > 0.0 {
-                if let Some(start_value) = self.sample(start_time) {
+            if sub_track.keyframes[0].time > 0.0
+                && let Some(start_value) = self.sample(start_time) {
                     sub_track
                         .keyframes
                         .insert(0, Keyframe::new(0.0, start_value));
                 }
-            }
 
             let duration = end_time - start_time;
-            if sub_track.keyframes.last().unwrap().time < duration {
-                if let Some(end_value) = self.sample(end_time) {
+            if sub_track.keyframes.last().unwrap().time < duration
+                && let Some(end_value) = self.sample(end_time) {
                     sub_track.add_keyframe_simple(duration, end_value);
                 }
-            }
         }
 
         if sub_track.keyframes.is_empty() {
@@ -459,6 +457,12 @@ impl Default for AnimationTrack {
 pub struct AnimationTrackBuilder {
     /// The animation track being built.
     track: AnimationTrack,
+}
+
+impl Default for AnimationTrackBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AnimationTrackBuilder {

@@ -550,8 +550,8 @@ impl AnimationTimeline {
                 new_time,
                 tolerance,
             } => {
-                if let Some(track) = self.clip.tracks.get_mut(&target) {
-                    if let Some(keyframe) = track
+                if let Some(track) = self.clip.tracks.get_mut(&target)
+                    && let Some(keyframe) = track
                         .keyframes
                         .iter_mut()
                         .find(|k| (k.time - old_time).abs() <= tolerance)
@@ -562,7 +562,6 @@ impl AnimationTimeline {
                             .keyframes
                             .sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
                     }
-                }
             }
             TimelineOperation::ModifyKeyframe {
                 target,
@@ -570,15 +569,14 @@ impl AnimationTimeline {
                 new_value,
                 tolerance,
             } => {
-                if let Some(track) = self.clip.tracks.get_mut(&target) {
-                    if let Some(keyframe) = track
+                if let Some(track) = self.clip.tracks.get_mut(&target)
+                    && let Some(keyframe) = track
                         .keyframes
                         .iter_mut()
                         .find(|k| (k.time - time).abs() <= tolerance)
                     {
                         keyframe.value = new_value;
                     }
-                }
             }
             TimelineOperation::ScaleTime {
                 start_time,
@@ -856,12 +854,11 @@ impl AnimationTimeline {
     ///
     /// * `target` - The animation target.
     pub fn jump_to_next_keyframe(&mut self, target: &AnimationTarget) {
-        if let Some(track) = self.clip.tracks.get(target) {
-            if let Some(next_keyframe) = track.keyframes.iter().find(|k| k.time > self.current_time)
+        if let Some(track) = self.clip.tracks.get(target)
+            && let Some(next_keyframe) = track.keyframes.iter().find(|k| k.time > self.current_time)
             {
                 self.set_current_time(next_keyframe.time);
             }
-        }
     }
 
     /// Jumps to the previous keyframe.
@@ -870,8 +867,8 @@ impl AnimationTimeline {
     ///
     /// * `target` - The animation target.
     pub fn jump_to_previous_keyframe(&mut self, target: &AnimationTarget) {
-        if let Some(track) = self.clip.tracks.get(target) {
-            if let Some(prev_keyframe) = track
+        if let Some(track) = self.clip.tracks.get(target)
+            && let Some(prev_keyframe) = track
                 .keyframes
                 .iter()
                 .rev()
@@ -879,7 +876,6 @@ impl AnimationTimeline {
             {
                 self.set_current_time(prev_keyframe.time);
             }
-        }
     }
 
     /// Gets the total number of keyframes across all tracks.
