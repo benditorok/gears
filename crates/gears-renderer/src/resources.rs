@@ -648,7 +648,7 @@ pub(crate) async fn load_model_gltf(
         meshes: &mut Vec<model::Mesh>,
         buffer_data: &[Vec<u8>],
         device: &wgpu::Device,
-        file_name: &str,
+        _file_name: &str,
     ) -> Result<(), RendererError> {
         info!("Node {}", node.index());
 
@@ -829,7 +829,7 @@ pub(crate) async fn load_model_gltf(
 
         // Recursively traverse child nodes
         for child in node.children() {
-            traverse_node(child, meshes, buffer_data, device, file_name)?;
+            traverse_node(child, meshes, buffer_data, device, _file_name)?;
         }
 
         Ok(())
