@@ -310,11 +310,9 @@ impl State {
     /// * `length` - Length of each crosshair line.
     /// * `thickness` - Thickness of the crosshair lines.
     /// * `color` - RGBA color of the crosshair.
-    pub fn configure_crosshair(&self, gap: f32, length: f32, thickness: f32, color: [f32; 4]) {
-        self.crosshair_pipeline.update_uniforms(
+    pub fn configure_crosshair(&mut self, gap: f32, length: f32, thickness: f32, color: [f32; 4]) {
+        self.crosshair_pipeline.update_uniforms_appearance(
             &self.queue,
-            self.config.width,
-            self.config.height,
             gap,
             length,
             thickness,
@@ -566,28 +564,29 @@ impl State {
             }
 
             if let Some(resources) = self.world.acquire_query(query)
-                && let Some(pos3_comp) = resources.get::<Pos3>(camera_entity) {
-                    let mut wlock_pos3 = pos3_comp.write().unwrap();
-                    let mut wlock_view_controller = view_controller.write().unwrap();
-                    wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
+                && let Some(pos3_comp) = resources.get::<Pos3>(camera_entity)
+            {
+                let mut wlock_pos3 = pos3_comp.write().unwrap();
+                let mut wlock_view_controller = view_controller.write().unwrap();
+                wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
 
-                    if let Some(movement_controller) = &self.movement_controller {
-                        let mut wlock_movement_controller = movement_controller.write().unwrap();
+                if let Some(movement_controller) = &self.movement_controller {
+                    let mut wlock_movement_controller = movement_controller.write().unwrap();
 
-                        if has_rigidbody {
-                            if let Some(rigid_body_comp) =
-                                resources.get::<RigidBody<AABBCollisionBox>>(camera_entity)
-                            {
-                                let mut wlock_rigid_body = rigid_body_comp.write().unwrap();
-                                wlock_movement_controller.update_pos(
-                                    &wlock_view_controller,
-                                    &mut wlock_pos3,
-                                    Some(&mut wlock_rigid_body),
-                                    dt.as_secs_f32(),
-                                );
-                            }
-                        } else {
+                    if has_rigidbody {
+                        if let Some(rigid_body_comp) =
+                            resources.get::<RigidBody<AABBCollisionBox>>(camera_entity)
+                        {
+                            let mut wlock_rigid_body = rigid_body_comp.write().unwrap();
                             wlock_movement_controller.update_pos(
+                                &wlock_view_controller,
+                                &mut wlock_pos3,
+                                Some(&mut wlock_rigid_body),
+                                dt.as_secs_f32(),
+                            );
+                        }
+                    } else {
+                        wlock_movement_controller.update_pos(
                                 &wlock_view_controller,
                                 &mut wlock_pos3,
                                 None::<
@@ -597,19 +596,19 @@ impl State {
                                 >,
                                 dt.as_secs_f32(),
                             );
-                        }
                     }
-
-                    // Update the camera's view
-                    self.base_pipeline
-                        .update_camera_view_proj(&wlock_pos3, &wlock_view_controller);
-
-                    self.queue.write_buffer(
-                        self.base_pipeline.camera_buffer(),
-                        0,
-                        bytemuck::cast_slice(&[*self.base_pipeline.camera_uniform()]),
-                    );
                 }
+
+                // Update the camera's view
+                self.base_pipeline
+                    .update_camera_view_proj(&wlock_pos3, &wlock_view_controller);
+
+                self.queue.write_buffer(
+                    self.base_pipeline.camera_buffer(),
+                    0,
+                    bytemuck::cast_slice(&[*self.base_pipeline.camera_uniform()]),
+                );
+            }
         }
 
         Ok(())
@@ -659,12 +658,13 @@ impl State {
                         && let (Some(model_comp), Some(buffer_comp)) = (
                             resources.get::<model::Model>(entity),
                             resources.get::<BufferComponent>(entity),
-                        ) {
-                            let rlock_model = model_comp.read().unwrap();
-                            let rlock_instance_buffer = buffer_comp.read().unwrap();
+                        )
+                    {
+                        let rlock_model = model_comp.read().unwrap();
+                        let rlock_instance_buffer = buffer_comp.read().unwrap();
 
-                            render_pass.draw_model(&rlock_model, &rlock_instance_buffer);
-                        }
+                        render_pass.draw_model(&rlock_model, &rlock_instance_buffer);
+                    }
                 }
             }
 
@@ -689,12 +689,13 @@ impl State {
                             && let (Some(wireframe_comp), Some(buffer_comp)) = (
                                 resources.get::<model::WireframeMesh>(entity),
                                 resources.get::<BufferComponent>(entity),
-                            ) {
-                                let wireframe = wireframe_comp.read().unwrap();
-                                let instance_buffer = buffer_comp.read().unwrap();
+                            )
+                        {
+                            let wireframe = wireframe_comp.read().unwrap();
+                            let instance_buffer = buffer_comp.read().unwrap();
 
-                                render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
-                            }
+                            render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
+                        }
                     }
                 }
             }
