@@ -161,7 +161,7 @@ impl State {
         let wireframe_pipeline = pipeline::wireframe::WireframePipeline::new(
             &device,
             &config,
-            &base_pipeline.camera_layout(),
+            base_pipeline.camera_layout(),
             &hdr_pipeline,
         );
 
@@ -310,11 +310,9 @@ impl State {
     /// * `length` - Length of each crosshair line.
     /// * `thickness` - Thickness of the crosshair lines.
     /// * `color` - RGBA color of the crosshair.
-    pub fn configure_crosshair(&self, gap: f32, length: f32, thickness: f32, color: [f32; 4]) {
-        self.crosshair_pipeline.update_uniforms(
+    pub fn configure_crosshair(&mut self, gap: f32, length: f32, thickness: f32, color: [f32; 4]) {
+        self.crosshair_pipeline.update_uniforms_appearance(
             &self.queue,
-            self.config.width,
-            self.config.height,
             gap,
             length,
             thickness,
@@ -389,14 +387,14 @@ impl State {
         init::models(
             &self.device,
             &self.queue,
-            &self.base_pipeline.texture_layout(),
+            self.base_pipeline.texture_layout(),
             &self.world,
         )
         .await;
         init::physics_models(
             &self.device,
             &self.queue,
-            &self.base_pipeline.texture_layout(),
+            self.base_pipeline.texture_layout(),
             &self.world,
         )
         .await;
@@ -565,29 +563,30 @@ impl State {
                 query = query.write::<RigidBody<AABBCollisionBox>>(vec![camera_entity]);
             }
 
-            if let Some(resources) = self.world.acquire_query(query) {
-                if let Some(pos3_comp) = resources.get::<Pos3>(camera_entity) {
-                    let mut wlock_pos3 = pos3_comp.write().unwrap();
-                    let mut wlock_view_controller = view_controller.write().unwrap();
-                    wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
+            if let Some(resources) = self.world.acquire_query(query)
+                && let Some(pos3_comp) = resources.get::<Pos3>(camera_entity)
+            {
+                let mut wlock_pos3 = pos3_comp.write().unwrap();
+                let mut wlock_view_controller = view_controller.write().unwrap();
+                wlock_view_controller.update_rot(&mut wlock_pos3, dt.as_secs_f32());
 
-                    if let Some(movement_controller) = &self.movement_controller {
-                        let mut wlock_movement_controller = movement_controller.write().unwrap();
+                if let Some(movement_controller) = &self.movement_controller {
+                    let mut wlock_movement_controller = movement_controller.write().unwrap();
 
-                        if has_rigidbody {
-                            if let Some(rigid_body_comp) =
-                                resources.get::<RigidBody<AABBCollisionBox>>(camera_entity)
-                            {
-                                let mut wlock_rigid_body = rigid_body_comp.write().unwrap();
-                                wlock_movement_controller.update_pos(
-                                    &wlock_view_controller,
-                                    &mut wlock_pos3,
-                                    Some(&mut wlock_rigid_body),
-                                    dt.as_secs_f32(),
-                                );
-                            }
-                        } else {
+                    if has_rigidbody {
+                        if let Some(rigid_body_comp) =
+                            resources.get::<RigidBody<AABBCollisionBox>>(camera_entity)
+                        {
+                            let mut wlock_rigid_body = rigid_body_comp.write().unwrap();
                             wlock_movement_controller.update_pos(
+                                &wlock_view_controller,
+                                &mut wlock_pos3,
+                                Some(&mut wlock_rigid_body),
+                                dt.as_secs_f32(),
+                            );
+                        }
+                    } else {
+                        wlock_movement_controller.update_pos(
                                 &wlock_view_controller,
                                 &mut wlock_pos3,
                                 None::<
@@ -597,19 +596,18 @@ impl State {
                                 >,
                                 dt.as_secs_f32(),
                             );
-                        }
                     }
-
-                    // Update the camera's view
-                    self.base_pipeline
-                        .update_camera_view_proj(&wlock_pos3, &wlock_view_controller);
-
-                    self.queue.write_buffer(
-                        &self.base_pipeline.camera_buffer(),
-                        0,
-                        bytemuck::cast_slice(&[self.base_pipeline.camera_uniform().clone()]),
-                    );
                 }
+
+                // Update the camera's view
+                self.base_pipeline
+                    .update_camera_view_proj(&wlock_pos3, &wlock_view_controller);
+
+                self.queue.write_buffer(
+                    self.base_pipeline.camera_buffer(),
+                    0,
+                    bytemuck::cast_slice(&[*self.base_pipeline.camera_uniform()]),
+                );
             }
         }
 
@@ -640,15 +638,15 @@ impl State {
             // Run the render pass
             let mut render_pass = self
                 .base_pipeline
-                .begin(&mut encoder, &self.hdr_pipeline.view());
+                .begin(&mut encoder, self.hdr_pipeline.view());
 
             // ! Render models if any are present
             let models = self.world.get_entities_with_component::<model::Model>();
             if !models.is_empty() {
                 render_pass.set_model_pipeline(
-                    &self.base_pipeline.pipeline(),
-                    &self.base_pipeline.camera_bind_group(),
-                    &self.base_pipeline.light_bind_group(),
+                    self.base_pipeline.pipeline(),
+                    self.base_pipeline.camera_bind_group(),
+                    self.base_pipeline.light_bind_group(),
                 );
 
                 for entity in models {
@@ -656,16 +654,16 @@ impl State {
                         .read::<model::Model>(vec![entity])
                         .read::<BufferComponent>(vec![entity]);
 
-                    if let Some(resources) = self.world.acquire_query(query) {
-                        if let (Some(model_comp), Some(buffer_comp)) = (
+                    if let Some(resources) = self.world.acquire_query(query)
+                        && let (Some(model_comp), Some(buffer_comp)) = (
                             resources.get::<model::Model>(entity),
                             resources.get::<BufferComponent>(entity),
-                        ) {
-                            let rlock_model = model_comp.read().unwrap();
-                            let rlock_instance_buffer = buffer_comp.read().unwrap();
+                        )
+                    {
+                        let rlock_model = model_comp.read().unwrap();
+                        let rlock_instance_buffer = buffer_comp.read().unwrap();
 
-                            render_pass.draw_model(&rlock_model, &rlock_instance_buffer);
-                        }
+                        render_pass.draw_model(&rlock_model, &rlock_instance_buffer);
                     }
                 }
             }
@@ -678,8 +676,8 @@ impl State {
 
                 if !wireframes.is_empty() {
                     render_pass.set_wireframe_pipeline(
-                        &self.wireframe_pipeline.pipeline(),
-                        &self.base_pipeline.camera_bind_group(),
+                        self.wireframe_pipeline.pipeline(),
+                        self.base_pipeline.camera_bind_group(),
                     );
 
                     for entity in wireframes {
@@ -687,16 +685,16 @@ impl State {
                             .read::<model::WireframeMesh>(vec![entity])
                             .read::<BufferComponent>(vec![entity]);
 
-                        if let Some(resources) = self.world.acquire_query(query) {
-                            if let (Some(wireframe_comp), Some(buffer_comp)) = (
+                        if let Some(resources) = self.world.acquire_query(query)
+                            && let (Some(wireframe_comp), Some(buffer_comp)) = (
                                 resources.get::<model::WireframeMesh>(entity),
                                 resources.get::<BufferComponent>(entity),
-                            ) {
-                                let wireframe = wireframe_comp.read().unwrap();
-                                let instance_buffer = buffer_comp.read().unwrap();
+                            )
+                        {
+                            let wireframe = wireframe_comp.read().unwrap();
+                            let instance_buffer = buffer_comp.read().unwrap();
 
-                                render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
-                            }
+                            render_pass.draw_wireframe_mesh(&wireframe, &instance_buffer);
                         }
                     }
                 }

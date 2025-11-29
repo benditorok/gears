@@ -250,7 +250,7 @@ impl WorldQueryExt for World {
 
                     self.active_accesses
                         .entry((entity, type_id))
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(access);
                 }
 

@@ -1,7 +1,7 @@
 use crate::{
     camera, instance, light,
     model::{self, Vertex},
-    state::{pipeline::hdr::HdrPipeline, resources},
+    state::resources,
     texture,
 };
 use gears_ecs::components;
@@ -67,7 +67,7 @@ impl BasePipeline {
         let format = wgpu::TextureFormat::Rgba16Float;
 
         let depth_texture = texture::Texture::create_depth_texture(
-            &device,
+            device,
             config.width,
             config.height,
             Some("Base::depth_texture"),
@@ -187,7 +187,7 @@ impl BasePipeline {
 
         // Construct the pipeline
         let pipeline = resources::create_render_pipeline(
-            &device,
+            device,
             &pipeline_layout,
             texture_format,
             Some(texture::Texture::DEPTH_FORMAT),
@@ -225,7 +225,7 @@ impl BasePipeline {
     /// * `height` - The new height of the texture.
     pub(crate) fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.texture = texture::Texture::create_depth_texture(
-            &device,
+            device,
             width,
             height,
             Some("Base::depth_texture"),
@@ -273,7 +273,7 @@ impl BasePipeline {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Base::render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &output,
+                view: output,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {

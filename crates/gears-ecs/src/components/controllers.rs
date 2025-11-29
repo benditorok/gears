@@ -12,7 +12,6 @@ use winit::{event::ElementState, keyboard::KeyCode};
 
 const MOVE_ACCELERATION: f32 = 15.0;
 const JUMP_FORCE: f32 = 20.0;
-const GROUND_CHECK_DISTANCE: f32 = 0.15;
 const AIR_CONTROL_FACTOR: f32 = 0.4;
 const GROUNDED_TIME_THRESHOLD: Duration = Duration::from_millis(50);
 const JUMP_COOLDOWN: Duration = Duration::from_millis(100);
@@ -179,10 +178,10 @@ impl MovementController {
             }
 
             // Check if they've been grounded long enough
-            if let Some(grounded_since) = self.grounded_time {
-                if grounded_since.elapsed() >= GROUNDED_TIME_THRESHOLD {
-                    return true;
-                }
+            if let Some(grounded_since) = self.grounded_time
+                && grounded_since.elapsed() >= GROUNDED_TIME_THRESHOLD
+            {
+                return true;
             }
         } else {
             // Not on ground, reset tracking

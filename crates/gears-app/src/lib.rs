@@ -356,6 +356,8 @@ impl ApplicationHandler for GearsApp {
             }
 
             // Initialize components
+            #[allow(clippy::await_holding_lock)]
+            // SAFETY: Lock is held across await, but we're in block_in_place + block_on, so we're not on the async executor
             if let Err(e) = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current()
                     .block_on(async { state.write().unwrap().init_components().await })
@@ -408,7 +410,7 @@ impl ApplicationHandler for GearsApp {
                     // as to avoid any potential issues with data consistency and synchronization.
                     self.run_external_systems(Arc::clone(&self.world), self.dt)
                         .await;
-                    self.run_internal_systems(Arc::clone(&self.world), Arc::clone(&state), self.dt)
+                    self.run_internal_systems(Arc::clone(&self.world), Arc::clone(state), self.dt)
                         .await;
                 })
             });
@@ -435,20 +437,16 @@ impl ApplicationHandler for GearsApp {
             None => return,
         };
 
-        match event {
-            DeviceEvent::MouseMotion { delta } => {
-                // Ignore mouse events if the app is paused
-                if state.read().unwrap().is_paused() {
-                    return;
-                }
-
-                // TODO bench for performance??
-                if let Some(view_controller) = &state.read().unwrap().view_controller() {
-                    let mut wlock_view_controller = view_controller.write().unwrap();
-                    wlock_view_controller.process_mouse(delta.0, delta.1);
-                }
+        if let DeviceEvent::MouseMotion { delta } = event {
+            // Ignore mouse events if the app is paused
+            if state.read().unwrap().is_paused() {
+                return;
             }
-            _ => {}
+
+            if let Some(view_controller) = &state.read().unwrap().view_controller() {
+                let mut wlock_view_controller = view_controller.write().unwrap();
+                wlock_view_controller.process_mouse(delta.0, delta.1);
+            }
         }
     }
 
@@ -482,14 +480,15 @@ impl ApplicationHandler for GearsApp {
                 self.mouse_pressed = *button_state == ElementState::Pressed;
 
                 // On transition from released to pressed, send shooting intent
-                if self.mouse_pressed && !was_pressed {
-                    if let Some(player_entity) = state.read().unwrap().player_entity() {
-                        let intent_sender = self.world.intent_sender();
-                        if intent_sender.send_shoot(*player_entity) {
-                            log::info!("Shooting intent sent for player entity");
-                        } else {
-                            log::warn!("Failed to send shooting intent");
-                        }
+                if self.mouse_pressed
+                    && !was_pressed
+                    && let Some(player_entity) = state.read().unwrap().player_entity()
+                {
+                    let intent_sender = self.world.intent_sender();
+                    if intent_sender.send_shoot(*player_entity) {
+                        log::info!("Shooting intent sent for player entity");
+                    } else {
+                        log::warn!("Failed to send shooting intent");
                     }
                 }
             }
@@ -525,12 +524,13 @@ impl ApplicationHandler for GearsApp {
                     self.last_render_time = now;
 
                     // Handle update errors
+                    #[allow(clippy::await_holding_lock)]
+                    // SAFETY: Lock is held across await, but we're in block_in_place + block_on, so we're not on the async executor
                     tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async {
                             if let Err(e) = state.write().unwrap().update(self.dt).await {
                                 log::error!("Update failed: {}", e);
                                 event_loop.exit();
-                                return;
                             }
                         })
                     });

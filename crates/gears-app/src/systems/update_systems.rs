@@ -83,7 +83,7 @@ pub(super) fn update_lights(
         };
 
         state.queue().write_buffer(
-            &state.base_pipeline().light_buffer(),
+            state.base_pipeline().light_buffer(),
             0,
             bytemuck::cast_slice(&[light_data]),
         );
@@ -186,11 +186,9 @@ pub(super) fn update_models(
                         // Check if we need to start a new animation
                         if wlock_animation_queue.current_animation().is_none()
                             && wlock_animation_queue.has_queued_animations()
-                        {
-                            if let Some(next_animation) = wlock_animation_queue.play_next() {
+                            && let Some(next_animation) = wlock_animation_queue.play_next() {
                                 log::info!("Starting animation: {}", next_animation);
                             }
-                        }
 
                         // Process current animation if one is playing
                         if let Some(current_anim_name) = wlock_animation_queue.current_animation() {
@@ -384,8 +382,8 @@ pub(super) fn update_physics(
                     .write::<components::physics::RigidBody<AABBCollisionBox>>(vec![entity])
                     .write::<components::transforms::Pos3>(vec![entity]);
 
-                if let Some(resources) = world.acquire_query(query) {
-                    if let (Some(physics_body), Some(pos3)) = (
+                if let Some(resources) = world.acquire_query(query)
+                    && let (Some(physics_body), Some(pos3)) = (
                         resources.get::<components::physics::RigidBody<AABBCollisionBox>>(entity),
                         resources.get::<components::transforms::Pos3>(entity),
                     ) {
@@ -401,7 +399,6 @@ pub(super) fn update_physics(
 
                         wlock_physics_body.update_pos(&mut wlock_pos3, dt_secs);
                     }
-                }
 
                 Ok(())
             })
@@ -421,8 +418,8 @@ pub(super) fn update_physics(
                     .write::<components::transforms::Pos3>(vec![entity_a, entity_b])
                     .read::<components::transforms::Scale>(vec![entity_a, entity_b]);
 
-                if let Some(resources) = world.acquire_query(query) {
-                    if let (
+                if let Some(resources) = world.acquire_query(query)
+                    && let (
                         Some(physics_body_a),
                         Some(pos3_a),
                         Some(physics_body_b),
@@ -486,7 +483,6 @@ pub(super) fn update_physics(
                             scale_vec_b.as_ref(),
                         );
                     }
-                }
             }
         }
 
@@ -499,8 +495,8 @@ pub(super) fn update_physics(
                     .read::<BufferComponent>(vec![entity])
                     .read::<Pos3>(vec![entity]);
 
-                if let Some(resources) = world.acquire_query(query) {
-                    if let (Some(instance), Some(buffer), Some(pos3)) = (
+                if let Some(resources) = world.acquire_query(query)
+                    && let (Some(instance), Some(buffer), Some(pos3)) = (
                         resources.get::<instance::Instance>(entity),
                         resources.get::<BufferComponent>(entity),
                         resources.get::<Pos3>(entity),
@@ -525,7 +521,6 @@ pub(super) fn update_physics(
                             bytemuck::cast_slice(&[instance_raw]),
                         );
                     }
-                }
 
                 Ok(())
             })

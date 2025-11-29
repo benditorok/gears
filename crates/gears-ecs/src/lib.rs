@@ -364,10 +364,10 @@ impl World {
     ///
     /// * `entity` - The entity to remove the component from.
     pub fn remove_component<T: Component>(&self, entity: Entity) {
-        if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
-            if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
-                typed_storage.remove(entity);
-            }
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>())
+            && let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>()
+        {
+            typed_storage.remove(entity);
         }
     }
 
@@ -420,14 +420,14 @@ impl World {
     ///
     /// All [`Entity`] instances that have the specified component.
     pub fn get_entities_with_component<T: Component>(&self) -> Vec<Entity> {
-        if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
-            if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
-                return typed_storage
-                    .storage
-                    .iter()
-                    .map(|entry| *entry.key())
-                    .collect();
-            }
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>())
+            && let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>()
+        {
+            return typed_storage
+                .storage
+                .iter()
+                .map(|entry| *entry.key())
+                .collect();
         }
         Vec::new()
     }
@@ -438,14 +438,14 @@ impl World {
     ///
     /// All [`Entity`] instances with their related components.
     pub fn get_entities_and_component<T: Component>(&self) -> Vec<(Entity, Arc<RwLock<T>>)> {
-        if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
-            if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
-                return typed_storage
-                    .storage
-                    .iter()
-                    .map(|entry| (*entry.key(), Arc::clone(entry.value())))
-                    .collect();
-            }
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>())
+            && let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>()
+        {
+            return typed_storage
+                .storage
+                .iter()
+                .map(|entry| (*entry.key(), Arc::clone(entry.value())))
+                .collect();
         }
         Vec::new()
     }
@@ -460,10 +460,10 @@ impl World {
     ///
     /// `true` if the entity has the component.
     pub fn has_component<T: Component>(&self, entity: Entity) -> bool {
-        if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
-            if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
-                return typed_storage.storage.contains_key(&entity);
-            }
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>())
+            && let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>()
+        {
+            return typed_storage.storage.contains_key(&entity);
         }
         false
     }

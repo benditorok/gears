@@ -213,6 +213,7 @@ impl InternalAsyncSystem {
     /// # Returns
     ///
     /// A [`SystemResult`] indicating the success or failure of the system call.
+    #[allow(unused)]
     pub async fn run(
         &self,
         world: Arc<World>,
@@ -295,12 +296,6 @@ impl Default for InternalSystemCollection {
                 internal_system("update_physics", update_systems::update_physics),
             ],
         }
-    }
-}
-
-impl InternalSystemCollection {
-    pub fn systems(&self) -> &[InternalAsyncSystem] {
-        &self.async_systems
     }
 }
 

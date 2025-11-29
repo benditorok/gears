@@ -1,23 +1,9 @@
 use wgpu::util::DeviceExt;
 
-/// Pipeline for rendering a procedural crosshair overlay.
-pub struct CrosshairPipeline {
-    /// The render pipeline for the crosshair.
-    pipeline: wgpu::RenderPipeline,
-    /// The bind group for passing screen dimensions.
-    bind_group: wgpu::BindGroup,
-    /// The bind group layout.
-    layout: wgpu::BindGroupLayout,
-    /// Uniform buffer for screen dimensions.
-    uniform_buffer: wgpu::Buffer,
-    /// Whether the crosshair is visible.
-    visible: bool,
-}
-
 /// Uniforms for the crosshair shader.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct CrosshairUniforms {
+pub(crate) struct CrosshairUniforms {
     /// The width of the screen in pixels.
     screen_width: f32,
     /// The height of the screen in pixels.
@@ -32,6 +18,23 @@ struct CrosshairUniforms {
     _padding0: [u32; 3],
     /// The RGBA color of the crosshair.
     color: [f32; 4],
+}
+
+/// Pipeline for rendering a procedural crosshair overlay.
+pub struct CrosshairPipeline {
+    /// The render pipeline for the crosshair.
+    pipeline: wgpu::RenderPipeline,
+    /// The bind group for passing screen dimensions.
+    bind_group: wgpu::BindGroup,
+    /// The bind group layout.
+    #[allow(unused)]
+    layout: wgpu::BindGroupLayout,
+    /// Uniform buffer for screen dimensions.
+    uniform_buffer: wgpu::Buffer,
+    /// The crosshair uniforms.
+    uniforms: CrosshairUniforms,
+    /// Whether the crosshair is visible.
+    visible: bool,
 }
 
 impl CrosshairPipeline {
@@ -138,6 +141,7 @@ impl CrosshairPipeline {
             bind_group,
             layout,
             uniform_buffer,
+            uniforms,
             visible: true,
         }
     }
@@ -147,29 +151,38 @@ impl CrosshairPipeline {
     /// # Arguments
     ///
     /// * `queue` - The GPU queue for buffer updates.
-    /// * `width` - Screen width.
-    /// * `height` - Screen height.
-    pub fn update_uniforms(
-        &self,
+    /// * `uniforms` - The new crosshair uniforms.
+    pub fn update_uniforms(&mut self, queue: &wgpu::Queue, uniforms: CrosshairUniforms) {
+        self.uniforms = uniforms;
+        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+    }
+
+    /// Updates the appearance settings of the crosshair.
+    ///
+    /// # Arguments
+    ///
+    /// * `queue` - The GPU queue for buffer updates.
+    /// * `gap` - The gap between the center and the start of each crosshair line.
+    /// * `length` - The length of each crosshair line.
+    /// * `thickness` - The thickness of each crosshair line.
+    /// * `color` - The RGBA color of the crosshair.
+    pub fn update_uniforms_appearance(
+        &mut self,
         queue: &wgpu::Queue,
-        width: u32,
-        height: u32,
         gap: f32,
         length: f32,
         thickness: f32,
         color: [f32; 4],
     ) {
-        let uniforms = CrosshairUniforms {
-            screen_width: width as f32,
-            screen_height: height as f32,
-            gap,
-            length,
-            thickness,
-            _padding0: [0; 3],
-            color,
-        };
-
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+        self.uniforms.gap = gap;
+        self.uniforms.length = length;
+        self.uniforms.thickness = thickness;
+        self.uniforms.color = color;
+        queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.uniforms]),
+        );
     }
 
     /// Resizes the crosshair pipeline (updates screen dimensions).
@@ -179,8 +192,10 @@ impl CrosshairPipeline {
     /// * `queue` - The GPU queue for buffer updates.
     /// * `width` - The new width in pixels.
     /// * `height` - The new height in pixels.
-    pub fn resize(&self, queue: &wgpu::Queue, width: u32, height: u32) {
-        self.update_uniforms(queue, width, height, 5.0, 15.0, 2.0, [1.0, 1.0, 1.0, 1.0]);
+    pub fn resize(&mut self, queue: &wgpu::Queue, width: u32, height: u32) {
+        self.uniforms.screen_width = width as f32;
+        self.uniforms.screen_height = height as f32;
+        self.update_uniforms(queue, self.uniforms);
     }
 
     /// Sets the visibility of the crosshair.
@@ -197,6 +212,7 @@ impl CrosshairPipeline {
     /// # Returns
     ///
     /// `true` if the crosshair is visible.
+    #[allow(unused)]
     pub fn is_visible(&self) -> bool {
         self.visible
     }
