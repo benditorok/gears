@@ -356,6 +356,8 @@ impl ApplicationHandler for GearsApp {
             }
 
             // Initialize components
+            #[allow(clippy::await_holding_lock)]
+            // SAFETY: Lock is held across await, but we're in block_in_place + block_on, so we're not on the async executor
             if let Err(e) = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current()
                     .block_on(async { state.write().unwrap().init_components().await })
@@ -522,6 +524,8 @@ impl ApplicationHandler for GearsApp {
                     self.last_render_time = now;
 
                     // Handle update errors
+                    #[allow(clippy::await_holding_lock)]
+                    // SAFETY: Lock is held across await, but we're in block_in_place + block_on, so we're not on the async executor
                     tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async {
                             if let Err(e) = state.write().unwrap().update(self.dt).await {

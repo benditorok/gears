@@ -117,10 +117,13 @@ pub(super) async fn models(
         let scale = world.get_component::<components::transforms::Scale>(*entity);
 
         let obj_model = {
-            let rlock_model_source = model_source.read().unwrap();
-            info!("Loading model: {:?}", rlock_model_source);
+            let model_source_copy = {
+                let rlock_model_source = model_source.read().unwrap();
+                info!("Loading model: {:?}", rlock_model_source);
+                *rlock_model_source
+            };
 
-            match *rlock_model_source {
+            match model_source_copy {
                 components::models::ModelSource::Obj(path) => {
                     load_model_obj(path, device, queue, texture_bind_group_layout)
                         .await
@@ -220,9 +223,12 @@ pub(super) async fn physics_models(
         let scale = world.get_component::<components::transforms::Scale>(*entity);
 
         let obj_model = {
-            let rlock_model_source = model_source.read().unwrap();
+            let model_source_copy = {
+                let rlock_model_source = model_source.read().unwrap();
+                *rlock_model_source
+            };
 
-            match *rlock_model_source {
+            match model_source_copy {
                 components::models::ModelSource::Obj(path) => {
                     load_model_obj(path, device, queue, texture_bind_group_layout)
                         .await
