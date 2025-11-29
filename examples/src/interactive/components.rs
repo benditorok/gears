@@ -3,15 +3,17 @@ use gears_app::prelude::*;
 use std::time::{Duration, Instant};
 
 #[derive(Component, Debug)]
-pub(super) struct IntelligentAI {
+pub(super) struct NPC {
     pub fsm: FiniteStateMachine<CharacterState>,
     pub pathfinding_behavior: PathfindingBehavior,
     pub target_entity: Option<Entity>,
+    #[allow(unused)]
     pub last_behavior_change: Instant,
+    #[allow(unused)]
     pub behavior_change_interval: Duration,
 }
 
-impl IntelligentAI {
+impl NPC {
     pub(super) fn new() -> Self {
         let mut fsm = FiniteStateMachine::<CharacterState>::new();
 

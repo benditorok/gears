@@ -488,7 +488,6 @@ impl AnimationClipBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::animation::{AnimationValue, Keyframe};
 
     #[test]
     fn test_clip_creation() {

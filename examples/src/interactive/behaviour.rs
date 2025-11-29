@@ -35,6 +35,7 @@ impl StateIdentifier for CharacterState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(unused)]
 pub(super) enum PathfindingBehavior {
     Pursue,   // Move towards target using A*
     Maintain, // Keep safe distance from target

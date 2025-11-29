@@ -950,7 +950,7 @@ impl Default for AnimationMixer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::animation::{AnimationClip, AnimationTarget};
+    use crate::animation::AnimationTarget;
 
     #[test]
     fn test_mixer_creation() {
