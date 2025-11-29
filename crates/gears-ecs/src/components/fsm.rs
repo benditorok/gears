@@ -417,9 +417,10 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
                 self.state_stack.push(initial_sub);
 
                 if let Some(sub_states) = self.sub_states.get_mut(&state_id)
-                    && let Some(sub_state) = sub_states.get_mut(&initial_sub) {
-                        sub_state.on_enter(&mut self.context);
-                    }
+                    && let Some(sub_state) = sub_states.get_mut(&initial_sub)
+                {
+                    sub_state.on_enter(&mut self.context);
+                }
             }
         }
     }
@@ -460,10 +461,11 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         // Exit current sub-state if exists
         if let Some(current_main) = self.current_state
             && let Some(current_sub) = self.current_sub_state
-                && let Some(sub_states) = self.sub_states.get_mut(&current_main)
-                    && let Some(sub_state) = sub_states.get_mut(&current_sub) {
-                        sub_state.on_exit(&mut self.context);
-                    }
+            && let Some(sub_states) = self.sub_states.get_mut(&current_main)
+            && let Some(sub_state) = sub_states.get_mut(&current_sub)
+        {
+            sub_state.on_exit(&mut self.context);
+        }
 
         // Exit current main state
         if let Some(current_id) = self.current_state {
@@ -491,9 +493,10 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
             self.state_stack.push(initial_sub);
 
             if let Some(sub_states) = self.sub_states.get_mut(&new_state_id)
-                && let Some(sub_state) = sub_states.get_mut(&initial_sub) {
-                    sub_state.on_enter(&mut self.context);
-                }
+                && let Some(sub_state) = sub_states.get_mut(&initial_sub)
+            {
+                sub_state.on_enter(&mut self.context);
+            }
         }
     }
 
@@ -521,9 +524,10 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
             }
             // Remove current sub-state from stack
             if let Some(last) = self.state_stack.last()
-                && *last == current_sub {
-                    self.state_stack.pop();
-                }
+                && *last == current_sub
+            {
+                self.state_stack.pop();
+            }
         }
 
         // Enter new sub-state
@@ -554,15 +558,16 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
         // Update current sub-state first (if exists)
         if let Some(current_sub) = self.current_sub_state
             && let Some(sub_states) = self.sub_states.get_mut(&current_main)
-                && let Some(sub_state) = sub_states.get_mut(&current_sub) {
-                    sub_state.on_update(&mut self.context, dt);
+            && let Some(sub_state) = sub_states.get_mut(&current_sub)
+        {
+            sub_state.on_update(&mut self.context, dt);
 
-                    // Check for sub-state transitions
-                    if let Some(next_sub_state) = sub_state.check_transitions(&self.context) {
-                        self.transition_to_sub_state(next_sub_state);
-                        return;
-                    }
-                }
+            // Check for sub-state transitions
+            if let Some(next_sub_state) = sub_state.check_transitions(&self.context) {
+                self.transition_to_sub_state(next_sub_state);
+                return;
+            }
+        }
 
         // Update current main state
         if let Some(state) = self.states.get_mut(&current_main) {
@@ -634,3 +639,480 @@ impl<S: StateIdentifier> Default for FiniteStateMachine<S> {
 
 // Manual Component implementation for generic FSM.
 impl<S: StateIdentifier> Component for FiniteStateMachine<S> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    // Test state implementations
+    #[derive(Debug)]
+    struct IdleState;
+    impl State<DefaultStateId> for IdleState {
+        fn on_enter(&mut self, context: &mut StateContext) {
+            context.set_bool("idle_entered", true);
+        }
+
+        fn on_update(&mut self, context: &mut StateContext, _dt: Duration) {
+            let count = context.get_float("update_count").unwrap_or(0.0);
+            context.set_float("update_count", count + 1.0);
+        }
+
+        fn on_exit(&mut self, context: &mut StateContext) {
+            context.set_bool("idle_exited", true);
+        }
+
+        fn check_transitions(&self, context: &StateContext) -> Option<DefaultStateId> {
+            if context.get_bool("should_attack").unwrap_or(false) {
+                Some(DefaultStateId::Attack)
+            } else {
+                None
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct AttackState;
+    impl State<DefaultStateId> for AttackState {
+        fn on_enter(&mut self, context: &mut StateContext) {
+            context.set_bool("attack_entered", true);
+        }
+
+        fn on_exit(&mut self, context: &mut StateContext) {
+            context.set_bool("attack_exited", true);
+        }
+    }
+
+    #[derive(Debug)]
+    struct SubStateWander;
+    impl State<DefaultStateId> for SubStateWander {
+        fn on_enter(&mut self, context: &mut StateContext) {
+            context.set_bool("wander_entered", true);
+        }
+
+        fn check_transitions(&self, context: &StateContext) -> Option<DefaultStateId> {
+            if context.get_bool("should_watch").unwrap_or(false) {
+                Some(DefaultStateId::IdleWatch)
+            } else {
+                None
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct SubStateWatch;
+    impl State<DefaultStateId> for SubStateWatch {
+        fn on_enter(&mut self, context: &mut StateContext) {
+            context.set_bool("watch_entered", true);
+        }
+    }
+
+    #[test]
+    fn test_fsm_creation() {
+        let fsm: FiniteStateMachine<DefaultStateId> = FiniteStateMachine::new();
+        assert!(fsm.current_state().is_none());
+        assert!(fsm.is_enabled());
+    }
+
+    #[test]
+    fn test_fsm_default() {
+        let fsm: FiniteStateMachine<DefaultStateId> = FiniteStateMachine::default();
+        assert!(fsm.current_state().is_none());
+        assert!(fsm.is_enabled());
+    }
+
+    #[test]
+    fn test_add_and_set_initial_state() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.current_state(), Some(DefaultStateId::Idle));
+        assert_eq!(fsm.context().get_bool("idle_entered"), Some(true));
+    }
+
+    #[test]
+    fn test_state_transition() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_state(DefaultStateId::Attack, Box::new(AttackState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.current_state(), Some(DefaultStateId::Idle));
+
+        fsm.transition_to(DefaultStateId::Attack);
+
+        assert_eq!(fsm.current_state(), Some(DefaultStateId::Attack));
+        assert_eq!(fsm.context().get_bool("idle_exited"), Some(true));
+        assert_eq!(fsm.context().get_bool("attack_entered"), Some(true));
+    }
+
+    #[test]
+    fn test_previous_state_tracking() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_state(DefaultStateId::Attack, Box::new(AttackState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.previous_state(), None);
+
+        fsm.transition_to(DefaultStateId::Attack);
+
+        assert_eq!(fsm.previous_state(), Some(DefaultStateId::Idle));
+    }
+
+    #[test]
+    fn test_state_stack() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        let stack = fsm.state_stack();
+        assert_eq!(stack.len(), 1);
+        assert_eq!(stack[0], DefaultStateId::Idle);
+    }
+
+    #[test]
+    fn test_update_calls_on_update() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        fsm.update(Duration::from_millis(16));
+
+        assert_eq!(fsm.context().get_float("update_count"), Some(1.0));
+
+        fsm.update(Duration::from_millis(16));
+
+        assert_eq!(fsm.context().get_float("update_count"), Some(2.0));
+    }
+
+    #[test]
+    fn test_automatic_transition_from_check_transitions() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_state(DefaultStateId::Attack, Box::new(AttackState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.current_state(), Some(DefaultStateId::Idle));
+
+        // Set trigger for transition
+        fsm.context_mut().set_bool("should_attack", true);
+        fsm.update(Duration::from_millis(16));
+
+        // Should have automatically transitioned
+        assert_eq!(fsm.current_state(), Some(DefaultStateId::Attack));
+    }
+
+    #[test]
+    fn test_enable_disable() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert!(fsm.is_enabled());
+
+        fsm.set_enabled(false);
+        assert!(!fsm.is_enabled());
+
+        // Update should not call on_update when disabled
+        fsm.update(Duration::from_millis(16));
+        assert_eq!(fsm.context().get_float("update_count"), None);
+
+        fsm.set_enabled(true);
+        fsm.update(Duration::from_millis(16));
+        assert_eq!(fsm.context().get_float("update_count"), Some(1.0));
+    }
+
+    #[test]
+    fn test_sub_states() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWander,
+            Box::new(SubStateWander),
+        );
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWatch,
+            Box::new(SubStateWatch),
+        );
+        fsm.set_initial_sub_state(DefaultStateId::Idle, DefaultStateId::IdleWander);
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.current_state(), Some(DefaultStateId::Idle));
+        assert_eq!(fsm.current_sub_state(), Some(DefaultStateId::IdleWander));
+        assert_eq!(fsm.context().get_bool("wander_entered"), Some(true));
+
+        // Check state stack has both main and sub state
+        let stack = fsm.state_stack();
+        assert_eq!(stack.len(), 2);
+        assert_eq!(stack[0], DefaultStateId::Idle);
+        assert_eq!(stack[1], DefaultStateId::IdleWander);
+    }
+
+    #[test]
+    fn test_sub_state_transition() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWander,
+            Box::new(SubStateWander),
+        );
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWatch,
+            Box::new(SubStateWatch),
+        );
+        fsm.set_initial_sub_state(DefaultStateId::Idle, DefaultStateId::IdleWander);
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.current_sub_state(), Some(DefaultStateId::IdleWander));
+
+        fsm.transition_to_sub_state(DefaultStateId::IdleWatch);
+
+        assert_eq!(fsm.current_sub_state(), Some(DefaultStateId::IdleWatch));
+        assert_eq!(fsm.current_state(), Some(DefaultStateId::Idle)); // Main state unchanged
+        assert_eq!(fsm.context().get_bool("watch_entered"), Some(true));
+    }
+
+    #[test]
+    fn test_automatic_sub_state_transition() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWander,
+            Box::new(SubStateWander),
+        );
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWatch,
+            Box::new(SubStateWatch),
+        );
+        fsm.set_initial_sub_state(DefaultStateId::Idle, DefaultStateId::IdleWander);
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.current_sub_state(), Some(DefaultStateId::IdleWander));
+
+        // Trigger sub-state transition
+        fsm.context_mut().set_bool("should_watch", true);
+        fsm.update(Duration::from_millis(16));
+
+        assert_eq!(fsm.current_sub_state(), Some(DefaultStateId::IdleWatch));
+    }
+
+    #[test]
+    fn test_main_state_transition_exits_sub_state() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_state(DefaultStateId::Attack, Box::new(AttackState));
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWander,
+            Box::new(SubStateWander),
+        );
+        fsm.set_initial_sub_state(DefaultStateId::Idle, DefaultStateId::IdleWander);
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.current_sub_state(), Some(DefaultStateId::IdleWander));
+
+        fsm.transition_to(DefaultStateId::Attack);
+
+        // Sub-state should be cleared when transitioning main state
+        assert_eq!(fsm.current_sub_state(), None);
+        assert_eq!(fsm.current_state(), Some(DefaultStateId::Attack));
+    }
+
+    #[test]
+    fn test_state_context_float() {
+        let mut context = StateContext::new();
+        context.set_float("health", 100.0);
+        assert_eq!(context.get_float("health"), Some(100.0));
+
+        context.set_float("health", 75.5);
+        assert_eq!(context.get_float("health"), Some(75.5));
+
+        assert_eq!(context.get_float("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_state_context_bool() {
+        let mut context = StateContext::new();
+        context.set_bool("is_alive", true);
+        assert_eq!(context.get_bool("is_alive"), Some(true));
+
+        context.set_bool("is_alive", false);
+        assert_eq!(context.get_bool("is_alive"), Some(false));
+
+        assert_eq!(context.get_bool("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_state_context_vector3() {
+        let mut context = StateContext::new();
+        let position = cgmath::Vector3::new(1.0, 2.0, 3.0);
+        context.set_vector3("position", position);
+        assert_eq!(context.get_vector3("position"), Some(position));
+
+        assert_eq!(context.get_vector3("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_state_context_type_mismatch() {
+        let mut context = StateContext::new();
+        context.set_float("value", 42.0);
+
+        // Trying to get as bool should return None
+        assert_eq!(context.get_bool("value"), None);
+        // Should still work as float
+        assert_eq!(context.get_float("value"), Some(42.0));
+    }
+
+    #[test]
+    fn test_default_state_id_as_str() {
+        assert_eq!(DefaultStateId::Idle.as_str(), "idle");
+        assert_eq!(DefaultStateId::Attack.as_str(), "attack");
+        assert_eq!(DefaultStateId::IdleWander.as_str(), "idle_wander");
+        assert_eq!(DefaultStateId::AttackStrike.as_str(), "attack_strike");
+    }
+
+    #[test]
+    fn test_default_state_id_display() {
+        assert_eq!(format!("{}", DefaultStateId::Idle), "idle");
+        assert_eq!(format!("{}", DefaultStateId::Attack), "attack");
+    }
+
+    #[test]
+    fn test_default_state_id_is_main_state() {
+        assert!(DefaultStateId::Idle.is_main_state());
+        assert!(DefaultStateId::Attack.is_main_state());
+        assert!(DefaultStateId::Defend.is_main_state());
+        assert!(DefaultStateId::Escape.is_main_state());
+
+        assert!(!DefaultStateId::IdleWander.is_main_state());
+        assert!(!DefaultStateId::AttackStrike.is_main_state());
+    }
+
+    #[test]
+    fn test_default_state_id_is_sub_state_of() {
+        assert!(DefaultStateId::IdleWander.is_sub_state_of(DefaultStateId::Idle));
+        assert!(DefaultStateId::IdleWatch.is_sub_state_of(DefaultStateId::Idle));
+        assert!(DefaultStateId::AttackStrike.is_sub_state_of(DefaultStateId::Attack));
+
+        assert!(!DefaultStateId::IdleWander.is_sub_state_of(DefaultStateId::Attack));
+        assert!(!DefaultStateId::Idle.is_sub_state_of(DefaultStateId::Idle));
+    }
+
+    #[test]
+    fn test_transition_to_nonexistent_state_does_nothing() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        let initial_state = fsm.current_state();
+
+        // Try to transition to a state that wasn't added
+        fsm.transition_to(DefaultStateId::Attack);
+
+        // Should remain in the same state
+        assert_eq!(fsm.current_state(), initial_state);
+    }
+
+    #[test]
+    fn test_set_initial_sub_state_validates_existence() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+
+        // Try to set initial sub-state without adding it first
+        fsm.set_initial_sub_state(DefaultStateId::Idle, DefaultStateId::IdleWander);
+
+        // When we set the initial state, no sub-state should be entered
+        fsm.set_initial_state(DefaultStateId::Idle);
+        assert_eq!(fsm.current_sub_state(), None);
+    }
+
+    #[test]
+    fn test_context_time_in_state_updates() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        // Initially should be zero
+        assert!(fsm.context().time_in_state < Duration::from_millis(10));
+
+        // Small delay to ensure time passes
+        std::thread::sleep(Duration::from_millis(10));
+
+        fsm.update(Duration::from_millis(16));
+
+        // Time should have increased
+        assert!(fsm.context().time_in_state >= Duration::from_millis(10));
+    }
+
+    #[test]
+    fn test_context_mut_and_context() {
+        let mut fsm: FiniteStateMachine<DefaultStateId> = FiniteStateMachine::new();
+
+        // Test mutable access
+        fsm.context_mut().set_float("test", 42.0);
+
+        // Test read-only access
+        assert_eq!(fsm.context().get_float("test"), Some(42.0));
+    }
+
+    #[test]
+    fn test_state_stack_with_sub_states() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWander,
+            Box::new(SubStateWander),
+        );
+        fsm.set_initial_sub_state(DefaultStateId::Idle, DefaultStateId::IdleWander);
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        let stack = fsm.state_stack();
+        assert_eq!(stack.len(), 2);
+        assert_eq!(stack[0], DefaultStateId::Idle);
+        assert_eq!(stack[1], DefaultStateId::IdleWander);
+
+        // Transition to different sub-state
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWatch,
+            Box::new(SubStateWatch),
+        );
+        fsm.transition_to_sub_state(DefaultStateId::IdleWatch);
+
+        let stack = fsm.state_stack();
+        assert_eq!(stack.len(), 2);
+        assert_eq!(stack[0], DefaultStateId::Idle);
+        assert_eq!(stack[1], DefaultStateId::IdleWatch);
+    }
+
+    #[test]
+    fn test_transition_clears_state_stack() {
+        let mut fsm = FiniteStateMachine::new();
+        fsm.add_state(DefaultStateId::Idle, Box::new(IdleState));
+        fsm.add_state(DefaultStateId::Attack, Box::new(AttackState));
+        fsm.add_sub_state(
+            DefaultStateId::Idle,
+            DefaultStateId::IdleWander,
+            Box::new(SubStateWander),
+        );
+        fsm.set_initial_sub_state(DefaultStateId::Idle, DefaultStateId::IdleWander);
+        fsm.set_initial_state(DefaultStateId::Idle);
+
+        assert_eq!(fsm.state_stack().len(), 2);
+
+        fsm.transition_to(DefaultStateId::Attack);
+
+        // Stack should only have the new main state
+        assert_eq!(fsm.state_stack().len(), 1);
+        assert_eq!(fsm.state_stack()[0], DefaultStateId::Attack);
+    }
+}
