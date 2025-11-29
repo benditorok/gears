@@ -73,22 +73,22 @@ async fn main() -> EngineResult<()> {
 
                 ui.separator();
                 ui.label("Controls:");
-                ui.label("• WASD - Move player");
-                ui.label("• Mouse - Look around");
-                ui.label("• Space - Jump");
-                ui.label("• Left Click - Shoot");
-                ui.label("• Alt - Toggle cursor grab");
-                ui.label("• F1 - Toggle debug wireframes");
-                ui.label("• Esc - Pause");
+                ui.label("WASD - Move player");
+                ui.label("Mouse - Look around");
+                ui.label("Space - Jump");
+                ui.label("Left Click - Shoot");
+                ui.label("Alt - Toggle cursor grab");
+                ui.label("F1 - Toggle debug wireframes");
+                ui.label("Esc - Pause");
 
                 ui.separator();
                 ui.label("AI Behaviors:");
-                ui.label("• Idle: Random wandering");
-                ui.label("• Attack: Pursue and strike player");
-                ui.label("• Defend: Maintain safe distance");
-                ui.label("• Escape: Flee opposite direction (HP < 30)");
-                ui.label("• AI use A* pathfinding to navigate");
-                ui.label("• Obstacles dynamically block paths");
+                ui.label("Idle: Random wandering");
+                ui.label("Attack: Pursue and strike player");
+                ui.label("Defend: Maintain safe distance");
+                ui.label("Escape: Flee opposite direction (HP < 30)");
+                ui.label("AI use A* pathfinding to navigate");
+                ui.label("Obstacles dynamically block paths");
             });
     }));
 
@@ -130,34 +130,6 @@ async fn main() -> EngineResult<()> {
         Weapon::new(15.0),
     );
 
-    // // Generate random obstacles
-    // let mut rng = rand::rng();
-    // let num_obstacles = rng.random_range(20..35);
-
-    // for i in 0..num_obstacles {
-    //     // Generate random position within a reasonable range
-    //     let x: f32 = rng.random_range(-40.0..40.0);
-    //     let z: f32 = rng.random_range(-40.0..40.0);
-
-    //     // Avoid spawning too close to center where player starts
-    //     if x.abs() < 5.0 && z.abs() < 5.0 {
-    //         continue;
-    //     }
-
-    //     new_entity!(
-    //         app,
-    //         RigidBodyMarker,
-    //         ObstacleMarker,
-    //         Name(Box::leak(format!("Obstacle_{}", i + 1).into_boxed_str())),
-    //         Pos3::new(Vector3::new(x, 1.0, z)),
-    //         RigidBody::new_static(AABBCollisionBox {
-    //             min: Vector3::new(-1.0, -1.0, -1.0),
-    //             max: Vector3::new(1.0, 1.0, 1.0),
-    //         }),
-    //         ModelSource::Obj("models/cube/cube.obj"),
-    //     );
-    // }
-
     // Create 8 AI entities with colors from the palette
     let positions = vec![
         Vector3::new(-30.0, 5.0, -30.0),
@@ -172,7 +144,7 @@ async fn main() -> EngineResult<()> {
 
     for (i, pos) in positions.into_iter().enumerate() {
         let color_name = colors[i % colors.len()];
-        let mut intelligent_ai = IntelligentAI::new();
+        let mut intelligent_ai = NPC::new();
         intelligent_ai.target_entity = Some(player);
 
         let mut pathfinding = PathfindingComponent::new(Vector3::new(0.0, 1.0, 0.0), 25.0, 2.0);
@@ -235,7 +207,7 @@ async fn main() -> EngineResult<()> {
 
             for &entity in ai_entities.iter() {
                 let query = ComponentQuery::new()
-                    .write::<IntelligentAI>(vec![entity])
+                    .write::<NPC>(vec![entity])
                     .read::<Pos3>(vec![entity])
                     .write::<PathfindingComponent>(vec![entity])
                     .read::<Health>(vec![entity])
@@ -249,7 +221,7 @@ async fn main() -> EngineResult<()> {
                         Some(health_component),
                         Some(light_component),
                     ) = (
-                        resources.get::<IntelligentAI>(entity),
+                        resources.get::<NPC>(entity),
                         resources.get::<Pos3>(entity),
                         resources.get::<PathfindingComponent>(entity),
                         resources.get::<Health>(entity),
