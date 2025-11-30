@@ -44,10 +44,6 @@ pub(super) enum PathfindingBehavior {
     Guard,    // Stay in area
 }
 
-// ================================
-// FSM STATE IMPLEMENTATIONS
-// ================================
-
 #[derive(Debug)]
 pub(super) struct IdleState;
 

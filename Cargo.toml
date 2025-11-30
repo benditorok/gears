@@ -21,6 +21,7 @@ keywords = ["game engine"]
 license = ""
 authors = ["benditorok"]
 edition = "2024"
+rust-version = "1.89"
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
