@@ -1,0 +1,11 @@
+Model Information:
+* title:	_SK_ Mannequin
+* source:	https://sketchfab.com/3d-models/sk--mannequin-0deb3df46b184fd081adce7735dd37a1
+* author:	CDXScoder (https://sketchfab.com/CDXScoder)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "_SK_ Mannequin" (https://sketchfab.com/3d-models/sk--mannequin-0deb3df46b184fd081adce7735dd37a1) by CDXScoder (https://sketchfab.com/CDXScoder) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

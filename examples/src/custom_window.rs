@@ -1,11 +1,11 @@
-use cgmath::{Euler, Quaternion, Rad, Rotation3};
+use cgmath::{Euler, Quaternion, Rad};
 use egui::Align2;
-use gears::prelude::*;
+use gears_app::prelude::*;
 use log::LevelFilter;
-use std::sync::mpsc;
+use std::sync::{Arc, Mutex, mpsc};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> EngineResult<()> {
     // Initialize the logger
     let mut env_builder = env_logger::Builder::new();
     env_builder.filter_level(LevelFilter::Info);
@@ -14,7 +14,6 @@ async fn main() -> anyhow::Result<()> {
 
     let mut app = GearsApp::default();
 
-    // ! Entities
     // Add fixed camera
     new_entity!(
         app,
@@ -29,50 +28,58 @@ async fn main() -> anyhow::Result<()> {
         )
     );
 
-    // Use the entity builder
-    app.new_entity() // Add ambient light
-        .add_component(LightMarker)
-        .add_component(Name("Ambient Light"))
-        .add_component(Light::Ambient { intensity: 0.05 })
-        .add_component(Pos3::new(cgmath::Vector3::new(0.0, 50.0, 0.0)))
-        .new_entity() // Add directional light
-        .add_component(LightMarker)
-        .add_component(Name("Directional Light"))
-        .add_component(Light::Directional {
+    // Add ambient light
+    new_entity!(
+        app,
+        LightMarker,
+        Name("Ambient Light"),
+        Light::Ambient { intensity: 0.1 },
+        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0))
+    );
+
+    // Add directional light
+    new_entity!(
+        app,
+        LightMarker,
+        Name("Directional Light"),
+        Light::Directional {
             direction: [-0.5, -0.5, 0.0],
-            intensity: 0.3,
-        })
-        .add_component(Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0)))
-        .new_entity() // Add a green light
-        .add_component(LightMarker)
-        .add_component(Name("Green Light"))
-        .add_component(Light::PointColoured {
+            intensity: 0.6,
+        },
+        Pos3::new(cgmath::Vector3::new(30.0, 30.0, 30.0,))
+    );
+
+    // Add a green light
+    new_entity!(
+        app,
+        LightMarker,
+        Name("Green Light"),
+        Light::PointColoured {
             radius: 10.0,
             color: [0.0, 0.8, 0.0],
             intensity: 0.6,
-        })
-        .add_component(Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)))
-        .build();
+        },
+        Pos3::new(cgmath::Vector3::new(-4.0, 4.0, 4.0)),
+    );
 
     // Add a sphere and get the Entity for reference
-    let sphere_entity = new_entity!(
+    let sphere = new_entity!(
         app,
         StaticModelMarker,
         Name("Sphere1"),
         ModelSource::Obj("models/sphere/sphere.obj"),
-        Pos3::new(cgmath::Vector3::new(0.0, 0.0, 0.0)),
+        Pos3::default(),
     );
 
-    // ! Custom windows
-    // Informations about the renderer
+    // Custom window to get informations about the renderer
     let (w1_frame_tx, w1_frame_rx) = mpsc::channel::<Dt>();
     app.add_window(Box::new(move |ui| {
-        egui::Window::new("Renderer info")
+        egui::Window::new("Renderer Info")
             .default_open(true)
-            .max_width(1000.0)
-            .max_height(800.0)
-            .default_width(800.0)
-            .resizable(true)
+            .max_width(200.0)
+            .max_height(600.0)
+            .default_width(200.0)
+            .resizable(false)
             .anchor(Align2::RIGHT_TOP, [0.0, 0.0])
             .show(ui, |ui| {
                 if let Ok(dt) = w1_frame_rx.try_recv() {
@@ -83,73 +90,77 @@ async fn main() -> anyhow::Result<()> {
             });
     }));
 
-    // Move the object around
-    let cw_ecs = app.get_ecs();
+    // Custom window to move the object around
+    let sphere_pos_modified = Arc::new(Mutex::new(Pos3::default()));
+    let w2_sphere_pos_modified = sphere_pos_modified.clone();
     app.add_window(Box::new(move |ui| {
         egui::Window::new("Sphere")
             .default_open(true)
-            .max_width(1000.0)
-            .max_height(800.0)
-            .default_width(800.0)
-            .resizable(true)
+            .max_width(300.0)
+            .max_height(600.0)
+            .resizable(false)
             .anchor(Align2::LEFT_TOP, [0.0, 0.0])
             .show(ui, |ui| {
-                if let Some(sphere) = cw_ecs
-                    .lock()
-                    .unwrap()
-                    .get_component_from_entity::<components::transforms::Pos3>(sphere_entity)
-                {
-                    let mut wlock_sphere = sphere.write().unwrap();
-                    ui.label("Position");
-                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.x, -10.0..=10.0));
-                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.y, -10.0..=10.0));
-                    ui.add(egui::Slider::new(&mut wlock_sphere.pos.z, -10.0..=10.0));
-                    ui.label("Rotation");
-                    let euler = Euler::from(wlock_sphere.rot);
-                    let mut pitch = euler.x.0;
-                    let mut yaw = euler.y.0;
-                    let mut roll = euler.z.0;
+                let mut wlock_sphere_pos = w2_sphere_pos_modified.lock().unwrap();
+                ui.label("Position");
+                ui.add(egui::Slider::new(&mut wlock_sphere_pos.pos.x, -10.0..=10.0));
+                ui.add(egui::Slider::new(&mut wlock_sphere_pos.pos.y, -10.0..=10.0));
+                ui.add(egui::Slider::new(&mut wlock_sphere_pos.pos.z, -10.0..=10.0));
+                ui.label("Rotation");
+                let euler = Euler::from(wlock_sphere_pos.rot);
+                let mut pitch = euler.x.0;
+                let mut yaw = euler.y.0;
+                let mut roll = euler.z.0;
 
-                    ui.add(
-                        egui::Slider::new(&mut pitch, -std::f32::consts::PI..=std::f32::consts::PI)
-                            .text("Pitch"),
-                    );
-                    ui.add(
-                        egui::Slider::new(&mut yaw, -std::f32::consts::PI..=std::f32::consts::PI)
-                            .text("Yaw"),
-                    );
-                    ui.add(
-                        egui::Slider::new(&mut roll, -std::f32::consts::PI..=std::f32::consts::PI)
-                            .text("Roll"),
-                    );
+                ui.add(
+                    egui::Slider::new(&mut pitch, -std::f32::consts::PI..=std::f32::consts::PI)
+                        .text("Pitch"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut yaw, -std::f32::consts::PI..=std::f32::consts::PI)
+                        .text("Yaw"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut roll, -std::f32::consts::PI..=std::f32::consts::PI)
+                        .text("Roll"),
+                );
 
-                    wlock_sphere.rot = Quaternion::from(Euler {
-                        x: Rad(pitch),
-                        y: Rad(yaw),
-                        z: Rad(roll),
-                    });
+                wlock_sphere_pos.rot = Quaternion::from(Euler {
+                    x: Rad(pitch),
+                    y: Rad(yaw),
+                    z: Rad(roll),
+                });
+
+                if ui.button("Reset").clicked() {
+                    *wlock_sphere_pos = Pos3::default();
                 }
+
                 ui.end_row();
             });
     }));
 
-    // Use the update loop to spin the sphere
-    app.update_loop(move |ecs, dt| {
-        // Send the frame time to the custom window
-        w1_frame_tx.send(dt).unwrap();
+    // Create a system to handle the sphere position updates from the UI
+    async_system!(
+        app,
+        "handle_ui_modifications",
+        (w1_frame_tx, sphere_pos_modified), // Clone variables to move into the closure
+        |world, dt| {
+            w1_frame_tx
+                .send(dt)
+                .map_err(|_| SystemError::Other("Failed to send dt.".into()))?;
 
-        let ecs = ecs.lock().unwrap();
-        let spin_speed = 0.5f32;
+            if let Some(pos3) = world.get_component::<Pos3>(sphere) {
+                let mut wlock_pos3 = pos3.write().unwrap();
+                let ui_modified_pos3 = sphere_pos_modified.lock().unwrap();
 
-        if let Some(static_model) = ecs.get_component_from_entity::<Pos3>(sphere_entity) {
-            let mut wlock_static_model = static_model.write().unwrap();
-
-            let rotation = wlock_static_model.rot;
-            wlock_static_model.rot =
-                Quaternion::from_angle_y(cgmath::Rad(dt.as_secs_f32() * spin_speed)) * rotation;
+                if *wlock_pos3 != *ui_modified_pos3 {
+                    *wlock_pos3 = *ui_modified_pos3;
+                }
+            }
+            Ok(())
         }
-    })
-    .await?;
+    );
 
-    app.run().await
+    // Run the application
+    app.run()
 }

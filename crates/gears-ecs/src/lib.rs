@@ -1,0 +1,617 @@
+//! Entity Component System implementation for the gears engine.
+
+#![forbid(unsafe_code)]
+
+pub mod components;
+pub mod intents;
+pub mod query;
+pub mod utils;
+
+use dashmap::DashMap;
+use intents::{IntentSender, create_intent_channel};
+use log::debug;
+use std::any::{Any, TypeId};
+use std::fmt::Debug;
+use std::ops::Deref;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
+
+/// The EntityBuilder trait is responsible for creating entities and adding components to them.
+pub trait EntityBuilder {
+    /// Creates a new entity.
+    ///
+    /// # Returns
+    ///
+    /// The instance of [`EntityBuilder`] so that chainable methods can be called.
+    fn new_entity(&mut self) -> &mut Self;
+
+    /// Adds a component to the last created entity.
+    ///
+    /// # Returns
+    ///
+    /// The instance of [`EntityBuilder`] so that chainable methods can be called.
+    fn add_component(&mut self, component: impl Component) -> &mut Self;
+
+    /// Close the chainable methods to the current entity.
+    ///
+    /// # Returns
+    ///
+    /// The last created [`Entity`].
+    fn build(&mut self) -> Entity;
+}
+
+/// A component marker that can be attached to an entity.
+pub trait Component: Send + Sync + Any + Debug {}
+
+impl Component for Box<dyn Component> {}
+
+/// An entity is a unique identifier that can be attached to components.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Entity(u32);
+
+impl Entity {
+    /// Create a new entity.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The Id of the entity.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Entity`] instance.
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+}
+
+impl Deref for Entity {
+    type Target = u32;
+
+    /// Get the identifier of the entity.
+    ///
+    /// # Returns
+    ///
+    /// The Id of the entity.
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<u32> for Entity {
+    /// Create a new entity from a raw identifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The Id of the entity.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Entity`] instance.
+    fn from(id: u32) -> Self {
+        Self(id)
+    }
+}
+
+/// The component storage is responsible for storing components of a specific type.
+/// It uses a `DashMap` to store the components, which allows for concurrent reads and writes.
+/// The components are stored in an `Arc<RwLock<T>>` to allow for multiple reads or a single write.
+struct ComponentStorage<T> {
+    /// The storage for the components.
+    storage: DashMap<Entity, Arc<RwLock<T>>>,
+}
+
+impl<T: Component> Default for ComponentStorage<T> {
+    /// Create a new component storage with a default capacity of 11.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ComponentStorage`] instance.
+    fn default() -> Self {
+        Self {
+            storage: DashMap::with_capacity(11),
+        }
+    }
+}
+
+impl<T: Component> ComponentStorage<T> {
+    /// Create a new component storage.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ComponentStorage`] instance.
+    fn new() -> Self {
+        Self {
+            storage: DashMap::new(),
+        }
+    }
+
+    /// Create a new component storage with a specified initial capacity.
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity` - The capacity of the storage.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ComponentStorage`] instance.
+    #[allow(unused)]
+    fn new_with_capacity(capacity: usize) -> Self {
+        Self {
+            storage: DashMap::with_capacity(capacity),
+        }
+    }
+
+    /// Insert a component into the storage.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to associate the component with.
+    fn insert(&self, entity: Entity, component: T) {
+        self.storage
+            .insert(entity, Arc::new(RwLock::new(component)));
+    }
+
+    /// Get a reference to a component.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to get the component for.
+    ///
+    /// # Returns
+    ///
+    /// An [`Arc<RwLock<T>>`] instance if the component exists, otherwise `None`.
+    fn get(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
+        self.storage
+            .get(&entity)
+            .map(|component| Arc::clone(&component))
+    }
+
+    /// Remove a component from the storage.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to remove the component for.
+    fn remove(&self, entity: Entity) {
+        self.storage.remove(&entity);
+    }
+}
+
+/// Unique identifier for a query request.
+pub type QueryId = u64;
+
+/// The World struct is the main entry point for the ECS system.
+/// It is responsible for creating entities and storing components.
+pub struct World {
+    /// The Id to be assigned for the next entity.
+    next_entity: AtomicU32,
+    /// The storage for components and the entities.
+    storage: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    /// Active accesses to resources.
+    pub(crate) active_accesses: DashMap<(Entity, TypeId), Vec<query::ResourceAccess>>,
+    /// The next query identifier.
+    pub(crate) next_query_id: AtomicU64,
+    /// Intent sender for sending intents to the application event loop.
+    intent_sender: IntentSender,
+}
+
+impl Default for World {
+    /// Create a new world with a default capacity.
+    ///
+    /// # Returns
+    ///
+    /// A new [`World`] instance.
+    fn default() -> Self {
+        let (intent_sender, _) = create_intent_channel();
+        Self {
+            next_entity: AtomicU32::new(0),
+            storage: DashMap::with_capacity(47),
+            active_accesses: DashMap::with_capacity(97),
+            next_query_id: AtomicU64::new(0),
+            intent_sender,
+        }
+    }
+}
+
+impl World {
+    /// Create a new world with zero capacity storages..
+    ///
+    /// # Returns
+    ///
+    /// A new [`World`] instance.
+    pub fn new() -> Self {
+        let (intent_sender, _) = create_intent_channel();
+        Self {
+            next_entity: AtomicU32::new(0),
+            storage: DashMap::new(),
+            active_accesses: DashMap::new(),
+            next_query_id: AtomicU64::new(0),
+            intent_sender,
+        }
+    }
+
+    /// Create a new world with a specified initial capacity.
+    ///
+    /// # Returns
+    ///
+    /// A new [`World`] instance.
+    pub fn with_capacity(capacity: u32) -> Self {
+        let (intent_sender, _) = create_intent_channel();
+        Self {
+            next_entity: AtomicU32::new(0),
+            storage: DashMap::with_capacity(capacity as usize),
+            active_accesses: DashMap::new(),
+            next_query_id: AtomicU64::new(0),
+            intent_sender,
+        }
+    }
+
+    /// Create a new world with a provided intent sender.
+    ///
+    /// # Arguments
+    ///
+    /// * `intent_sender` - The intent sender to use for this world.
+    ///
+    /// # Returns
+    ///
+    /// A new [`World`] instance.
+    pub fn new_with_intent_sender(intent_sender: IntentSender) -> Self {
+        Self {
+            next_entity: AtomicU32::new(0),
+            storage: DashMap::new(),
+            active_accesses: DashMap::new(),
+            next_query_id: AtomicU64::new(0),
+            intent_sender,
+        }
+    }
+
+    /// Create a new world with a provided intent sender and specified capacity.
+    ///
+    /// # Arguments
+    ///
+    /// * `intent_sender` - The intent sender to use for this world.
+    /// * `capacity` - Initial capacity for the world storage.
+    ///
+    /// # Returns
+    ///
+    /// A new [`World`] instance.
+    pub fn new_with_intent_sender_and_capacity(intent_sender: IntentSender, capacity: u32) -> Self {
+        Self {
+            next_entity: AtomicU32::new(0),
+            storage: DashMap::with_capacity(capacity as usize),
+            active_accesses: DashMap::new(),
+            next_query_id: AtomicU64::new(0),
+            intent_sender,
+        }
+    }
+
+    /// Get a reference to the intent sender.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`IntentSender`] for sending intents.
+    pub fn intent_sender(&self) -> &IntentSender {
+        &self.intent_sender
+    }
+
+    /// Get the number of entities with components stored.
+    ///
+    /// # Returns
+    ///
+    /// The number of entities with components stored.
+    pub fn storage_len(&self) -> usize {
+        self.storage.len()
+    }
+
+    /// Get the Id of the last entity created.
+    ///
+    /// # Returns
+    ///
+    /// An [`Entity`] instance if it exists.
+    pub fn get_last(&self) -> Option<Entity> {
+        self.next_entity
+            .load(Ordering::SeqCst)
+            .checked_sub(1)
+            .map(|id| id.into())
+    }
+
+    /// Create a new entity.
+    ///
+    /// # Returns
+    ///
+    /// A new [`Entity`] instance.
+    pub fn create_entity(&self) -> Entity {
+        self.next_entity.fetch_add(1, Ordering::SeqCst).into()
+    }
+
+    /// Remove an entity from the world with all of its components.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to remove.
+    pub fn remove_entity(&self, entity: Entity) {
+        for entry in self.storage.iter() {
+            let storage = entry.value();
+            if let Some(typed_storage) =
+                storage.downcast_ref::<ComponentStorage<Box<dyn Component>>>()
+            {
+                typed_storage.remove(entity);
+            }
+        }
+    }
+
+    /// Add a component to an entity. If no storage exists for the component type,
+    /// a new storage will be created.
+    ///
+    /// If a component of the same type already exists, it will be overwritten.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to add the component to.
+    /// * `component` - The component to add.
+    pub fn add_component<T: Component>(&self, entity: Entity, component: T) {
+        let type_id = TypeId::of::<T>();
+        let entry = self.storage.entry(type_id).or_insert_with(|| {
+            Arc::new(ComponentStorage::<T>::new()) as Arc<dyn Any + Send + Sync>
+        });
+        // Downcast to the correct storage type
+        let typed_storage = entry.downcast_ref::<ComponentStorage<T>>().unwrap();
+        typed_storage.insert(entity, component);
+    }
+
+    /// Remove a component from an entity.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to remove the component from.
+    pub fn remove_component<T: Component>(&self, entity: Entity) {
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>())
+            && let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>()
+        {
+            typed_storage.remove(entity);
+        }
+    }
+
+    /// Get a mutable reference to a component.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to get the component for.
+    ///
+    /// # Returns
+    ///
+    /// An [`Arc<RwLock<T>>`] instance if it exists.
+    pub fn get_component<T: Component>(&self, entity: Entity) -> Option<Arc<RwLock<T>>> {
+        let entry = self.storage.get(&TypeId::of::<T>())?;
+        if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
+            typed_storage.get(entity)
+        } else {
+            None
+        }
+    }
+
+    /// Get mutable references to all components of a specific type.
+    ///
+    /// # Returns
+    ///
+    /// All [`Arc<RwLock<T>>`] instances which are associated with the specified entity.
+    pub fn get_components<T: Component + 'static>(&self) -> Vec<Arc<RwLock<T>>> {
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>()) {
+            if let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>() {
+                let components = typed_storage
+                    .storage
+                    .iter()
+                    .map(|entry| Arc::clone(entry.value()))
+                    .collect();
+
+                debug!("Components: {:?}", components);
+
+                components
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Get all entities which have a specific component.
+    ///
+    /// # Returns
+    ///
+    /// All [`Entity`] instances that have the specified component.
+    pub fn get_entities_with_component<T: Component>(&self) -> Vec<Entity> {
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>())
+            && let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>()
+        {
+            return typed_storage
+                .storage
+                .iter()
+                .map(|entry| *entry.key())
+                .collect();
+        }
+        Vec::new()
+    }
+
+    /// Get mutable references to all components of a specific type with their associated entities.
+    ///
+    /// # Returns
+    ///
+    /// All [`Entity`] instances with their related components.
+    pub fn get_entities_and_component<T: Component>(&self) -> Vec<(Entity, Arc<RwLock<T>>)> {
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>())
+            && let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>()
+        {
+            return typed_storage
+                .storage
+                .iter()
+                .map(|entry| (*entry.key(), Arc::clone(entry.value())))
+                .collect();
+        }
+        Vec::new()
+    }
+
+    /// Check if an entity has a component of a specific type.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - The entity to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the entity has the component.
+    pub fn has_component<T: Component>(&self, entity: Entity) -> bool {
+        if let Some(entry) = self.storage.get(&TypeId::of::<T>())
+            && let Some(typed_storage) = entry.downcast_ref::<ComponentStorage<T>>()
+        {
+            return typed_storage.storage.contains_key(&entity);
+        }
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rayon::prelude::*;
+
+    #[derive(Debug)]
+    struct TestComp(u32);
+    impl Component for TestComp {}
+
+    #[test]
+    fn test_insert_component_into_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        let entity = Entity::new(1);
+        storage.insert(entity, TestComp(999));
+        assert_eq!(storage.storage.len(), 1);
+    }
+
+    #[test]
+    fn test_par_insert_into_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        (0..100).into_par_iter().for_each(|i| {
+            let entity = Entity::new(i);
+            storage.insert(entity, TestComp(i * 10));
+        });
+        assert_eq!(storage.storage.len(), 100);
+    }
+
+    #[test]
+    fn test_get_component_from_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        let entity = Entity::new(1);
+        storage.insert(entity, TestComp(999));
+        let retrieved = storage.get(entity).unwrap();
+        assert_eq!(retrieved.read().unwrap().0, 999);
+    }
+
+    #[test]
+    fn test_remove_component_from_storage() {
+        let storage = ComponentStorage::<TestComp>::new();
+        let entity = Entity::new(1);
+        storage.insert(entity, TestComp(999));
+        storage.remove(entity);
+        assert!(storage.get(entity).is_none());
+    }
+
+    #[test]
+    fn test_create_and_remove_entity() {
+        let world = World::new();
+        let entity = world.create_entity();
+        assert_eq!(*entity, 0);
+
+        world.remove_entity(entity);
+
+        // Just validate it doesn't panic and we can still create a new entity
+        let new_entity = world.create_entity();
+        assert_eq!(*new_entity, 1);
+    }
+
+    #[test]
+    fn test_add_and_get_component() {
+        let world = World::new();
+        let entity = world.create_entity();
+        world.add_component(entity, TestComp(123));
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+        assert_eq!(comp.read().unwrap().0, 123);
+    }
+
+    #[test]
+    fn test_component_storage_insert_and_get() {
+        let storage = ComponentStorage::<TestComp>::new();
+        let entity = Entity::new(42);
+        storage.insert(entity, TestComp(999));
+        let retrieved = storage.get(entity).unwrap();
+        assert_eq!(retrieved.read().unwrap().0, 999);
+    }
+
+    #[test]
+    fn test_parallel_entity_creation() {
+        let world = World::new();
+        // Create many entities in parallel
+        (0..100).into_par_iter().for_each(|_| {
+            world.create_entity();
+        });
+        // Just ensure no panic and entity count is 100
+        assert_eq!(*world.get_last().unwrap(), 99);
+    }
+
+    #[test]
+    fn test_get_component_and_write() {
+        let world = World::new();
+        let entity = world.create_entity();
+        world.add_component(entity, TestComp(123));
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+
+        {
+            let mut write = comp.write().unwrap();
+            write.0 = 456;
+        }
+
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+        assert_eq!(comp.read().unwrap().0, 456);
+    }
+
+    #[test]
+    fn test_get_component_write_lock_simultaneously() {
+        let world = World::new();
+        let entity = world.create_entity();
+        world.add_component(entity, TestComp(123));
+
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+        let _write = comp.write().unwrap();
+
+        // Hold the lock while we try to get another write lock on a reference which should fail
+        let comp2 = world.get_component::<TestComp>(entity).unwrap();
+        let write2 = comp2.try_write();
+        assert!(write2.is_err());
+    }
+
+    #[test]
+    fn test_get_component_read_lock_simultaneously() {
+        let world = World::new();
+        let entity = world.create_entity();
+        world.add_component(entity, TestComp(123));
+
+        let comp = world.get_component::<TestComp>(entity).unwrap();
+        let read = comp.read().unwrap();
+
+        // Get a second read lock on the same component
+        let comp2 = world.get_component::<TestComp>(entity).unwrap();
+        let read2 = comp2.read().unwrap();
+
+        // Ensure we can still read the value from both locks
+        assert_eq!(read.0, 123);
+        assert_eq!(read2.0, 123);
+    }
+
+    #[test]
+    fn test_get_components_vec() {
+        let world = World::new();
+        world.add_component(0.into(), TestComp(123));
+        world.add_component(1.into(), TestComp(345));
+        world.add_component(2.into(), TestComp(678));
+        let comps = world.get_components::<TestComp>();
+        assert_eq!(comps.len(), 3);
+    }
+}

@@ -1,0 +1,30 @@
+//! Rendering system built on top of wgpu for the gears engine.
+
+#![forbid(unsafe_code)]
+
+pub mod animation;
+pub mod camera;
+pub mod errors;
+pub mod instance;
+pub mod light;
+pub mod model;
+pub mod resources;
+pub mod state;
+pub mod texture;
+
+use gears_ecs::Component;
+use std::ops::Deref;
+
+/// Wrapper for wgpu::Buffer to implement the Component trait.
+#[derive(Debug)]
+pub struct BufferComponent(pub wgpu::Buffer);
+
+impl Deref for BufferComponent {
+    type Target = wgpu::Buffer;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Component for BufferComponent {}

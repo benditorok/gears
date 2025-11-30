@@ -1,84 +1,92 @@
 # Gears
 
-A 3D game engine written in Rust using wgpu for rendering.
-
-Goals
-
-- Ease of use
-- Cross platform compatibility
-- Parallel execution where possible
-
-## Current progress
-
-- [x] Load 3D objects
-- [x] Generic lights
-- [ ] Shadows
-- [x] Player
-- [x] Movement and View controllers
-- [x] Rigidbody physics
-
-![Demo](/doc/imgs/demo4.png)
+A 3D game engine written in Rust with an Entity Component System architecture, physics simulation, and pathfinding.
 
 ## Examples
 
-You can try it with `cargo run --bin minimal` or run a more complex example with `cargo run --bin sandbox`.
-When creating components you can use a macro or an entity builder as well.
+Run examples with:
 
-### Creating entities
-
-```rust
-    let mut app = GearsApp::default();
-
-    let red_light = new_entity!(
-        app,
-        LightMarker,
-        components::Pos3::new(cgmath::Vector3::new(15.0, 5.0, 0.0))
-        components::Name("Red Light"),
-        components::Light::PointColoured {
-            radius: 10.0,
-            color: [0.8, 0.0, 0.0],
-            intensity: 1.0,
-        },
-    );
+```bash
+cargo run --release --example <example_name>
 ```
 
-### Add a custom window
+Available examples:
 
-```rust
-   app.add_window(Box::new(move |ui| {
-        egui::Window::new("Window")
-            .default_open(true)
-            .max_width(1000.0)
-            .max_height(800.0)
-            .default_width(800.0)
-            .resizable(true)
-            .default_pos([0.5, 0.5])
-            .show(ui, |ui| {
-                if ui.add(egui::Button::new("Click me")).clicked() {
-                    warn!("Button clicked in the custom window!");
-                }
-                ui.end_row();
-            });
-    }));
-```
+- `minimal` - Basic scene with a rotating sphere
+- `custom_window` - UI controls for manipulating objects
+- `physics` - Physics simulation with falling objects
+- `animations` - Basic GLTF animation system and complex mesh loading
+- `pathfinding` - A* pathfinding with obstacle navigation
+- `sandbox` - Lights, physics, and player controls
+- `interactive` - HFSM controlled entities with pathfinding and user interaction
 
-### Update entities
+![Interactive demo](docs/imgs/example_interactive_demo_1.png)
 
-```rust
- app.update_loop(move |ecs, dt| {
-        // ! Here we are inside a loop, so this has to lock on all iterations.
-        let ecs = ecs.lock().unwrap();
-        let circle_speed = 8.0f32;
-        let light_speed_multiplier = 3.0f32;
+![Animations and model loading](docs/imgs/example_animations.png)
 
-        if let Some(pos3) = ecs.get_component_from_entity::<Pos3>(red_light) {
-            let mut wlock_pos3 = pos3.write().unwrap();
+![Physics](docs/imgs/example_physics_1.png)
 
-            wlock_pos3.pos = cgmath::Quaternion::from_axis_angle(
-                (0.0, 1.0, 0.0).into(),
-                cgmath::Deg(PI * dt.as_secs_f32() * circle_speed * light_speed_multiplier),
-            ) * wlock_pos3.pos;
-        }
-    })
-    .await?;
-```
+## Architecture
+
+The engine is organized into several crates:
+
+- `gears-app` - Main application layer, game loop and systems
+- `gears-core` - Core functionality and utilities
+- `gears-ecs` - Entity Component System implementation with components
+- `gears-gui` - GUI integration with egui
+- `gears-macro` - Procedural macros for convenience
+- `gears-renderer` - Rendering backend and animantions
+
+## Features
+
+### Rendering
+- 3D model loading (OBJ, GLTF formats)
+- Multiple light types: colored ambient, directional, and point lights
+- Animation queues with configurable transitions
+- Debug wireframe visualization for colliders
+
+### Physics
+- Rigid body dynamics with mass and velocity
+- AABB (Axis-Aligned Bounding Box) collision detection
+- Static and dynamic body support
+- Gravity simulation
+- Collision response and resolution
+
+### Entity Component System
+- Flexible component-based architecture
+- Entity queries with read/write locks
+- Async system execution
+- Component markers for filtering and categorization
+- Macros for simplified entity creation
+
+### Camera System
+- First-person camera with mouse look
+- Fixed camera positions
+- Look-at controller for targeting specific points
+- Configurable movement controllers with WASD controls
+- Adjustable movement speed and sensitivity
+
+### AI and Pathfinding
+- A* pathfinding algorithm with multiple heuristic options
+- Dynamic obstacle avoidance
+- Finite State Machine (FSM) for AI behaviors
+- Configurable states and substates
+- Grid-based navigation with customizable cell sizes
+- Target tracking and pursuit mechanics
+
+### User Interface
+- egui integration for custom windows and overlays
+- Interactive sliders and controls
+- Real-time component manipulation
+
+### Input Handling
+- Mouse and keyboard input
+- Camera rotation and look controls
+- Player movement (WASD + Space/Shift for vertical movement)
+- Cursor locking and release (Alt key)
+- Shooting mechanics with raycasting
+
+## Requirements
+
+- MSRV is Rust 1.89
+- GPU with support for Vulkan, DirectX 12, Metal, or OpenGL ES

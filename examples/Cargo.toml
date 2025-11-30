@@ -3,7 +3,7 @@ name = "examples"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "Common example code"
+description = "Examples showcasing the features of the engine"
 homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
@@ -13,41 +13,44 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gears = { path = "../gears" }
-anyhow = { workspace = true }
+gears-app = { workspace = true }
 tokio = { workspace = true }
-futures = { workspace = true }
 rand = { workspace = true }
 cgmath = { workspace = true }
 log = { workspace = true }
-env_logger = { workspace = true }
 egui = { workspace = true }
 egui-wgpu = { workspace = true }
 egui-winit = { workspace = true }
 
+env_logger = "0.11.8"
+
 [profile.release]
 debug = true
 
-[[bin]]
+[[example]]
 name = "minimal"
 path = "src/minimal.rs"
 
-[[bin]]
+[[example]]
 name = "sandbox"
 path = "src/sandbox.rs"
 
-[[bin]]
+[[example]]
 name = "custom_window"
 path = "src/custom_window.rs"
 
-[[bin]]
+[[example]]
 name = "physics"
 path = "src/physics.rs"
 
-[[bin]]
+[[example]]
 name = "animations"
 path = "src/animations.rs"
 
-[[bin]]
-name = "aim"
-path = "src/aim.rs"
+[[example]]
+name = "pathfinding"
+path = "src/pathfinding.rs"
+
+[[example]]
+name = "interactive"
+path = "src/interactive/main.rs"
