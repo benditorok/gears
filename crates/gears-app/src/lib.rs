@@ -23,7 +23,6 @@ use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{DeviceEvent, ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::platform::x11::WindowAttributesExtX11;
 use winit::window::{Window, WindowAttributes, WindowId};
 
 /// [`GearsApp`] runs and manages the application through its lifecycle.
@@ -325,7 +324,7 @@ impl ApplicationHandler for GearsApp {
                 .with_transparent(true)
                 .with_maximized(self.config.maximized)
                 .with_active(true)
-                .with_base_size(LogicalSize::new(
+                .with_inner_size(LogicalSize::new(
                     self.config.window_width,
                     self.config.window_height,
                 ))
