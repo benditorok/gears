@@ -138,7 +138,6 @@ pub(super) async fn models(
         };
         world.add_component(*entity, obj_model);
 
-        // TODO rename instance to model::ModelUniform
         let mut instance = {
             let rlock_pos3 = pos3.read().unwrap();
             instance::Instance {
@@ -243,7 +242,6 @@ pub(super) async fn physics_models(
         };
         world.add_component(*entity, obj_model);
 
-        // TODO rename instance to model::ModelUniform
         let mut instance = {
             let rlock_pos3 = pos3.read().unwrap();
             instance::Instance {

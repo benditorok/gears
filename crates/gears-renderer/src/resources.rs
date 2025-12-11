@@ -149,7 +149,6 @@ pub(crate) async fn load_texture_path(
     )
 }
 
-// TODO use the example from the tobj crate's documentation
 /// Loads an OBJ model from the resources directory.
 ///
 /// # Arguments
