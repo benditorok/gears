@@ -116,19 +116,7 @@ async fn main() -> EngineResult<()> {
     );
 
     // Create player
-    let mut player_prefab = Player::default();
-    let player = new_entity!(
-        app,
-        PlayerMarker,
-        PathfindingTarget,
-        player_prefab.pos3.take().unwrap(),
-        player_prefab.model_source.take().unwrap(),
-        player_prefab.movement_controller.take().unwrap(),
-        player_prefab.view_controller.take().unwrap(),
-        player_prefab.rigidbody.take().unwrap(),
-        Health::default(),
-        Weapon::new(15.0),
-    );
+    let player = PlayerPrefab::from_prefab(&mut app, PlayerPrefab::default());
 
     // Create 8 AI entities with colors from the palette
     let positions = vec![

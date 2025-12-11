@@ -79,19 +79,7 @@ async fn main() -> EngineResult<()> {
     );
 
     // Player
-    let mut player_prefab = Player::default();
-    let _player = new_entity!(
-        app,
-        PlayerMarker,
-        PathfindingTarget, // Mark player as a pathfinding target
-        player_prefab.pos3.take().unwrap(),
-        player_prefab.model_source.take().unwrap(),
-        player_prefab.movement_controller.take().unwrap(),
-        player_prefab.view_controller.take().unwrap(),
-        player_prefab.rigidbody.take().unwrap(),
-        Health::default(),
-        Weapon::new(20.0),
-    );
+    let _player = PlayerPrefab::from_prefab(&mut app, PlayerPrefab::default());
 
     // Create some obstacles
     let obstacles = vec![

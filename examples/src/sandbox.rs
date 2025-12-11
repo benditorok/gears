@@ -115,16 +115,7 @@ async fn main() -> EngineResult<()> {
     );
 
     // Player with a camera
-    let mut player_prefab = Player::default(); // TODO refactor this
-    new_entity!(
-        app,
-        PlayerMarker,
-        player_prefab.pos3.take().unwrap(),
-        player_prefab.model_source.take().unwrap(),
-        player_prefab.movement_controller.take().unwrap(),
-        player_prefab.view_controller.take().unwrap(),
-        player_prefab.rigidbody.take().unwrap(),
-    );
+    let player = PlayerPrefab::from_prefab(&mut app, PlayerPrefab::default());
 
     // Add 5 spheres in a circle
     let mut moving_spheres: [Entity; 5] = [Entity::new(0); 5];
