@@ -4,7 +4,7 @@ use super::{
     physics::{AABBCollisionBox, RigidBody},
     transforms::Pos3,
 };
-use crate::{Entity, EntityBuilder, World, components::misc::PlayerMarker, utils::EcsBuilder};
+use crate::{Entity, EntityBuilder, components::misc::PlayerMarker, utils::EcsBuilder};
 
 /// Trait for creating entities from prefabs.
 pub trait Prefab: Sized {
