@@ -3,7 +3,7 @@ use gears_app::prelude::*;
 use std::time::{Duration, Instant};
 
 #[derive(Component, Debug)]
-pub(super) struct NPC {
+pub(super) struct Npc {
     pub fsm: FiniteStateMachine<CharacterState>,
     pub pathfinding_behavior: PathfindingBehavior,
     pub target_entity: Option<Entity>,
@@ -13,7 +13,7 @@ pub(super) struct NPC {
     pub behavior_change_interval: Duration,
 }
 
-impl NPC {
+impl Npc {
     pub(super) fn new() -> Self {
         let mut fsm = FiniteStateMachine::<CharacterState>::new();
 
