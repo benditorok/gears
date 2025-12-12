@@ -106,7 +106,7 @@ impl State<CharacterState> for AttackState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("speed", 12.0);
         context.set_vector3("color", [0.8, 0.4, 0.1].into()); // Orange
-        info!("AI entered Attack state");
+        info!("NPC entered Attack state");
     }
 
     fn on_update(&mut self, _context: &mut StateContext, _dt: Duration) {
@@ -114,7 +114,7 @@ impl State<CharacterState> for AttackState {
     }
 
     fn on_exit(&mut self, _context: &mut StateContext) {
-        info!("AI exiting Attack state");
+        info!("NPC exiting Attack state");
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
@@ -173,7 +173,7 @@ impl State<CharacterState> for AttackStrikeState {
         context.set_float("strike_timer", 0.0);
         context.set_float("speed", 2.0);
         context.set_vector3("color", [1.0, 0.1, 0.1].into()); // Bright red
-        info!("AI striking!");
+        info!("NPC striking!");
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -226,7 +226,7 @@ impl State<CharacterState> for DefendState {
         context.set_float("defend_timer", 0.0);
         context.set_float("speed", 8.0);
         context.set_vector3("color", [0.8, 0.8, 0.2].into()); // Yellow
-        info!("AI entered Defend state");
+        info!("NPC entered Defend state");
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -235,7 +235,7 @@ impl State<CharacterState> for DefendState {
     }
 
     fn on_exit(&mut self, _context: &mut StateContext) {
-        info!("AI exiting Defend state");
+        info!("NPC exiting Defend state");
     }
 
     fn check_transitions(&self, context: &StateContext) -> Option<CharacterState> {
@@ -266,7 +266,7 @@ impl State<CharacterState> for EscapeState {
         context.set_float("escape_timer", 0.0);
         context.set_float("speed", 20.0);
         context.set_vector3("color", [0.8, 0.2, 0.8].into()); // Magenta
-        info!("AI fleeing!");
+        info!("NPC fleeing!");
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {

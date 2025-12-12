@@ -1,5 +1,3 @@
-// TODO: remove unnecessary wrappers
-
 pub mod errors;
 mod update_systems;
 
