@@ -26,7 +26,7 @@ pub use gears_ecs::{
             AStar, DistanceHeuristic, PathfindingComponent, PathfindingFollower, PathfindingTarget,
         },
         physics::{AABBCollisionBox, RigidBody},
-        prefabs::Player,
+        prefabs::{PlayerPrefab, Prefab},
         transforms::{Flip, Pos3, Scale},
     },
     intents::{Intent, IntentReceiver},

@@ -2,6 +2,11 @@
 
 A 3D game engine written in Rust with an Entity Component System architecture, physics simulation, and pathfinding.
 
+## Requirements
+
+- MSRV is [Rust](https://rust-lang.org/tools/install/) 1.89
+- GPU with support for Vulkan, DirectX 12, Metal, or OpenGL ES
+
 ## Examples
 
 Run examples with:
@@ -66,10 +71,10 @@ The engine is organized into several crates:
 - Configurable movement controllers with WASD controls
 - Adjustable movement speed and sensitivity
 
-### AI and Pathfinding
+### HFSM and Pathfinding
 - A* pathfinding algorithm with multiple heuristic options
 - Dynamic obstacle avoidance
-- Finite State Machine (FSM) for AI behaviors
+- Finite State Machine (FSM) for NPC behaviors
 - Configurable states and substates
 - Grid-based navigation with customizable cell sizes
 - Target tracking and pursuit mechanics
@@ -85,8 +90,3 @@ The engine is organized into several crates:
 - Player movement (WASD + Space/Shift for vertical movement)
 - Cursor locking and release (Alt key)
 - Shooting mechanics with raycasting
-
-## Requirements
-
-- MSRV is Rust 1.89
-- GPU with support for Vulkan, DirectX 12, Metal, or OpenGL ES

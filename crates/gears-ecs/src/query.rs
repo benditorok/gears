@@ -201,14 +201,6 @@ impl WorldQueryExt for World {
         sorted_keys.sort_by_key(|&(entity, type_id)| (*entity, type_id));
         sorted_keys.dedup();
 
-        // TODO fix this change!
-        // // Validate that all requested components exist
-        // for &(entity, type_id) in &sorted_keys {
-        //     if !self.has_component::<Type::of::<type_id>(entity, ) {
-        //         return None; // Entity doesn't have this component
-        //     }
-        // }
-
         // Block until we can acquire all resources
         loop {
             let mut acquired_keys = Vec::new();

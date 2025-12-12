@@ -4,21 +4,43 @@ use super::{
     physics::{AABBCollisionBox, RigidBody},
     transforms::Pos3,
 };
-use crate::{Component, components::misc::PlayerMarker};
+use crate::{Entity, EntityBuilder, components::misc::PlayerMarker, utils::EcsBuilder};
 
-pub trait Prefab {
-    fn unpack_prefab(&mut self) -> Vec<Box<dyn Component>>;
+/// Trait for creating entities from prefabs.
+pub trait Prefab: Sized {
+    /// Creates an entity from the prefab and adds it to the world.
+    ///
+    /// # Arguments
+    ///
+    /// * `builder` - The entity builder to use for creating the entity.
+    /// * `prefab` - The prefab instance to create the entity from.
+    ///
+    /// # Returns
+    ///
+    /// The created entity.
+    fn from_prefab(builder: &mut impl EntityBuilder, prefab: Self) -> Entity;
 }
 
-pub struct Player {
+/// Prefab for creating a player entity with common components.
+pub struct PlayerPrefab {
+    /// Position component.
     pub pos3: Option<Pos3>,
+    /// Model source component.
     pub model_source: Option<ModelSource>,
+    /// Movement controller component.
     pub movement_controller: Option<MovementController>,
+    /// View controller component.
     pub view_controller: Option<ViewController>,
+    /// Rigid body component.
     pub rigidbody: Option<RigidBody<AABBCollisionBox>>,
 }
 
-impl Default for Player {
+impl Default for PlayerPrefab {
+    /// Creates a player prefab with common components initialized.
+    ///
+    /// # Returns
+    ///
+    /// The default [`PlayerPrefab`] instance.
     fn default() -> Self {
         let rigid_body = RigidBody {
             mass: 80.0, // Average human mass in kg
@@ -46,14 +68,26 @@ impl Default for Player {
     }
 }
 
-impl Prefab for Player {
-    fn unpack_prefab(&mut self) -> Vec<Box<dyn Component>> {
-        vec![
-            Box::new(PlayerMarker),
-            Box::new(self.pos3.take().unwrap()),
-            Box::new(self.model_source.take().unwrap()),
-            Box::new(self.movement_controller.take().unwrap()),
-            Box::new(self.view_controller.take().unwrap()),
-        ]
+impl Prefab for PlayerPrefab {
+    /// Creates a player entity from the prefab and adds it to the world.
+    ///
+    /// # Arguments
+    ///
+    /// * `builder` - The entity builder to use for creating the entity.
+    /// * `prefab` - The player prefab instance to create the entity from.
+    ///
+    /// # Returns
+    ///
+    /// The created player entity.
+    fn from_prefab(builder: &mut impl EntityBuilder, mut prefab: Self) -> Entity {
+        builder
+            .new_entity()
+            .add_component(PlayerMarker)
+            .add_component(prefab.pos3.take().unwrap())
+            .add_component(prefab.model_source.take().unwrap())
+            .add_component(prefab.movement_controller.take().unwrap())
+            .add_component(prefab.view_controller.take().unwrap())
+            .add_component(prefab.rigidbody.take().unwrap())
+            .build()
     }
 }

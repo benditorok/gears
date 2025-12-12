@@ -178,8 +178,8 @@ impl AnimationTrack {
                 }
             }
             InterpolationMode::CubicSpline => {
-                // For now, fall back to linear interpolation
                 // TODO: Implement proper cubic spline interpolation
+                // For now, fall back to linear interpolation
                 let result = from.value.lerp(&to.value, t)?;
                 if self.normalize {
                     self.normalize_value(result)
@@ -375,17 +375,19 @@ impl AnimationTrack {
         } else {
             // Ensure we have keyframes at the exact start and end times
             if sub_track.keyframes[0].time > 0.0
-                && let Some(start_value) = self.sample(start_time) {
-                    sub_track
-                        .keyframes
-                        .insert(0, Keyframe::new(0.0, start_value));
-                }
+                && let Some(start_value) = self.sample(start_time)
+            {
+                sub_track
+                    .keyframes
+                    .insert(0, Keyframe::new(0.0, start_value));
+            }
 
             let duration = end_time - start_time;
             if sub_track.keyframes.last().unwrap().time < duration
-                && let Some(end_value) = self.sample(end_time) {
-                    sub_track.add_keyframe_simple(duration, end_value);
-                }
+                && let Some(end_value) = self.sample(end_time)
+            {
+                sub_track.add_keyframe_simple(duration, end_value);
+            }
         }
 
         if sub_track.keyframes.is_empty() {

@@ -104,7 +104,7 @@ async fn main() -> EngineResult<()> {
 
                 ui.separator();
                 ui.label("Controls:");
-                ui.label("WASD - Move player");
+                ui.label("WASD - Move camera");
                 ui.label("Mouse - Look around");
                 ui.label("Space - Fly up");
                 ui.label("Shift - Fly down");
