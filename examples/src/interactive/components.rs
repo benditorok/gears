@@ -61,4 +61,4 @@ impl Npc {
 }
 
 #[derive(Component, Debug, Clone, Copy)]
-pub(super) struct IntelligentAIMarker;
+pub(super) struct NpcMarker;
