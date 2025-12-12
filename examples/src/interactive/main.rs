@@ -117,6 +117,10 @@ async fn main() -> EngineResult<()> {
 
     // Create player
     let player = PlayerPrefab::from_prefab(&mut app, PlayerPrefab::default());
+    // Add pathfinding target component to player
+    app.add_component(PathfindingTarget);
+    app.add_component(Health::default());
+    app.add_component(Weapon::new(20.0));
 
     // Create 8 AI entities with colors from the palette
     let positions = vec![

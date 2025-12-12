@@ -80,6 +80,10 @@ async fn main() -> EngineResult<()> {
 
     // Player
     let _player = PlayerPrefab::from_prefab(&mut app, PlayerPrefab::default());
+    // Add pathfinding target component to player
+    app.add_component(PathfindingTarget);
+    app.add_component(Health::default());
+    app.add_component(Weapon::new(20.0));
 
     // Create some obstacles
     let obstacles = vec![
