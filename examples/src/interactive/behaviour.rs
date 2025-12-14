@@ -44,23 +44,63 @@ pub(super) enum PathfindingBehavior {
     Guard,    // Stay in area
 }
 
+/// Generate a wander target that is at least `min_distance` away from current position
+fn generate_distant_wander_target(
+    current_pos: cgmath::Vector3<f32>,
+    min_distance: f32,
+) -> cgmath::Vector3<f32> {
+    let mut rng = rand::rng();
+
+    // Try up to 10 times to find a point far enough away (XZ distance only)
+    for _ in 0..10 {
+        let wander_x = rng.random_range(-40.0..40.0);
+        let wander_z = rng.random_range(-40.0..40.0);
+
+        // Calculate XZ distance only (ignore Y for ground movement)
+        let dx = wander_x - current_pos.x;
+        let dz = wander_z - current_pos.z;
+        let distance_xz = (dx * dx + dz * dz).sqrt();
+
+        if distance_xz >= min_distance {
+            // Use current Y position for wander target
+            return cgmath::Vector3::new(wander_x, current_pos.y, wander_z);
+        }
+    }
+
+    // Pick a point in a random direction at min_distance as a fallback
+    let angle = rng.random_range(0.0..std::f32::consts::TAU);
+    let offset_x = angle.cos() * min_distance;
+    let offset_z = angle.sin() * min_distance;
+    cgmath::Vector3::new(
+        (current_pos.x + offset_x).clamp(-40.0, 40.0),
+        current_pos.y, // Use current Y position
+        (current_pos.z + offset_z).clamp(-40.0, 40.0),
+    )
+}
+
 #[derive(Debug)]
 pub(super) struct IdleState;
 
 impl State<CharacterState> for IdleState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("idle_timer", 0.0);
-        context.set_float("speed", 8.0);
         context.set_float("wander_timer", 0.0);
+        context.set_vector3("color", [0.2, 0.2, 0.8].into()); // Blue for Idle
 
         // Generate initial random wander point within map bounds (-40 to 40)
+        // ensuring it's at least 15 units away from current position
+        let current_pos = context
+            .get_vector3("current_position")
+            .unwrap_or(cgmath::Vector3::new(0.0, 1.0, 0.0));
+        let wander_target = generate_distant_wander_target(current_pos, 15.0);
+        context.set_vector3("wander_target", wander_target);
+
+        // Randomize wander interval (3-6 seconds) and speed (10-14)
         let mut rng = rand::rng();
-        let wander_x = rng.random_range(-40.0..40.0);
-        let wander_z = rng.random_range(-40.0..40.0);
-        context.set_vector3(
-            "wander_target",
-            cgmath::Vector3::new(wander_x, 1.0, wander_z),
-        );
+        let wander_interval = rng.random_range(3.0..6.0);
+        let wander_speed = rng.random_range(10.0..14.0);
+        context.set_float("wander_interval", wander_interval);
+        context.set_float("speed", wander_speed);
     }
 
     fn on_update(&mut self, context: &mut StateContext, dt: Duration) {
@@ -70,16 +110,23 @@ impl State<CharacterState> for IdleState {
         let wander_timer = context.get_float("wander_timer").unwrap_or(0.0) + dt.as_secs_f32();
         context.set_float("wander_timer", wander_timer);
 
-        // Generate new wander point every 8-15 seconds
-        if wander_timer > 10.0 {
-            let mut rng = rand::rng();
-            let wander_x = rng.random_range(-40.0..40.0);
-            let wander_z = rng.random_range(-40.0..40.0);
-            context.set_vector3(
-                "wander_target",
-                cgmath::Vector3::new(wander_x, 1.0, wander_z),
-            );
+        // Generate new wander point at randomized intervals
+        let wander_interval = context.get_float("wander_interval").unwrap_or(4.0);
+        if wander_timer > wander_interval {
+            // Get current position and generate a distant wander target
+            let current_pos = context
+                .get_vector3("current_position")
+                .unwrap_or(cgmath::Vector3::new(0.0, 1.0, 0.0));
+            let wander_target = generate_distant_wander_target(current_pos, 15.0);
+            context.set_vector3("wander_target", wander_target);
             context.set_float("wander_timer", 0.0);
+
+            // Randomize next interval and speed for variety
+            let mut rng = rand::rng();
+            let new_interval = rng.random_range(3.0..6.0);
+            let new_speed = rng.random_range(10.0..14.0);
+            context.set_float("wander_interval", new_interval);
+            context.set_float("speed", new_speed);
         }
     }
 
@@ -104,7 +151,7 @@ pub(super) struct AttackState;
 
 impl State<CharacterState> for AttackState {
     fn on_enter(&mut self, context: &mut StateContext) {
-        context.set_float("speed", 12.0);
+        context.set_float("speed", 18.0);
         context.set_vector3("color", [0.8, 0.4, 0.1].into()); // Orange
         info!("NPC entered Attack state");
     }
@@ -138,7 +185,7 @@ pub(super) struct AttackApproachState;
 
 impl State<CharacterState> for AttackApproachState {
     fn on_enter(&mut self, context: &mut StateContext) {
-        context.set_float("speed", 12.0);
+        context.set_float("speed", 18.0);
         context.set_float("approach_timer", 0.0);
         context.set_vector3("color", [0.8, 0.4, 0.1].into()); // Orange
     }
@@ -171,7 +218,7 @@ pub(super) struct AttackStrikeState;
 impl State<CharacterState> for AttackStrikeState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("strike_timer", 0.0);
-        context.set_float("speed", 2.0);
+        context.set_float("speed", 4.0);
         context.set_vector3("color", [1.0, 0.1, 0.1].into()); // Bright red
         info!("NPC striking!");
     }
@@ -197,7 +244,7 @@ pub(super) struct AttackRetreatState;
 impl State<CharacterState> for AttackRetreatState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("retreat_timer", 0.0);
-        context.set_float("speed", 10.0);
+        context.set_float("speed", 16.0);
         context.set_vector3("color", [0.6, 0.2, 0.2].into()); // Dark red
     }
 
@@ -224,7 +271,7 @@ pub(super) struct DefendState;
 impl State<CharacterState> for DefendState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("defend_timer", 0.0);
-        context.set_float("speed", 8.0);
+        context.set_float("speed", 14.0);
         context.set_vector3("color", [0.8, 0.8, 0.2].into()); // Yellow
         info!("NPC entered Defend state");
     }
@@ -264,7 +311,7 @@ pub(super) struct EscapeState;
 impl State<CharacterState> for EscapeState {
     fn on_enter(&mut self, context: &mut StateContext) {
         context.set_float("escape_timer", 0.0);
-        context.set_float("speed", 20.0);
+        context.set_float("speed", 28.0);
         context.set_vector3("color", [0.8, 0.2, 0.8].into()); // Magenta
         info!("NPC fleeing!");
     }

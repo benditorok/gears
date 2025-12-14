@@ -115,7 +115,7 @@ async fn main() -> EngineResult<()> {
     );
 
     // Player with a camera
-    let player = PlayerPrefab::from_prefab(&mut app, PlayerPrefab::default());
+    let _player = PlayerPrefab::from_prefab(&mut app, PlayerPrefab::default());
 
     // Add 5 spheres in a circle
     let mut moving_spheres: [Entity; 5] = [Entity::new(0); 5];

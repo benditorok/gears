@@ -555,7 +555,21 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
             return;
         };
 
-        // Update current sub-state first (if exists)
+        // ! IMPORTANT: Check parent state transitions FIRST before sub-state transitions
+        // ! This ensures critical main transitions take priority over sub-state logic
+        let parent_wants_transition = if let Some(state) = self.states.get_mut(&current_main) {
+            state.check_transitions(&self.context)
+        } else {
+            None
+        };
+
+        // ! If parent state wants to transition, do it immediately (takes priority)
+        if let Some(next_state) = parent_wants_transition {
+            self.transition_to(next_state);
+            return;
+        }
+
+        // Update current sub-state (if exists)
         if let Some(current_sub) = self.current_sub_state
             && let Some(sub_states) = self.sub_states.get_mut(&current_main)
             && let Some(sub_state) = sub_states.get_mut(&current_sub)
@@ -563,20 +577,22 @@ impl<S: StateIdentifier> FiniteStateMachine<S> {
             sub_state.on_update(&mut self.context, dt);
 
             // Check for sub-state transitions
-            if let Some(next_sub_state) = sub_state.check_transitions(&self.context) {
-                self.transition_to_sub_state(next_sub_state);
-                return;
+            if let Some(next_state) = sub_state.check_transitions(&self.context) {
+                // Check if the target is a valid sub-state of the current main state
+                if sub_states.contains_key(&next_state) {
+                    // It's a valid sub-state, transition within the parent
+                    self.transition_to_sub_state(next_state);
+                } else if self.states.contains_key(&next_state) {
+                    // It's a main state, transition the entire FSM to that main state
+                    self.transition_to(next_state);
+                }
+                // If neither, the transition is invalid and ignored
             }
         }
 
         // Update current main state
         if let Some(state) = self.states.get_mut(&current_main) {
             state.on_update(&mut self.context, dt);
-
-            // Check for main state transitions
-            if let Some(next_state) = state.check_transitions(&self.context) {
-                self.transition_to(next_state);
-            }
         }
     }
 

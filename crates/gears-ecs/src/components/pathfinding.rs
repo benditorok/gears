@@ -670,8 +670,8 @@ impl PathfindingComponent {
             speed,
             cell_size,
             waypoint_threshold: cell_size * 0.8, // Most of a grid cell
-            time_since_last_path: 0.0,
-            path_recalc_interval: 1.5, // Recalculate every 1.5 seconds
+            time_since_last_path: f32::MAX,      // Force immediate path calculation on first update
+            path_recalc_interval: 1.5,           // Recalculate every 1.5 seconds
             active: true,
             avoidance_force: cgmath::Vector3::new(0.0, 0.0, 0.0),
             avoidance_radius: cell_size * 3.0,
@@ -726,8 +726,11 @@ impl PathfindingComponent {
     ///
     /// `true` if pathfinding is needed.
     pub fn needs_pathfinding(&self, current_pos: cgmath::Vector3<f32>) -> bool {
-        let distance_to_target = (self.target - current_pos).magnitude();
-        distance_to_target > self.cell_size * 3.0 // Only pathfind if target is more than 3 cells away
+        // Use XZ distance only for ground-based pathfinding
+        let dx = self.target.x - current_pos.x;
+        let dz = self.target.z - current_pos.z;
+        let distance_xz = (dx * dx + dz * dz).sqrt();
+        distance_xz > self.cell_size * 3.0 // Only pathfind if target is more than 3 cells away
     }
 
     /// Set a new path and reset pathfinding state.

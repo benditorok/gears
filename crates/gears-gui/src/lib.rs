@@ -56,13 +56,13 @@ impl EguiRenderer {
             None,
             Some(2 * 1024), // default dimension is 2048
         );
-        let egui_renderer = Renderer::new(
-            device,
-            output_color_format,
-            output_depth_format,
+        let options = egui_wgpu::RendererOptions {
             msaa_samples,
-            true,
-        );
+            depth_stencil_format: output_depth_format,
+            ..Default::default()
+        };
+
+        let egui_renderer = Renderer::new(device, output_color_format, options);
 
         EguiRenderer {
             state: Arc::new(Mutex::new(egui_state)),
@@ -161,6 +161,7 @@ impl EguiRenderer {
                     load: egui_wgpu::wgpu::LoadOp::Load,
                     store: StoreOp::Store,
                 },
+                depth_slice: None,
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,
@@ -237,6 +238,7 @@ impl EguiRenderer {
                     load: egui_wgpu::wgpu::LoadOp::Load,
                     store: StoreOp::Store,
                 },
+                depth_slice: None,
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,

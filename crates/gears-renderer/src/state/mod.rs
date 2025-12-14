@@ -88,9 +88,8 @@ impl State {
     /// A new [`State`] instance.
     pub async fn new(window: Arc<Window>, world: Arc<World>) -> State {
         // * Initializing the backend
-        // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::VULKAN,
+            backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
         let surface = instance.create_surface(Arc::clone(&window)).unwrap();
@@ -105,14 +104,11 @@ impl State {
             .unwrap();
 
         // * Initializing the device and queue
-        let required_features = wgpu::Features::BUFFER_BINDING_ARRAY;
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: None,
-                required_features,
-                required_limits: wgpu::Limits::default(),
-                memory_hints: Default::default(),
-                trace: Default::default(),
+                required_features: wgpu::Features::empty(), // removed wgpu::Features::BUFFER_BINDING_ARRAY
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -127,24 +123,19 @@ impl State {
             .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
 
-        // Choose present mode with vsync (Fifo) as default, fallback to first available
-        let present_mode = surface_caps
-            .present_modes
-            .iter()
-            .copied()
-            .find(|&mode| mode == wgpu::PresentMode::AutoVsync)
-            .unwrap_or(surface_caps.present_modes[0]);
-
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode,
+            present_mode: wgpu::PresentMode::Fifo, // Standard VSync, always available
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
+
+        // Configure the surface immediately
+        surface.configure(&device, &config);
 
         // * Initializing the egui renderer
         let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, &window);
