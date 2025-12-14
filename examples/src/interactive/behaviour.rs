@@ -52,6 +52,7 @@ impl State<CharacterState> for IdleState {
         context.set_float("idle_timer", 0.0);
         context.set_float("speed", 8.0);
         context.set_float("wander_timer", 0.0);
+        context.set_vector3("color", [0.2, 0.2, 0.8].into()); // Blue for Idle
 
         // Generate initial random wander point within map bounds (-40 to 40)
         let mut rng = rand::rng();
