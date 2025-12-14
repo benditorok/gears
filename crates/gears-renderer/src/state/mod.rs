@@ -108,9 +108,7 @@ impl State {
             .request_device(&wgpu::DeviceDescriptor {
                 label: None,
                 required_features: wgpu::Features::empty(), // removed wgpu::Features::BUFFER_BINDING_ARRAY
-                required_limits: wgpu::Limits::default(),
-                memory_hints: Default::default(),
-                trace: Default::default(),
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -125,34 +123,12 @@ impl State {
             .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
 
-        // Log available present modes for debugging
-        log::info!("Available present modes: {:?}", surface_caps.present_modes);
-
-        // Choose present mode with VSync enabled
-        // Priority: Fifo (guaranteed VSync) > AutoVsync > first available
-        // Fifo is guaranteed by the Vulkan/WebGPU spec to always be available
-        let present_mode = if surface_caps
-            .present_modes
-            .contains(&wgpu::PresentMode::Fifo)
-        {
-            wgpu::PresentMode::Fifo // Standard VSync, always available
-        } else if surface_caps
-            .present_modes
-            .contains(&wgpu::PresentMode::AutoVsync)
-        {
-            wgpu::PresentMode::AutoVsync
-        } else {
-            surface_caps.present_modes[0]
-        };
-
-        log::info!("Selected present mode: {:?}", present_mode);
-
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode,
+            present_mode: wgpu::PresentMode::Fifo, // Standard VSync, always available
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
