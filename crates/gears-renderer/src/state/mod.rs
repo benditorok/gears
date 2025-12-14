@@ -88,9 +88,8 @@ impl State {
     /// A new [`State`] instance.
     pub async fn new(window: Arc<Window>, world: Arc<World>) -> State {
         // * Initializing the backend
-        // The instance is a handle to the GPU. BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::VULKAN,
+            backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
         let surface = instance.create_surface(Arc::clone(&window)).unwrap();
@@ -105,11 +104,10 @@ impl State {
             .unwrap();
 
         // * Initializing the device and queue
-        let required_features = wgpu::Features::BUFFER_BINDING_ARRAY;
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: None,
-                required_features,
+                required_features: wgpu::Features::empty(), // removed wgpu::Features::BUFFER_BINDING_ARRAY
                 required_limits: wgpu::Limits::default(),
                 memory_hints: Default::default(),
                 trace: Default::default(),
@@ -127,13 +125,27 @@ impl State {
             .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
 
-        // Choose present mode with vsync (Fifo) as default, fallback to first available
-        let present_mode = surface_caps
+        // Log available present modes for debugging
+        log::info!("Available present modes: {:?}", surface_caps.present_modes);
+
+        // Choose present mode with VSync enabled
+        // Priority: Fifo (guaranteed VSync) > AutoVsync > first available
+        // Fifo is guaranteed by the Vulkan/WebGPU spec to always be available
+        let present_mode = if surface_caps
             .present_modes
-            .iter()
-            .copied()
-            .find(|&mode| mode == wgpu::PresentMode::AutoVsync)
-            .unwrap_or(surface_caps.present_modes[0]);
+            .contains(&wgpu::PresentMode::Fifo)
+        {
+            wgpu::PresentMode::Fifo // Standard VSync, always available
+        } else if surface_caps
+            .present_modes
+            .contains(&wgpu::PresentMode::AutoVsync)
+        {
+            wgpu::PresentMode::AutoVsync
+        } else {
+            surface_caps.present_modes[0]
+        };
+
+        log::info!("Selected present mode: {:?}", present_mode);
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -145,6 +157,9 @@ impl State {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
+
+        // Configure the surface immediately
+        surface.configure(&device, &config);
 
         // * Initializing the egui renderer
         let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1, &window);
