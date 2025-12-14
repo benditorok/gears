@@ -139,7 +139,9 @@ async fn main() -> EngineResult<()> {
         let mut npc_entity = Npc::new();
         npc_entity.target_entity = Some(player);
 
-        let mut pathfinding = PathfindingComponent::new(Vector3::new(0.0, 1.0, 0.0), 25.0, 2.0);
+        // Initialize pathfinding with NPC's spawn position as initial target
+        // The FSM will set the actual wander target on first update
+        let mut pathfinding = PathfindingComponent::new(pos, 25.0, 2.0);
         pathfinding.path_recalc_interval = 1.5; // Default pathfinding recalculation
         let model_path = format!("models/capsule/{}/capsule.obj", color_name);
 
@@ -231,7 +233,10 @@ async fn main() -> EngineResult<()> {
             {
                 let distance_to_player = (player_pos - current_pos.pos).magnitude();
 
-                // Update FSM context
+                // Update FSM context with current position for wander target generation
+                npc.fsm
+                    .context_mut()
+                    .set_vector3("current_position", current_pos.pos);
                 npc.fsm
                     .context_mut()
                     .set_float("health", health.get_health());
@@ -379,11 +384,20 @@ async fn main() -> EngineResult<()> {
                     && let (Ok(current_pos), Ok(mut pathfinding)) =
                         (pos3_comp.read(), pathfinding_comp.write())
                 {
+                    // Normalize Y coordinates for pathfinding (use current height)
+                    let start = current_pos.pos;
+                    let mut goal = pathfinding.target;
+                    goal.y = start.y; // Keep pathfinding on the same Y plane
+
                     let mut astar = AStar::new(2.0, DistanceHeuristic::Chebyshev);
                     astar.build_grid_from_entities(obstacles.iter().map(|(pos, cb)| (pos, cb)));
 
-                    if let Some(path) = astar.find_path(current_pos.pos, pathfinding.target) {
+                    if let Some(path) = astar.find_path(start, goal) {
                         pathfinding.set_path(path);
+                    } else {
+                        // Fallback: create a direct path to target if A* fails
+                        // This ensures NPCs can still move even if pathfinding fails
+                        pathfinding.set_path(vec![goal]);
                     }
                 }
             }
