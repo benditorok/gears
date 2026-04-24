@@ -87,8 +87,9 @@ impl HdrPipeline {
         let shader = wgpu::include_wgsl!("../../../shaders/hdr.wgsl");
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&layout)],
+            immediate_size: 0,
+            // push_constant_ranges: &[],
         });
 
         let pipeline = resources::create_render_pipeline(
@@ -187,6 +188,7 @@ impl HdrPipeline {
             depth_stencil_attachment: None,
             occlusion_query_set: None,
             timestamp_writes: None,
+            multiview_mask: None,
         });
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.bind_group, &[]);

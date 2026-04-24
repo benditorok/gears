@@ -1,6 +1,6 @@
 use gears_app::prelude::*;
 use log::info;
-use rand::Rng;
+use rand::RngExt;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -7,6 +7,7 @@ mod resources;
 use super::instance;
 use super::model::{self, DrawModelMesh, DrawWireframeMesh};
 use crate::{BufferComponent, errors::RendererError};
+use core::error;
 use egui::mutex::Mutex;
 use egui_wgpu::ScreenDescriptor;
 use gears_ecs::components::physics::{AABBCollisionBox, RigidBody};
@@ -18,6 +19,7 @@ use std::iter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{self};
+use wgpu::{CurrentSurfaceTexture, InstanceFlags, MemoryBudgetThresholds, SurfaceTexture};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::window::CursorGrabMode;
@@ -88,10 +90,7 @@ impl State {
     /// A new [`State`] instance.
     pub async fn new(window: Arc<Window>, world: Arc<World>) -> State {
         // * Initializing the backend
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            ..Default::default()
-        });
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let surface = instance.create_surface(Arc::clone(&window)).unwrap();
         let power_pref = wgpu::PowerPreference::default();
         let adapter = instance
@@ -245,6 +244,20 @@ impl State {
         movement_controller: Option<Arc<RwLock<components::controllers::MovementController>>>,
     ) {
         self.movement_controller = movement_controller;
+    }
+
+    /// Exposes the surface configuration.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the surface configuration.
+    pub fn surface(&self) -> &wgpu::Surface<'_> {
+        &self.surface
+    }
+
+    /// Reconfigures the surface with the current configuration settings.
+    pub fn reconfigure_surface(&mut self) {
+        self.surface.configure(&self.device, &self.config);
     }
 
     /// Exposes the current window size.
@@ -611,9 +624,8 @@ impl State {
     /// # Returns
     ///
     /// A result indicating if the rendering was successful or not.
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
-        let view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+    pub fn render(&mut self, frame: SurfaceTexture) {
+        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(self.config.format.add_srgb_suffix()),
             ..Default::default()
         });
@@ -719,8 +731,7 @@ impl State {
         }
 
         self.queue.submit(iter::once(encoder.finish()));
-        output.present();
 
-        Ok(())
+        frame.present();
     }
 }
