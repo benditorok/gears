@@ -837,7 +837,7 @@ dependencies = [
 
 [[package]]
 name = "examples"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "cgmath",
  "egui",
@@ -993,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "gears-app"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "bytemuck",
  "cfg-if",
@@ -1021,7 +1021,7 @@ dependencies = [
 
 [[package]]
 name = "gears-core"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "cgmath",
  "log",
@@ -1029,7 +1029,7 @@ dependencies = [
 
 [[package]]
 name = "gears-ecs"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "cgmath",
  "crossbeam",
@@ -1044,7 +1044,7 @@ dependencies = [
 
 [[package]]
 name = "gears-gui"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "egui",
  "egui-wgpu",
@@ -1055,7 +1055,7 @@ dependencies = [
 
 [[package]]
 name = "gears-macro"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1064,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "gears-renderer"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "bytemuck",
