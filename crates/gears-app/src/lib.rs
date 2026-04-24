@@ -536,8 +536,9 @@ impl ApplicationHandler for GearsApp {
                     });
 
                     // Handle render errors
+                    let mut state = state.write().unwrap();
 
-                    let frame = match state.write().unwrap().surface().get_current_texture() {
+                    let frame = match state.surface().get_current_texture() {
                         CurrentSurfaceTexture::Success(frame) => frame,
                         CurrentSurfaceTexture::Timeout | CurrentSurfaceTexture::Occluded => {
                             warn!(
@@ -549,13 +550,13 @@ impl ApplicationHandler for GearsApp {
                         CurrentSurfaceTexture::Suboptimal(texture) => {
                             warn!("Surface texture is suboptimal, rendering may be affected");
                             drop(texture);
-                            state.write().unwrap().reconfigure_surface();
+                            state.reconfigure_surface();
                             window.request_redraw();
                             return;
                         }
                         CurrentSurfaceTexture::Outdated => {
                             warn!("Surface texture is outdated, reconfiguring surface");
-                            state.write().unwrap().reconfigure_surface();
+                            state.reconfigure_surface();
                             window.request_redraw();
                             return;
                         }
@@ -566,35 +567,14 @@ impl ApplicationHandler for GearsApp {
                         }
                         CurrentSurfaceTexture::Lost => {
                             warn!("Surface texture is lost, reconfiguring surface");
-                            state.write().unwrap().resize_self();
+                            state.resize_self();
                             window.request_redraw();
                             return;
                         }
                     };
 
-                    state.write().unwrap().render(frame);
-
-                    // match state.write().unwrap().render() {
-                    //     Ok(_) => {}
-                    //     // Reconfigure the surface if it's lost or outdated
-                    //     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                    //         state.write().unwrap().resize_self();
-                    //     }
-                    //     // The system is out of memory and must exit
-                    //     Err(e @ wgpu::SurfaceError::OutOfMemory) => {
-                    //         log::error!("Critical render error: {}", e);
-                    //         event_loop.exit()
-                    //     }
-                    //     // Ignore timeout errors
-                    //     Err(wgpu::SurfaceError::Timeout) => {
-                    //         log::warn!("Surface timeout")
-                    //     }
-                    //     Err(wgpu::SurfaceError::Other) => {
-                    //         log::error!(
-                    //             "Acquiring a texture failed with a generic error. Check error callbacks for more information."
-                    //         );
-                    //     }
-                    // }
+                    // Render the frame
+                    state.render(frame);
                 }
                 _ => {}
             }
