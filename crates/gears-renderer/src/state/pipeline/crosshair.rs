@@ -93,8 +93,9 @@ impl CrosshairPipeline {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Crosshair::pipeline_layout"),
-            bind_group_layouts: &[&layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&layout)],
+            immediate_size: 0,
+            // push_constant_ranges: &[],
         });
 
         // Create pipeline with alpha blending
@@ -132,7 +133,7 @@ impl CrosshairPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -247,6 +248,7 @@ impl CrosshairPipeline {
             depth_stencil_attachment: None,
             occlusion_query_set: None,
             timestamp_writes: None,
+            multiview_mask: None,
         });
 
         pass.set_pipeline(&self.pipeline);

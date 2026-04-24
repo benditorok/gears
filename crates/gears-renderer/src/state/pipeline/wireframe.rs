@@ -42,8 +42,9 @@ impl WireframePipeline {
         };
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Base::pipeline_layout"),
-            bind_group_layouts: &[camera_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(camera_layout)],
+            immediate_size: 0,
+            // push_constant_ranges: &[],
         });
 
         // Construct the pipeline

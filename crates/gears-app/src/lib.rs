@@ -8,13 +8,14 @@ pub mod prelude;
 pub mod systems;
 
 use gears_ecs::intents::{IntentReceiver, create_intent_channel};
+use wgpu::CurrentSurfaceTexture;
 
 use crate::errors::EngineError;
 use gears_core::config::Config;
 use gears_ecs::{Component, Entity, EntityBuilder, World};
 use gears_gui::EguiWindowCallback;
 use gears_renderer::state::State;
-use log::{debug, info};
+use log::{debug, info, warn};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
 use std::time;
@@ -535,27 +536,45 @@ impl ApplicationHandler for GearsApp {
                     });
 
                     // Handle render errors
-                    match state.write().unwrap().render() {
-                        Ok(_) => {}
-                        // Reconfigure the surface if it's lost or outdated
-                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            state.write().unwrap().resize_self();
-                        }
-                        // The system is out of memory and must exit
-                        Err(e @ wgpu::SurfaceError::OutOfMemory) => {
-                            log::error!("Critical render error: {}", e);
-                            event_loop.exit()
-                        }
-                        // Ignore timeout errors
-                        Err(wgpu::SurfaceError::Timeout) => {
-                            log::warn!("Surface timeout")
-                        }
-                        Err(wgpu::SurfaceError::Other) => {
-                            log::error!(
-                                "Acquiring a texture failed with a generic error. Check error callbacks for more information."
+                    let mut state = state.write().unwrap();
+
+                    let frame = match state.surface().get_current_texture() {
+                        CurrentSurfaceTexture::Success(frame) => frame,
+                        CurrentSurfaceTexture::Timeout | CurrentSurfaceTexture::Occluded => {
+                            warn!(
+                                "Surface texture acquisition timed out or was occluded, rendering skipped"
                             );
+                            window.request_redraw();
+                            return;
                         }
-                    }
+                        CurrentSurfaceTexture::Suboptimal(texture) => {
+                            warn!("Surface texture is suboptimal, rendering may be affected");
+                            drop(texture);
+                            state.reconfigure_surface();
+                            window.request_redraw();
+                            return;
+                        }
+                        CurrentSurfaceTexture::Outdated => {
+                            warn!("Surface texture is outdated, reconfiguring surface");
+                            state.reconfigure_surface();
+                            window.request_redraw();
+                            return;
+                        }
+                        CurrentSurfaceTexture::Validation => {
+                            unreachable!(
+                                "No error scope registered, so validation errors will panic"
+                            )
+                        }
+                        CurrentSurfaceTexture::Lost => {
+                            warn!("Surface texture is lost, reconfiguring surface");
+                            state.resize_self();
+                            window.request_redraw();
+                            return;
+                        }
+                    };
+
+                    // Render the frame
+                    state.render(frame);
                 }
                 _ => {}
             }
